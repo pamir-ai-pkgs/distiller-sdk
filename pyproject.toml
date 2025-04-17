@@ -20,4 +20,4 @@ dependencies = [
 
 [tool.setuptools.package-data]
 "distiller_cm5_sdk.piper" = ["models/*", "piper/**/*"]
-"distiller_cm5_sdk.whisper" = ["models/*"]
+"distiller_cm5_sdk.whisper" = ["models/**/*"]

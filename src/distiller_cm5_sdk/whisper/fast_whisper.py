@@ -21,10 +21,10 @@ class Whisper:
             model_config = dict()
         self.model_config = {
             "model_hub_path": model_config.get("model_hub_path", os.path.join(os.path.dirname(__file__), "models")),
-            "model_size": model_config.get("model_size", "base"),
+            "model_size": model_config.get("model_size", "faster-distil-whisper-small.en"),
             "model_size_or_path": os.path.join(
                 model_config.get("model_hub_path", os.path.join(os.path.dirname(__file__), "models")),
-                model_config.get("model_size", "base")),
+                model_config.get("model_size", "faster-distil-whisper-small.en")),
             "device": model_config.get("device", "cpu"),
             "compute_type": model_config.get("compute_type", "int8"),
             "beam_size": model_config.get("beam_size", 5),
@@ -256,8 +256,28 @@ if __name__ == '__main__':
     whisper = Whisper(model_config={"model_size": "faster-distil-whisper-small.en"})
     
     print("=== Push-to-Talk Demo ===")
-    for text in whisper.record_and_transcribe_ptt():
-        print(f"Transcribed: {text}")
+    try:
+        input("Press Enter to start recording...")
+        if not whisper.start_recording():
+            exit()
+
+        input("Recording... Press Enter to stop...")
+        audio_data = whisper.stop_recording()
+
+        if audio_data:
+            # Save the recording
+            output_filename = "debug_recording.wav"
+            with open(output_filename, "wb") as f:
+                f.write(audio_data)
+            logging.info(f"Recording saved to {output_filename}")
+
+            print("Transcribing...")
+            for text in whisper.transcribe_buffer(audio_data):
+                print(f"Transcribed: {text}")
+        else:
+            print("No audio recorded")
+    finally:
+        whisper.cleanup()
 
     # Transcribe a file
     # for text in whisper.transcribe(audio_path="./test.wav"):
