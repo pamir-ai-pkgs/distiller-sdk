@@ -1,0 +1,43 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+sdist/
+*.egg
+*.whl
+
+# uv lock file
+uv.lock
+
+# Output files
+src/distiller_cm5_sdk/piper/output.wav
+src/distiller_cm5_sdk/hardware/camera/camera_test_output/
+
+# Large model/data files (uncomment if you download these instead of checking in)
+src/distiller_cm5_sdk/piper/models/
+src/distiller_cm5_sdk/piper/piper/espeak-ng-data/
+src/distiller_cm5_sdk/whisper/models/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+nbproject/ 

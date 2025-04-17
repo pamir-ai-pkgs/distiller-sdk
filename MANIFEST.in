@@ -1,0 +1,2 @@
+recursive-include distiller-cm5-sdk/whisper/models *
+recursive-include distiller-cm5-sdk/piper *

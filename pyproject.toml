@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "distiller-cm5-sdk"
+version = "0.1.0"
+authors = [
+  { name = "PamirAI Inc", email = "founders@pamir.ai" }
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "build>=1.2.2.post1",
+    "faster-whisper>=1.1.1",
+    "opencv-python>=4.11.0.86",
+    "pyaudio>=0.2.14",
+    "pyserial>=3.5",
+]
+
+[tool.setuptools.package-data]
+"distiller_cm5_sdk.piper" = ["models/*", "piper/**/*"]
+"distiller_cm5_sdk.whisper" = ["models/*"]
