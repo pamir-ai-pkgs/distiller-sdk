@@ -1,6 +1,7 @@
 import subprocess
 import os
 import logging
+import re
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,15 +45,40 @@ class Piper:
         except subprocess.CalledProcessError as e:
             logger.error(f"Piper: Error running piper command: {e.stderr}")
             raise ValueError(f"Piper: Error running piper command: {e.stderr}")
+    
+    def find_hw_by_name(self, card_name):
+        try:
+            result = subprocess.run(['aplay', '-l'], capture_output=True, text=True, check=True)
+            lines = result.stdout.splitlines()
+            
+            for line in lines:
+                if 'card' in line and card_name in line:
+                    match = re.search(r'card (\d+):', line)
+                    if match:
+                        card_num = match.group(1)
+                        logger.info(f"Piper: Found sound card '{card_name}' with number {card_num}")
+                        return card_num
+            
+            logger.warning(f"Piper: Sound card '{card_name}' not found, defaulting to card 0")
+            return "0"  # Default fallback
+        except Exception as e:
+            logger.warning(f"Piper: Error finding sound card: {str(e)}, defaulting to card 0")
+            return "0"  # Default fallback
 
-    def speak_stream(self, text, volume=50):
+    def speak_stream(self, text, volume=50, sound_card_name=None):
         if volume < 0 or volume > 100:
             logger.warning("Piper: The volume level is not within the range of 0-100.")
             raise ValueError("Piper: The volume level is not within the range of 0-100.")
         volume = volume / 100
+        
+        # Find sound card by name if provided
+        hw_num = "0"  # Default
+        if sound_card_name:
+            hw_num = self.find_hw_by_name(sound_card_name)
+        
         # Escape single quotes in text to prevent shell syntax errors
         escaped_text = text.replace("'", "'\\''")
-        command = f"""echo '{escaped_text}' | sudo {self.piper} --model {self.voice_onnx} --config {self.voice_json} --output-raw | aplay -D plughw:1 -r 22050 -f S16_LE -t raw -V {volume}"""
+        command = f"""echo '{escaped_text}' | sudo {self.piper} --model {self.voice_onnx} --config {self.voice_json} --output-raw | aplay -D plughw:{hw_num} -r 22050 -f S16_LE -t raw -V {volume}"""
         logger.info(f"Piper: Piper exec command {command}")
         try:
             subprocess.run(command, shell=True, check=True)
@@ -67,4 +93,5 @@ if __name__ == '__main__':
     text_t = "Hello, this is a test."
     output_file_path_t = piper.get_wav_file_path(text_t)
     print("output_file_path:",output_file_path_t)
-    piper.speak_stream(text_t, 10)
+    # Example using the sound card by name
+    piper.speak_stream(text_t, 10, "snd_rpi_pamir_ai_soundcard")
