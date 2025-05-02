@@ -140,6 +140,22 @@ class Audio:
         Raises:
             AudioError: If setting the gain fails
         """
+        self._mic_gain = Audio.set_mic_gain_static(gain)
+    
+    @staticmethod
+    def set_mic_gain_static(gain: int) -> int:
+        """
+        Static method to set the microphone gain/volume.
+        
+        Args:
+            gain: Gain value (typically 0-100)
+            
+        Returns:
+            int: The set gain value
+            
+        Raises:
+            AudioError: If setting the gain fails
+        """
         if not isinstance(gain, int) or gain < 0:
             raise AudioError(f"Invalid gain value: {gain}. Must be a positive integer.")
             
@@ -151,13 +167,27 @@ class Audio:
             if result.returncode != 0:
                 raise AudioError(f"Failed to set microphone gain: {result.stderr}")
                 
-            self._mic_gain = gain
+            return gain
         except Exception as e:
             raise AudioError(f"Error setting microphone gain: {str(e)}")
     
     def get_mic_gain(self) -> int:
         """
         Get the current microphone gain/volume.
+        
+        Returns:
+            int: Current gain value
+            
+        Raises:
+            AudioError: If getting the gain fails
+        """
+        self._mic_gain = Audio.get_mic_gain_static()
+        return self._mic_gain
+            
+    @staticmethod
+    def get_mic_gain_static() -> int:
+        """
+        Static method to get the current microphone gain/volume.
         
         Returns:
             int: Current gain value
@@ -177,9 +207,8 @@ class Audio:
             if result.returncode != 0:
                 raise AudioError(f"Failed to get microphone gain: {result.stderr}")
                 
-            # Update internal state
-            self._mic_gain = int(result.stdout.strip())
-            return self._mic_gain
+            # Return the gain value
+            return int(result.stdout.strip())
             
         except Exception as e:
             raise AudioError(f"Error getting microphone gain: {str(e)}")
@@ -190,6 +219,22 @@ class Audio:
         
         Args:
             volume: Volume value (typically 0-100)
+            
+        Raises:
+            AudioError: If setting the volume fails
+        """
+        self._speaker_volume = Audio.set_speaker_volume_static(volume)
+    
+    @staticmethod
+    def set_speaker_volume_static(volume: int) -> int:
+        """
+        Static method to set the speaker volume.
+        
+        Args:
+            volume: Volume value (typically 0-100)
+            
+        Returns:
+            int: The set volume value
             
         Raises:
             AudioError: If setting the volume fails
@@ -205,13 +250,27 @@ class Audio:
             if result.returncode != 0:
                 raise AudioError(f"Failed to set speaker volume: {result.stderr}")
                 
-            self._speaker_volume = volume
+            return volume
         except Exception as e:
             raise AudioError(f"Error setting speaker volume: {str(e)}")
     
     def get_speaker_volume(self) -> int:
         """
         Get the current speaker volume.
+        
+        Returns:
+            int: Current volume value
+            
+        Raises:
+            AudioError: If getting the volume fails
+        """
+        self._speaker_volume = Audio.get_speaker_volume_static()
+        return self._speaker_volume
+            
+    @staticmethod
+    def get_speaker_volume_static() -> int:
+        """
+        Static method to get the current speaker volume.
         
         Returns:
             int: Current volume value
@@ -231,9 +290,8 @@ class Audio:
             if result.returncode != 0:
                 raise AudioError(f"Failed to get speaker volume: {result.stderr}")
                 
-            # Update internal state
-            self._speaker_volume = int(result.stdout.strip())
-            return self._speaker_volume
+            # Return the volume value
+            return int(result.stdout.strip())
             
         except Exception as e:
             raise AudioError(f"Error getting speaker volume: {str(e)}")

@@ -3,6 +3,8 @@ import os
 import logging
 import re
 
+from distiller_cm5_sdk.hardware.audio.audio import Audio
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -14,6 +16,9 @@ class Piper:
     def __init__(self, model_path=os.path.join(os.path.dirname(__file__), "models"),
                  piper_path=os.path.join(os.path.dirname(__file__), "piper")):
         logger.info("Piper: Initializing Piper")
+        # override speaker volume
+        Audio.set_speaker_volume_static(30)
+
         self.model_path = model_path
         self.piper_path = piper_path
         self.voice_onnx = os.path.join(self.model_path, "en_US-amy-medium.onnx")
@@ -69,7 +74,8 @@ class Piper:
         if volume < 0 or volume > 100:
             logger.warning("Piper: The volume level is not within the range of 0-100.")
             raise ValueError("Piper: The volume level is not within the range of 0-100.")
-        volume = volume / 100
+
+        Audio.set_speaker_volume_static(volume)
         
         # Find sound card by name if provided
         hw_num = "0"  # Default
@@ -78,7 +84,7 @@ class Piper:
         
         # Escape single quotes in text to prevent shell syntax errors
         escaped_text = text.replace("'", "'\\''")
-        command = f"""echo '{escaped_text}' | sudo {self.piper} --model {self.voice_onnx} --config {self.voice_json} --output-raw | aplay -D plughw:{hw_num} -r 22050 -f S16_LE -t raw -V {volume}"""
+        command = f"""echo '{escaped_text}' | sudo {self.piper} --model {self.voice_onnx} --config {self.voice_json} --output-raw | aplay -D plughw:{hw_num} -r 22050 -f S16_LE -t raw"""
         logger.info(f"Piper: Piper exec command {command}")
         try:
             subprocess.run(command, shell=True, check=True)
@@ -94,4 +100,4 @@ if __name__ == '__main__':
     output_file_path_t = piper.get_wav_file_path(text_t)
     print("output_file_path:",output_file_path_t)
     # Example using the sound card by name
-    piper.speak_stream(text_t, 10, "snd_rpi_pamir_ai_soundcard")
+    piper.speak_stream(text_t, 30, "snd_rpi_pamir_ai_soundcard")

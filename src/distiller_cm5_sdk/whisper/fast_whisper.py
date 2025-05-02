@@ -9,12 +9,17 @@ import wave
 import threading
 import time
 
+from distiller_cm5_sdk.hardware.audio.audio import Audio
+
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class Whisper:
     def __init__(self, model_config=None, audio_config=None) -> None:
+        # override mic gain 
+        Audio.set_mic_gain_static(85)
+
         if audio_config is None:
             audio_config = dict()
         if model_config is None:
