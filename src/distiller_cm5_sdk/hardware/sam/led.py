@@ -119,7 +119,7 @@ class LED:
             "colors": sequence
         }
         # Ensure command ends with a newline for the driver
-        cmd_string = json.dumps(command) + "\n"
+        cmd_string = "\n" + json.dumps(command) + "\n"
         print(f"Writing command: {cmd_string}")
         # Write the command to the device file
         try:
