@@ -16,6 +16,7 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "pyaudio>=0.2.14",
     "pyserial>=3.5",
+    "sherpa-onnx>=1.11.6",
 ]
 
 [tool.setuptools.package-data]
