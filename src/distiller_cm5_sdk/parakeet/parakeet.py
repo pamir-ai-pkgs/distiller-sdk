@@ -1,13 +1,15 @@
 import os
 import io
+import time
 from typing import Generator, Tuple, List, Optional
-from faster_whisper import WhisperModel
 import logging
-import numpy as np
 import pyaudio
 import wave
 import threading
-import time
+import sherpa_onnx
+import numpy as np
+import soundfile as sf
+import sounddevice as sd
 
 from distiller_cm5_sdk.hardware.audio.audio import Audio
 
@@ -15,11 +17,10 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-class ParakeetASR:
-    def __init__(self, model_config=None, audio_config=None) -> None:
+class Parakeet:
+    def __init__(self, model_config=None, audio_config=None, vad_silence_duration:float=1.0) -> None:
         # override mic gain 
         Audio.set_mic_gain_static(85)
-
         if audio_config is None:
             audio_config = dict()
         if model_config is None:
@@ -27,83 +28,121 @@ class ParakeetASR:
         self.model_config = {
             "model_path": model_config.get("model_path", os.path.join(os.path.dirname(__file__), "models")),
             "device": model_config.get("device", "cpu"),
-            "language": model_config.get("language", "en")
+            "num_threads": model_config.get("num_threads",4),
+            "vad_silence_duration": vad_silence_duration,
         }
+
         self.audio_config = {
             "channels": audio_config.get("channels", 1),
-            "rate": audio_config.get("rate", 48000),
-            "chunk": audio_config.get("chunk", 1024),
+            "rate": audio_config.get("rate", 16000),
+            "chunk": audio_config.get("chunk", 512),
             "record_secs": audio_config.get("record_secs", 3),
             "device": audio_config.get("device", None),  # None means default device
             "format": audio_config.get("format", pyaudio.paInt16)
         }
 
-        self.model = self.load_model()  # Load models once during initialization
+        # load parakeet asr model
+        self.recognizer = self.load_model()
+
+        # load silero vad model
+        self.vad_windows_size = None
+        self.vad_model = self.load_vad_model()
+
         self._is_recording = False
         self._audio_frames = []
         self._audio_thread = None
         self._pyaudio = None
         self._stream = None
 
-    def load_model(self):
-        logging.info(f"Loading parakeet Model from {self.model_config['model_path']}")
-        if not os.path.isfile(os.path.join(self.model_config["model_path"], "encoder.onnx")):
-            logging.error("Model not found")
-            raise ValueError(
-                f"Parakeet Model not found, please put model in {self.model_config['model_path']}")
+    def load_vad_model(self):
+        logging.info(f"Loading VAD Model from {self.model_config['model_path']}")
+        required_files = ["silero_vad.onnx"]
+        missing_files = [_ for _ in required_files if
+                         not os.path.isfile(os.path.join(self.model_config["model_path"], _))]
 
+        if missing_files:
+            logging.warning(f"Vad Model is incomplete or missing. Missing files: {', '.join(missing_files)}")
+
+        config = sherpa_onnx.VadModelConfig()
+        config.silero_vad.model = os.path.join(self.model_config["model_path"], "silero_vad.onnx")
+        config.silero_vad.min_silence_duration = self.model_config["vad_silence_duration"]
+        config.sample_rate = self.audio_config["rate"]
+
+        vad = sherpa_onnx.VoiceActivityDetector(config, buffer_size_in_seconds=100)
+        if vad is not None:
+            logging.info("VAD Model is ready")
+            self.vad_windows_size = config.silero_vad.window_size
+            return  vad
+        else:
+            logging.error("VAD Model is not ready")
+            
+    def load_model(self):
+        logging.info(f"Loading Parakeet Model from {self.model_config['model_path']}")
+
+        required_files = ["encoder.onnx", "decoder.onnx", "joiner.onnx", "tokens.txt"]
+        missing_files = [f for f in required_files if
+                         not os.path.isfile(os.path.join(self.model_config["model_path"], f))]
+
+        if missing_files:
+            logging.error(f"Parakeet Model is incomplete or missing. Missing files: {', '.join(missing_files)}")
+            raise ValueError(
+                f"Parakeet Model loading failed.\n"
+                f"Missing files: {', '.join(missing_files)}\n"
+                f"Please ensure all required model files are present in the directory: {self.model_config['model_path']}\n"
+                f"Expected files: encoder.onnx, decoder.onnx, joiner.onnx, tokens.txt"
+            )
+        start_time = time.time()
         with suppress_stdout_stderr():
-            model = sherpa_onnx.OfflineRecognizer.from_transducer(
-                encoder="./sharpa-onnx-parakeet-tdt-0.11B/encoder.onnx",
-                decoder="./sharpa-onnx-parakeet-tdt-0.11B/decoder.onnx",
-                tokens="./sharpa-onnx-parakeet-tdt-0.11B/tokens.txt",
-                joiner="./sharpa-onnx-parakeet-tdt-0.11B/joiner.onnx",
+            recognizer = sherpa_onnx.OfflineRecognizer.from_transducer(
+                encoder=os.path.join(self.model_config['model_path'],'encoder.onnx'),
+                decoder=os.path.join(self.model_config['model_path'],'decoder.onnx'),
+                tokens=os.path.join(self.model_config['model_path'],'tokens.txt'),
+                joiner=os.path.join(self.model_config['model_path'],'joiner.onnx'),
+                num_threads=4,
                 model_type="nemo_transducer"
             )
 
-        if model is None:
-            logging.error("Load Whisper Model error")
-            raise ValueError("Load Whisper Model error")
-        return model
+        if recognizer is None:
+            logging.error("Load ParakeetAsr Model error")
+            raise ValueError("Load ParakeetAsr Model error")
+        end_time = time.time()
+        logging.info(f"Loaded ParakeetAsr Model in {end_time - start_time:.2f} s")
+        return recognizer
 
     def transcribe(self, audio_path: str = None) -> Generator[str, None, None]:
-        segments, info = self.model.transcribe(
-            audio_path,
-            beam_size=self.model_config["beam_size"],
-            language=self.model_config["language"]
-        )
+        wave, sample_rate = sf.read(audio_path)
+        assert sample_rate == 16000, "Audio must be 16kHz"
+        assert wave.ndim == 1, "Audio must be mono"
 
-        logging.info(f"Detected language '{info.language}' with probability {info.language_probability}")
+        s = self.recognizer.create_stream()
+        s.accept_waveform(sample_rate, wave)
+        self.recognizer.decode_stream(s)
+        result = s.result.text.strip()
 
-        for segment in segments:
-            logging.info(f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}")
-            yield segment.text
-            
+        logging.info(f"Transcribed audio from '{audio_path}' (sample rate: {sample_rate} Hz): '{result}'")
+
+        return result
+
     def transcribe_buffer(self, audio_data: bytes) -> Generator[str, None, None]:
         """
         Transcribe audio from a WAV format byte buffer.
-        
+
         Args:
             audio_data: Audio data as bytes in WAV format
-            
+
         Returns:
             Generator yielding transcribed text segments
         """
         # Create in-memory file-like object
         buffer = io.BytesIO(audio_data)
-        
-        segments, info = self.model.transcribe(
-            buffer,
-            beam_size=self.model_config["beam_size"],
-            language=self.model_config["language"]
-        )
 
-        logging.info(f"Detected language '{info.language}' with probability {info.language_probability}")
+        s = self.recognizer.create_stream()
+        s.accept_waveform(self.audio_config["rate"], buffer)
+        self.recognizer.decode_stream(s)
+        result = s.result.text.strip()
+        logging.info(f"Transcribed audio from buffer (sample rate: {self.audio_config['rate']} Hz): '{result}'")
+        return result
 
-        for segment in segments:
-            logging.info(f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}")
-            yield segment.text
-    
     def _init_audio(self):
         """Initialize PyAudio instance and get device info if needed"""
         if self._pyaudio is None:
@@ -235,6 +274,54 @@ class ParakeetASR:
         finally:
             self.cleanup()
 
+    def auto_record_and_transcribe(self) -> Generator[str, None, None]:
+        """
+        Automatic speech recognition with voice activity detection.
+
+        This method continuously monitors audio input, automatically detecting
+        speech segments and transcribing them to text. It uses VAD (Voice Activity
+        Detection) to identify when speech begins and ends.
+
+        Yields:
+            str: Transcribed text segments as they are recognized.
+
+        Raises:
+            Exception: If there are issues with audio recording or transcription.
+        """
+        logging.info("Starting automatic speech recognition with VAD")
+
+        devices = sd.query_devices()
+        if len(devices) == 0:
+            logging.error("No microphone devices found")
+            return
+
+        default_input_device_idx = sd.default.device[0]
+        logging.info(f'Use default device: {devices[default_input_device_idx]["name"]}')
+
+        logging.info(f"Audio stream opened with rate: {self.audio_config['rate']}, "
+                     f"device: {self.audio_config['device']}")
+
+        _buffer = []
+        with sd.InputStream(channels=1, dtype="float32", samplerate=self.audio_config["rate"]) as s:
+            while True:
+                _samples, _ = s.read(int(0.1 * self.audio_config['rate']))
+                _samples = _samples.reshape(-1)
+
+                _buffer = np.concatenate([_buffer, _samples])
+
+                while len(_buffer) > self.vad_windows_size:
+                    self.vad_model.accept_waveform(_buffer[:self.vad_windows_size])
+                    _buffer = _buffer[self.vad_windows_size:]
+
+                while not self.vad_model.empty():
+                    _stream = self.recognizer.create_stream()
+                    _stream.accept_waveform(self.audio_config["rate"], self.vad_model.front.samples)
+
+                    self.vad_model.pop()
+                    self.recognizer.decode_stream(_stream)
+
+                    yield _stream.result.text.strip()
+
 
 class suppress_stdout_stderr(object):
     def __init__(self):
@@ -253,33 +340,8 @@ class suppress_stdout_stderr(object):
 
 
 if __name__ == '__main__':
-    # Example usage with push-to-talk
-    whisper = Whisper(model_config={"model_size": "faster-distil-whisper-small.en"})
-    
-    print("=== Push-to-Talk Demo ===")
-    try:
-        input("Press Enter to start recording...")
-        if not whisper.start_recording():
-            exit()
+    # Example usage with auto push-to-talk
+    parakeet = Parakeet(vad_silence_duration=0.5)
+    for text in parakeet.auto_record_and_transcribe():
+        print(f"Transcribed: {text}")
 
-        input("Recording... Press Enter to stop...")
-        audio_data = whisper.stop_recording()
-
-        if audio_data:
-            # Save the recording
-            output_filename = "debug_recording.wav"
-            with open(output_filename, "wb") as f:
-                f.write(audio_data)
-            logging.info(f"Recording saved to {output_filename}")
-
-            print("Transcribing...")
-            for text in whisper.transcribe_buffer(audio_data):
-                print(f"Transcribed: {text}")
-        else:
-            print("No audio recorded")
-    finally:
-        whisper.cleanup()
-
-    # Transcribe a file
-    # for text in whisper.transcribe(audio_path="./test.wav"):
-    #     print(f"Transcribed: {text}")
