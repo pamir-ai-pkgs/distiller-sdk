@@ -1,1 +1,1 @@
-from .parakeet_asr import ParakeetASR
+from .parakeet import Parakeet
