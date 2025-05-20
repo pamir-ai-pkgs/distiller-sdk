@@ -35,7 +35,7 @@ note sudo apt install portaudio19-dev need to be installed to use pyaudio
 ## Usage
 ### asr
 ```python
-from  distiller-cm5-sdk import whisper
+from  distiller_cm5_sdk import whisper
 whisper = whisper.Whisper()
 for i in whisper.transcribe(r"H:\projects\distiller-cm5-sdk-devs\speech.wav"):
     print(i)
@@ -43,7 +43,7 @@ for i in whisper.transcribe(r"H:\projects\distiller-cm5-sdk-devs\speech.wav"):
 
 ### vad+asr
 ```python
-from  distiller-cm5-sdk import parakeet
+from  distiller_cm5_sdk import parakeet
 parakeet_instance = parakeet.Parakeet(vad_silence_duration=0.5)
 for text in parakeet_instance.auto_record_and_transcribe():
     print(f"Transcribed: {text}")
@@ -51,7 +51,7 @@ for text in parakeet_instance.auto_record_and_transcribe():
 
 ### tts
 ```python
-from distiller-cm5-sdk import piper
+from distiller_cm5_sdk import piper
 piper = piper.Piper()
 text = "How are you"
 # Just get wav file path
