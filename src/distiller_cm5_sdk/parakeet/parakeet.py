@@ -46,7 +46,7 @@ class Parakeet:
 
         # load silero vad model
         self.vad_windows_size = None
-        self.vad_model = self.load_vad_model()
+        self.vad_model = None
 
         self._is_recording = False
         self._audio_frames = []
@@ -62,6 +62,7 @@ class Parakeet:
 
         if missing_files:
             logging.warning(f"Vad Model is incomplete or missing. Missing files: {', '.join(missing_files)}")
+            return None
 
         config = sherpa_onnx.VadModelConfig()
         config.silero_vad.model = os.path.join(self.model_config["model_path"], "silero_vad.onnx")
@@ -72,9 +73,10 @@ class Parakeet:
         if vad is not None:
             logging.info("VAD Model is ready")
             self.vad_windows_size = config.silero_vad.window_size
-            return  vad
+            return vad
         else:
             logging.error("VAD Model is not ready")
+            return None
             
     def load_model(self):
         logging.info(f"Loading Parakeet Model from {self.model_config['model_path']}")
@@ -121,7 +123,7 @@ class Parakeet:
 
         logging.info(f"Transcribed audio from '{audio_path}' (sample rate: {sample_rate} Hz): '{result}'")
 
-        return result
+        yield result
 
     def transcribe_buffer(self, audio_data: bytes) -> Generator[str, None, None]:
         """
@@ -137,11 +139,16 @@ class Parakeet:
         buffer = io.BytesIO(audio_data)
 
         s = self.recognizer.create_stream()
-        s.accept_waveform(self.audio_config["rate"], buffer)
+        # Read waveform from buffer
+        wave, sample_rate = sf.read(buffer)
+        assert sample_rate == self.audio_config["rate"], f"Expected sample rate {self.audio_config['rate']}, got {sample_rate}"
+        assert wave.ndim == 1, "Audio must be mono for transcribe_buffer"
+
+        s.accept_waveform(self.audio_config["rate"], wave)
         self.recognizer.decode_stream(s)
         result = s.result.text.strip()
         logging.info(f"Transcribed audio from buffer (sample rate: {self.audio_config['rate']} Hz): '{result}'")
-        return result
+        yield result
 
     def _init_audio(self):
         """Initialize PyAudio instance and get device info if needed"""
@@ -301,6 +308,13 @@ class Parakeet:
         logging.info(f"Audio stream opened with rate: {self.audio_config['rate']}, "
                      f"device: {self.audio_config['device']}")
 
+        # Load VAD model if not already loaded
+        if self.vad_model is None:
+            self.vad_model = self.load_vad_model()
+            if self.vad_model is None:
+                logging.error("Failed to load VAD model. Cannot proceed with auto_record_and_transcribe.")
+                return
+
         _buffer = []
         with sd.InputStream(channels=1, dtype="float32", samplerate=self.audio_config["rate"]) as s:
             while True:
@@ -342,6 +356,29 @@ class suppress_stdout_stderr(object):
 if __name__ == '__main__':
     # Example usage with auto push-to-talk
     parakeet = Parakeet(vad_silence_duration=0.5)
-    for text in parakeet.auto_record_and_transcribe():
-        print(f"Transcribed: {text}")
+    print("=== Push-to-Talk Demo ===")
+    try:
+        input("Press Enter to start recording...")
+        if not parakeet.start_recording():
+            exit()
+
+        input("Recording... Press Enter to stop...")
+        audio_data = parakeet.stop_recording()
+
+        if audio_data:
+            # Save the recording
+            output_filename = "debug_recording.wav"
+            with open(output_filename, "wb") as f:
+                f.write(audio_data)
+            logging.info(f"Recording saved to {output_filename}")
+            print("Transcribing...")
+            for text in parakeet.transcribe_buffer(audio_data):
+                print(f"Transcribed: {text}")
+        else:
+            print("No audio recorded")
+    finally:
+        parakeet.cleanup()
+        
+    # for text in parakeet.auto_record_and_transcribe():
+    #     print(f"Transcribed: {text}")
 

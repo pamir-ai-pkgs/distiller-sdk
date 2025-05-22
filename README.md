@@ -5,20 +5,20 @@
 cd distiller-cm5-sdk
 
 ## Before Packing
-Download [model.bin](https://drive.google.com/file/d/1g3ab4ezOehtajecpRaHjy_uBlh6zNJN0/view?usp=sharing) to `distiller-cm5-sdk/whisper/models/base/`
+Download [model.bin](https://drive.google.com/file/d/1g3ab4ezOehtajecpRaHjy_uBlh6zNJN0/view?usp=sharing) to `src/distiller_cm5_sdk/whisper/models/base/`
 
-Download [Parakeet encoder model file](https://drive.google.com/file/d/1V_FSHL1-lxTtDhlNcT-lsPNChagYPa6f/view?usp=sharing) to `distiller-cm5-sdk/parakeet/models/`
-Download [Parakeet decoder model file](https://drive.google.com/file/d/166EjwM8J-A17fabth1rbcdqhgo_s8tMJ/view?usp=sharing) to `distiller-cm5-sdk/parakeet/models/`
-Download [Parakeet joiner model file](https://drive.google.com/file/d/1nFyBT1_doFuFBeh7bmoaGS8yr3ZxUZwo/view?usp=sharing) to `distiller-cm5-sdk/parakeet/models/`
-Download [Parakeet tokens model file](https://drive.google.com/file/d/15k7lGS6wsmwFF1aFQ3GKAtxSTN3e3vYU/view?usp=sharing) to `distiller-cm5-sdk/parakeet/models/`
+Download [Parakeet encoder model file](https://huggingface.co/tommy1900/Parakeet-onnx/resolve/main/encoder.onnx) to `src/distiller_cm5_sdk/parakeet/models/`
+Download [Parakeet decoder model file](https://huggingface.co/tommy1900/Parakeet-onnx/resolve/main/decoder.onnx) to `src/distiller_cm5_sdk/parakeet/models/`
+Download [Parakeet joiner model file](https://huggingface.co/tommy1900/Parakeet-onnx/resolve/main/joiner.onnx) to `src/distiller_cm5_sdk/parakeet/models/`
+Download [Parakeet tokens model file](https://huggingface.co/tommy1900/Parakeet-onnx/resolve/main/tokens.txt) to `src/distiller_cm5_sdk/parakeet/models/`
 
-Download [Vad model file](https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx) to `distiller-cm5-sdk/parakeet/models/`    
+Download [Vad model file](https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx) to `src/distiller_cm5_sdk/parakeet/models/`    
 
-Download [Executable file of Piper](https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_arm64.tar.gz) to `distiller-cm5-sdk/piper/`
+Download [Executable file of Piper](https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_arm64.tar.gz) to `src/distiller_cm5_sdk/piper/`
 
-Download [Voice model file of Piper](https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx?download=true) to `distiller-cm5-sdk/piper/models/`
+Download [Voice model file of Piper](https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx?download=true) to `src/distiller_cm5_sdk/piper/models/`
 
-Download [Voice config file of Piper](https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx.json?download=true) to `distiller-cm5-sdk/piper/models/`
+Download [Voice config file of Piper](https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx.json?download=true) to `src/distiller_cm5_sdk/piper/models/`
 
 tar -xvf piper_arm64.tar.gz
 
