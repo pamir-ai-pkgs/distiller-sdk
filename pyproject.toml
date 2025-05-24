@@ -16,8 +16,12 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "pyaudio>=0.2.14",
     "pyserial>=3.5",
+    "sherpa-onnx>=1.11.6",
+    "sounddevice>=0.5.2",
+    "soundfile>=0.13.1",
 ]
 
 [tool.setuptools.package-data]
 "distiller_cm5_sdk.piper" = ["models/*", "piper/**/*"]
 "distiller_cm5_sdk.whisper" = ["models/**/*"]
+"distiller_cm5_sdk.parakeet" = ["models/**/*"]
