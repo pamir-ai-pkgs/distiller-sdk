@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Script Name: prepare_and_build_sdk.sh
+# Script Name: build.sh
 # Description: Downloads required model files and builds the Python SDK wheel package.
 # Usage: Run this script inside the distiller-cm5-sdk directory.
-#        To include Whisper model download, run: ./prepare_and_build_sdk.sh --whisper
+#        To include Whisper model download, run: ./build.sh.sh --whisper
 
 set -e
 
