@@ -161,6 +161,28 @@ piper_instance.speak_stream(text, volume=30)
 
 ---
 
+### 📺 E-Ink Display
+
+```python
+from distiller_cm5_sdk.hardware.eink import EinkDriver, load_and_convert_image
+
+# Initialize the e-ink display
+display = EinkDriver()
+display.initialize()
+
+# Display an image
+image_data = load_and_convert_image("path/to/image.jpg", threshold=128, dither=True)
+display.display_image(image_data)
+
+# Clear the display
+display.clear_display()
+
+# Clean up resources
+display.cleanup()
+```
+
+---
+
 ## 📎 Notes
 
 * Whisper model is optional and will only be downloaded if `--whisper` is passed to `build.sh`.
