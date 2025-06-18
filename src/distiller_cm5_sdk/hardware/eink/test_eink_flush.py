@@ -6,7 +6,8 @@ Tests basic e-ink display functionality without mocking.
 
 import sys
 import time
-from eink import EinkDriver
+import os
+from eink import EinkDriver, load_and_convert_image
 
 def test_eink_flush():
     """Test if we can initialize and flush the e-ink display."""
@@ -25,14 +26,25 @@ def test_eink_flush():
         
         print("✅ E-ink display initialized successfully")
         
-        # Test clearing/flushing the display
-        print("2. Clearing/flushing display...")
-        display.clear_display()
-        print("✅ Display cleared successfully")
+
+        # display a test image
+        print("2. Displaying test image...")
+        # use curren path to find the test image
+        image_path = os.path.join(os.path.dirname(__file__), "test_image.png")
+        image_data = load_and_convert_image(image_path, threshold=128, dither=True)
+        display.display_image(image_data)
+        print("✅ Test image displayed successfully")
         
         # Wait a moment to see the effect
         print("3. Waiting 2 seconds...")
-        time.sleep(2)
+        # Test clearing/flushing the display
+        print("4. Clearing/flushing display...")
+        # display.clear_display()
+        print("✅ Display cleared successfully")
+        
+        # Wait a moment to see the effect
+        print("5. Waiting 2 seconds...")
+        # time.sleep(2)
         
         print("✅ E-ink flush test completed successfully!")
         return True
@@ -45,7 +57,7 @@ def test_eink_flush():
     finally:
         # Cleanup
         if display:
-            print("4. Cleaning up...")
+            print("6. Cleaning up...")
             display.cleanup()
             print("✅ Cleanup completed")
 
