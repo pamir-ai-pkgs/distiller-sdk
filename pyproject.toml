@@ -27,3 +27,4 @@ dependencies = [
 "distiller_cm5_sdk.piper" = ["models/*", "piper/**/*"]
 "distiller_cm5_sdk.whisper" = ["models/**/*"]
 "distiller_cm5_sdk.parakeet" = ["models/**/*"]
+"distiller_cm5_sdk.hardware.eink" = ["lib/**/*"]
