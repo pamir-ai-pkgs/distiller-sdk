@@ -1,0 +1,21 @@
+[package]
+name = "distiller_display_sdk"
+version = "0.0.1"
+edition = "2024"
+
+[lib]
+name = "distiller_display_sdk_shared"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+gpiod = "0.3"
+spidev = "0.7"
+lodepng = "3.12"
+thiserror = "2.0"
+log = "0.4"
+
+[dependencies.libc]
+version = "0.2"
+
+[build-dependencies]
+cbindgen = "0.29"

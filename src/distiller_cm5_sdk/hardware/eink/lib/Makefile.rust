@@ -1,0 +1,53 @@
+# Makefile for building Rust library
+# Detects current architecture and builds accordingly
+# Prefers ARM64 when available
+
+# Detect current architecture
+HOST_ARCH := $(shell uname -m)
+ifeq ($(HOST_ARCH),aarch64)
+    RUST_TARGET = aarch64-unknown-linux-gnu
+else ifeq ($(HOST_ARCH),arm64)
+    RUST_TARGET = aarch64-unknown-linux-gnu
+else
+    # For x86_64 or other architectures, build for current host
+    RUST_TARGET = aarch64-unknown-linux-gnu
+endif
+
+CARGO = cargo
+
+.PHONY: all clean build install-target target-info
+
+all: build
+
+build: libdistiller_display_sdk_shared.so
+
+libdistiller_display_sdk_shared.so: target-build
+	cp target-build $@
+
+target-build:
+ifeq ($(RUST_TARGET),)
+	$(CARGO) build --release
+	cp target/release/libdistiller_display_sdk_shared.so target-build
+else
+	$(CARGO) build --release --target $(RUST_TARGET)
+	cp target/$(RUST_TARGET)/release/libdistiller_display_sdk_shared.so target-build
+endif
+	@echo "Library built successfully: $@"
+
+clean:
+	$(CARGO) clean
+	rm -f libdistiller_display_sdk_shared.so target-build
+
+# Install Rust target if not available
+install-target:
+ifeq ($(RUST_TARGET),aarch64-unknown-linux-gnu)
+	rustup target add $(RUST_TARGET)
+endif
+
+# Show target info
+target-info:
+	@echo "Host architecture: $(HOST_ARCH)"
+	@echo "Rust target: $(RUST_TARGET)"
+ifeq ($(RUST_TARGET),aarch64-unknown-linux-gnu)
+	@rustup target list --installed | grep $(RUST_TARGET) || echo "Target $(RUST_TARGET) not installed"
+endif
