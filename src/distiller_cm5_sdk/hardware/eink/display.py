@@ -79,6 +79,8 @@ class Display:
         
         # Common search paths
         search_paths = [
+            # Debian package location
+            "/opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so",
             # Relative to this module
             os.path.join(current_dir, "lib", "libdistiller_display_sdk_shared.so"),
             # Build directory

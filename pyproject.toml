@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -23,8 +23,15 @@ dependencies = [
     "spidev>=3.7",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.setuptools.package-data]
-"distiller_cm5_sdk.piper" = ["models/*", "piper/**/*"]
-"distiller_cm5_sdk.whisper" = ["models/**/*"]
-"distiller_cm5_sdk.parakeet" = ["models/**/*"]
-"distiller_cm5_sdk.hardware.eink" = ["lib/**/*"]
+"distiller_cm5_sdk" = [
+    "hardware/eink/lib/*.so",
+    "hardware/eink/lib/*.h",
+    "parakeet/models/*",
+    "piper/models/*",
+    "piper/piper/**/*",
+    "hardware/audio/test_audio.wav",
+]

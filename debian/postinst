@@ -1,0 +1,66 @@
+#!/bin/sh
+set -e
+
+# Setup the Python environment
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+    # Create virtual environment
+    python3 -m venv /opt/distiller-cm5-sdk/venv
+    
+    # Activate virtual environment and install dependencies
+    . /opt/distiller-cm5-sdk/venv/bin/activate
+    pip install -r /opt/distiller-cm5-sdk/requirements.txt
+    
+    # Create convenience script for activating the environment
+    cat > /opt/distiller-cm5-sdk/activate.sh << 'EOF'
+#!/bin/bash
+# Activate the distiller-cm5-sdk virtual environment
+source /opt/distiller-cm5-sdk/venv/bin/activate
+export PYTHONPATH="/opt/distiller-cm5-sdk:$PYTHONPATH"
+export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
+echo "Distiller CM5 SDK environment activated"
+echo "Python packages available: distiller_cm5_sdk"
+echo "Models available in: /opt/distiller-cm5-sdk/models/"
+echo "Shared library: /opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so"
+EOF
+    
+    chmod +x /opt/distiller-cm5-sdk/activate.sh
+    
+    # Create a Python launcher script
+    cat > /opt/distiller-cm5-sdk/python << 'EOF'
+#!/bin/bash
+# Launch Python with the distiller-cm5-sdk environment
+source /opt/distiller-cm5-sdk/venv/bin/activate
+export PYTHONPATH="/opt/distiller-cm5-sdk:$PYTHONPATH"
+export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
+exec python3 "$@"
+EOF
+    
+    chmod +x /opt/distiller-cm5-sdk/python
+    
+    # Create a README file
+    cat > /opt/distiller-cm5-sdk/README << 'EOF'
+Distiller CM5 SDK - Debian Package Installation
+===============================================
+
+This package installs the Distiller CM5 SDK to /opt/distiller-cm5-sdk.
+
+Quick Start:
+1. Activate the environment: source /opt/distiller-cm5-sdk/activate.sh
+2. Use Python: /opt/distiller-cm5-sdk/python your_script.py
+
+For more information, see: /usr/share/doc/distiller-cm5-sdk/README.Debian
+EOF
+    
+    # Set proper permissions
+    chown -R root:root /opt/distiller-cm5-sdk
+    chmod -R 755 /opt/distiller-cm5-sdk
+    chmod 644 /opt/distiller-cm5-sdk/README
+    
+    # Update shared library cache
+    ldconfig
+    
+    echo "Distiller CM5 SDK installed successfully to /opt/distiller-cm5-sdk"
+    echo "To activate the environment, run: source /opt/distiller-cm5-sdk/activate.sh"
+fi
+
+#DEBHELPER# 

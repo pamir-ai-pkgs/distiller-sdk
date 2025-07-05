@@ -1,59 +1,88 @@
-# distiller-cm5-sdk
+# Distiller CM5 SDK
 
----
+A comprehensive Python SDK for the Distiller CM5 platform, providing hardware control, audio processing, computer vision, and AI capabilities.
 
-## 📁 Project Setup
+## 🚀 Quick Start
 
-Clone the repository and enter the project directory:
+### Prerequisites
 
-```bash
-git clone https://github.com/Pamir-AI/distiller-cm5-sdk.git
-cd distiller-cm5-sdk
-```
+- Python 3.9+
+- ARM64 Linux system (or cross-compilation setup)
+- Required system packages (see Installation section)
 
----
+### Installation
 
-## ⚙️ Model Download & Build (Recommended)
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Pamir-AI/distiller-cm5-sdk.git
+   cd distiller-cm5-sdk
+   ```
 
-Run the following script to automatically download all required models and build the package:
+2. **Download models and build:**
+   ```bash
+   chmod +x build.sh
+   ./build.sh                    # Download models (excluding Whisper)
+   ./build.sh --whisper          # Download models including Whisper
+   ```
 
-> 📝 **If you're using a virtual environment**, make sure to activate it first:
->
-> ```bash
-> python3 -m venv .venv
-> source .venv/bin/activate
-> ```
->
-> Then, install the required `build` module:
->
-> ```bash
-> pip install build
-> ````
+3. **Build Debian package:**
+   ```bash
+   chmod +x build-deb.sh
+   ./build-deb.sh                # Build Debian package
+   ./build-deb.sh --whisper      # Build with Whisper model included
+   ./build-deb.sh --clean        # Clean build
+   ```
 
+4. **Install the package:**
+   ```bash
+   sudo dpkg -i dist/distiller-cm5-sdk_*_arm64.deb
+   sudo apt-get install -f       # Install any missing dependencies
+   ```
 
-```bash
-chmod +x build.sh
-./build.sh                # Build without Whisper (Recommended)
-./build.sh --whisper      # Build with Whisper model included
-```
----
+5. **Activate the SDK environment:**
+   ```bash
+   source /opt/distiller-cm5-sdk/activate.sh
+   ```
 
-## 🛠️ Manual Model Download & Build (Optional)
+## 📦 What's Included
+
+The SDK provides:
+
+- **Hardware Control**: E-ink display, camera, audio, LEDs
+- **AI Models**: Whisper (ASR), Parakeet (ASR + VAD), Piper (TTS)
+- **Audio Processing**: Real-time audio capture and playback
+- **Computer Vision**: OpenCV-based camera operations
+- **Native Libraries**: ARM64-optimized Rust library for e-ink display
+
+## 🛠️ Build Process
+
+The build process includes:
+
+1. **Model Download**: Downloads required AI models (Whisper, Parakeet, Piper)
+2. **Rust Library Build**: Cross-compiles ARM64 shared library for e-ink display
+3. **Debian Package**: Creates a self-contained Debian package
+
+### Build Scripts
+
+- `build.sh`: Downloads model files
+- `build-deb.sh`: Builds the complete Debian package
+
+### Manual Model Download
 
 If you prefer manual control, download the following models:
 
-### 🔉 Whisper Model (Optional)
+#### 🔉 Whisper Model (Optional)
 
 Place all files in:
 `src/distiller_cm5_sdk/whisper/models/faster-distil-whisper-small.en/`
 
 * [model.bin](https://huggingface.co/Systran/faster-distil-whisper-small.en/resolve/main/model.bin?download=true)
 * [config.json](https://huggingface.co/Systran/faster-distil-whisper-small.en/resolve/main/config.json?download=true)
-* [preprocessor\_config.json](https://huggingface.co/Systran/faster-distil-whisper-small.en/resolve/main/preprocessor_config.json?download=true)
+* [preprocessor_config.json](https://huggingface.co/Systran/faster-distil-whisper-small.en/resolve/main/preprocessor_config.json?download=true)
 * [tokenizer.json](https://huggingface.co/Systran/faster-distil-whisper-small.en/resolve/main/tokenizer.json?download=true)
 * [vocabulary.json](https://huggingface.co/Systran/faster-distil-whisper-small.en/resolve/main/vocabulary.json?download=true)
 
-### 🧠 Parakeet Model (ASR + VAD)
+#### 🧠 Parakeet Model (ASR + VAD)
 
 Place all files in:
 `src/distiller_cm5_sdk/parakeet/models/`
@@ -62,16 +91,16 @@ Place all files in:
 * [decoder.onnx](https://huggingface.co/tommy1900/Parakeet-onnx/resolve/main/decoder.onnx)
 * [joiner.onnx](https://huggingface.co/tommy1900/Parakeet-onnx/resolve/main/joiner.onnx)
 * [tokens.txt](https://huggingface.co/tommy1900/Parakeet-onnx/resolve/main/tokens.txt)
-* [silero\_vad.onnx](https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx)
+* [silero_vad.onnx](https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx)
 
-### 🗣️ Piper Model (TTS)
+#### 🗣️ Piper Model (TTS)
 
-#### 1. Executable
+##### 1. Executable
 
 Download to:
 `src/distiller_cm5_sdk/piper/`
 
-* [piper\_arm64.tar.gz](https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_arm64.tar.gz)
+* [piper_arm64.tar.gz](https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_arm64.tar.gz)
 
 Then extract and clean up:
 
@@ -81,23 +110,13 @@ tar -xvf piper_arm64.tar.gz
 rm piper_arm64.tar.gz
 ```
 
-#### 2. Voice Model Files
+##### 2. Voice Model Files
 
 Place in:
 `src/distiller_cm5_sdk/piper/models/`
 
-* [en\_US-amy-medium.onnx](https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx?download=true)
-* [en\_US-amy-medium.onnx.json](https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx.json?download=true)
-
----
-
-### 🔨 Build
-
-If not using `build.sh`, manually build:
-
-```bash
-python -m build
-```
+* [en_US-amy-medium.onnx](https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx?download=true)
+* [en_US-amy-medium.onnx.json](https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx.json?download=true)
 
 > 🔧 Make sure `portaudio19-dev` is installed for `pyaudio` support:
 >
@@ -105,18 +124,61 @@ python -m build
 > sudo apt install portaudio19-dev
 > ```
 
----
+## 📥 Installation
 
-## 📥 Install the Package
+### Debian Package Installation (Recommended)
 
-After building, install the generated wheel file:
+The Debian package installs everything to `/opt/distiller-cm5-sdk` as a self-contained environment:
 
 ```bash
-pip install ./dist/distiller_cm5-sdk-0.1.0-py3-none-any.whl
+# Build the Debian package
+./build-deb.sh
+
+# Install the package
+sudo dpkg -i dist/distiller-cm5-sdk_*_arm64.deb
+sudo apt-get install -f  # Install any missing dependencies
+
+# Activate the SDK environment
+source /opt/distiller-cm5-sdk/activate.sh
 ```
 
 > ✅ You should now be able to import and use `distiller_cm5_sdk` in your Python code.
 
+## 📦 Package Management
+
+### Removing the Package
+
+```bash
+# Remove the package (keeps configuration files)
+sudo apt remove distiller-cm5-sdk
+
+# Completely remove the package and all files
+sudo apt purge distiller-cm5-sdk
+
+# Clean up any remaining dependencies
+sudo apt autoremove
+```
+
+### Updating the Package
+
+```bash
+# Update the package
+sudo apt update
+sudo apt upgrade distiller-cm5-sdk
+```
+
+### Package Information
+
+```bash
+# View package information
+dpkg -l | grep distiller-cm5-sdk
+
+# View package contents
+dpkg -L distiller-cm5-sdk
+
+# View package status
+dpkg -s distiller-cm5-sdk
+```
 
 ## 🚀 Usage Examples
 
@@ -130,8 +192,6 @@ for text in whisper_instance.transcribe("speech.wav"):
     print(text)
 ```
 
----
-
 ### 🧠 ASR + VAD with Parakeet
 
 ```python
@@ -141,8 +201,6 @@ parakeet_instance = parakeet.Parakeet(vad_silence_duration=0.5)
 for text in parakeet_instance.auto_record_and_transcribe():
     print(f"Transcribed: {text}")
 ```
-
----
 
 ### 🗣️ TTS with Piper
 
@@ -154,9 +212,6 @@ text = "How are you?"
 
 # Option 1: Get path to generated WAV file
 wav_path = piper_instance.get_wav_file_path(text)
-
-# Option 2: Directly speak with real-time streaming
-piper_instance.speak_stream(text, volume=30)
 ```
 
 ---

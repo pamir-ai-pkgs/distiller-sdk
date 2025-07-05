@@ -10,6 +10,7 @@ import threading
 import time
 
 from distiller_cm5_sdk.hardware.audio.audio import Audio
+from distiller_cm5_sdk import get_model_path
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,11 +29,12 @@ class Whisper:
             audio_config = dict()
         if model_config is None:
             model_config = dict()
+        model_path = get_model_path("whisper")
         self.model_config = {
-            "model_hub_path": model_config.get("model_hub_path", os.path.join(os.path.dirname(__file__), "models")),
+            "model_hub_path": model_config.get("model_hub_path", model_path),
             "model_size": model_config.get("model_size", "faster-distil-whisper-small.en"),
             "model_size_or_path": os.path.join(
-                model_config.get("model_hub_path", os.path.join(os.path.dirname(__file__), "models")),
+                model_config.get("model_hub_path", model_path),
                 model_config.get("model_size", "faster-distil-whisper-small.en")),
             "device": model_config.get("device", "cpu"),
             "compute_type": model_config.get("compute_type", "int8"),

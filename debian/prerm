@@ -1,0 +1,29 @@
+#!/bin/sh
+set -e
+
+# Pre-removal script for distiller-cm5-sdk
+
+if [ "$1" = "remove" ] || [ "$1" = "upgrade" ] || [ "$1" = "deconfigure" ]; then
+    echo "Preparing to remove distiller-cm5-sdk..."
+    
+    # Check if any processes are using the SDK files
+    if [ -d "/opt/distiller-cm5-sdk" ]; then
+        # Find processes using the virtual environment
+        VENV_PROCESSES=$(lsof +D /opt/distiller-cm5-sdk/venv 2>/dev/null | grep -v COMMAND || true)
+        if [ -n "$VENV_PROCESSES" ]; then
+            echo "Warning: Some processes are still using the distiller-cm5-sdk virtual environment:"
+            echo "$VENV_PROCESSES"
+            echo "These processes may need to be stopped before removal."
+        fi
+        
+        # Find processes using the shared library
+        LIB_PROCESSES=$(lsof /opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so 2>/dev/null | grep -v COMMAND || true)
+        if [ -n "$LIB_PROCESSES" ]; then
+            echo "Warning: Some processes are still using the distiller-cm5-sdk shared library:"
+            echo "$LIB_PROCESSES"
+            echo "These processes may need to be stopped before removal."
+        fi
+    fi
+fi
+
+#DEBHELPER# 

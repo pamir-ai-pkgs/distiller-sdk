@@ -4,6 +4,7 @@ import logging
 import re
 
 from distiller_cm5_sdk.hardware.audio.audio import Audio
+from distiller_cm5_sdk import get_model_path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,12 +14,17 @@ logger = logging.getLogger("Piper")
 
 
 class Piper:
-    def __init__(self, model_path=os.path.join(os.path.dirname(__file__), "models"),
-                 piper_path=os.path.join(os.path.dirname(__file__), "piper")):
+    def __init__(self, model_path=None, piper_path=None):
         logger.info("Piper: Initializing Piper")
         # override speaker volume
         Audio.set_speaker_volume_static(30)
 
+        # Use provided paths or get from Debian package location
+        if model_path is None:
+            model_path = get_model_path("piper")
+        if piper_path is None:
+            piper_path = os.path.join(model_path, "piper")
+        
         self.model_path = model_path
         self.piper_path = piper_path
         self.voice_onnx = os.path.join(self.model_path, "en_US-amy-medium.onnx")

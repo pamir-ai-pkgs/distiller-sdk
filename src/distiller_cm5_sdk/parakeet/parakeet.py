@@ -12,6 +12,7 @@ import soundfile as sf
 import sounddevice as sd
 
 from distiller_cm5_sdk.hardware.audio.audio import Audio
+from distiller_cm5_sdk import get_model_path
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,8 +26,9 @@ class Parakeet:
             audio_config = dict()
         if model_config is None:
             model_config = dict()
+        model_path = get_model_path("parakeet")
         self.model_config = {
-            "model_path": model_config.get("model_path", os.path.join(os.path.dirname(__file__), "models")),
+            "model_path": model_config.get("model_path", model_path),
             "device": model_config.get("device", "cpu"),
             "num_threads": model_config.get("num_threads",4),
             "vad_silence_duration": vad_silence_duration,

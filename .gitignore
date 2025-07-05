@@ -17,14 +17,21 @@ sdist/
 # uv lock file
 uv.lock
 
+# Virtual environment
+.venv/
+venv/
+
 # Output files
 src/distiller_cm5_sdk/piper/output.wav
 src/distiller_cm5_sdk/hardware/camera/camera_test_output/
+src/distiller_cm5_sdk/hardware/eink/lib/target
+src/distiller_cm5_sdk/hardware/eink/lib/target-build
 
 # Large model/data files (uncomment if you download these instead of checking in)
 src/distiller_cm5_sdk/piper/models/
-src/distiller_cm5_sdk/piper/piper/espeak-ng-data/
+src/distiller_cm5_sdk/piper/piper/
 src/distiller_cm5_sdk/whisper/models/
+src/distiller_cm5_sdk/parakeet/models/
 
 # OS generated files
 .DS_Store
@@ -41,3 +48,6 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 nbproject/ 
+
+# Extras
+final_review_gate.py
