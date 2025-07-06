@@ -444,7 +444,7 @@ pub fn rust_convert_png_to_1bit(filename: &str) -> Result<Vec<u8>, DisplayError>
 }
 
 // C FFI exports
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn display_init() -> c_int {
     match rust_display_init() {
         Ok(()) => 1, // true
@@ -455,7 +455,7 @@ pub extern "C" fn display_init() -> c_int {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn display_image_raw(data: *const u8, mode: c_int) -> c_int {
     if data.is_null() {
         return 0;
@@ -477,7 +477,7 @@ pub extern "C" fn display_image_raw(data: *const u8, mode: c_int) -> c_int {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn display_image_png(filename: *const c_char, mode: c_int) -> c_int {
     if filename.is_null() {
         return 0;
@@ -505,7 +505,7 @@ pub extern "C" fn display_image_png(filename: *const c_char, mode: c_int) -> c_i
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn display_clear() -> c_int {
     match rust_display_clear() {
         Ok(()) => 1,
@@ -516,21 +516,21 @@ pub extern "C" fn display_clear() -> c_int {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn display_sleep() {
     if let Err(e) = rust_display_sleep() {
         log::error!("Display sleep failed: {}", e);
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn display_cleanup() {
     if let Err(e) = rust_display_cleanup() {
         log::error!("Display cleanup failed: {}", e);
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn display_get_dimensions(width: *mut c_uint, height: *mut c_uint) {
     if !width.is_null() && !height.is_null() {
         let (w, h) = rust_display_get_dimensions();
@@ -541,7 +541,7 @@ pub extern "C" fn display_get_dimensions(width: *mut c_uint, height: *mut c_uint
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn convert_png_to_1bit(filename: *const c_char, output_data: *mut u8) -> c_int {
     if filename.is_null() || output_data.is_null() {
         return 0;
