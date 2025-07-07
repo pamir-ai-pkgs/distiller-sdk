@@ -14,8 +14,8 @@ sdist/
 *.egg
 *.whl
 
-# uv lock file
-uv.lock
+# uv lock file is tracked for reproducible builds
+# uv.lock
 
 # Virtual environment
 .venv/
@@ -51,3 +51,10 @@ nbproject/
 
 # Extras
 final_review_gate.py
+
+# Debian packaging files
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/distiller-cm5-sdk.substvars
+debian/distiller-cm5-sdk/
+debian/files

@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "distiller-cm5-sdk"
-version = "0.1.0"
+version = "0.0.1"
 authors = [
   { name = "PamirAI Inc", email = "founders@pamir.ai" }
 ]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "build>=1.2.2.post1",
     "faster-whisper>=1.1.1",
@@ -17,7 +17,7 @@ dependencies = [
     "pillow>=11.2.1",
     "pyaudio>=0.2.14",
     "pyserial>=3.5",
-    "sherpa-onnx>=1.11.6",
+    "sherpa-onnx>=1.12.4",
     "sounddevice>=0.5.2",
     "soundfile>=0.13.1",
     "spidev>=3.7",

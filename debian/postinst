@@ -1,41 +1,52 @@
 #!/bin/sh
 set -e
 
-# Setup the Python environment
+# Setup the Python environment using uv
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
-    # Create virtual environment
-    python3 -m venv /opt/distiller-cm5-sdk/venv
+    echo "Setting up Distiller CM5 SDK with uv and Python 3.11..."
     
-    # Activate virtual environment and install dependencies
-    . /opt/distiller-cm5-sdk/venv/bin/activate
-    pip install -r /opt/distiller-cm5-sdk/requirements.txt
+    # Install uv if it's not available
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "Installing uv package manager..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        # Make uv available in the current shell session
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+    
+    # Ensure we have uv in PATH for the installation
+    if [ -f "$HOME/.local/bin/uv" ]; then
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+    
+    # Create virtual environment using uv with Python 3.11
+    cd /opt/distiller-cm5-sdk
+    echo "Creating Python 3.11 virtual environment using uv..."
+    uv venv --python python3.11 venv
+    
+    # Install dependencies using uv sync with the existing pyproject.toml
+    echo "Installing Python dependencies using uv sync..."
+    if [ -f "uv.lock" ]; then
+        echo "Found uv.lock file, using uv sync --frozen..."
+        uv sync --frozen
+    else
+        echo "No uv.lock file found, using uv sync to generate lockfile..."
+        uv sync
+    fi
     
     # Create convenience script for activating the environment
     cat > /opt/distiller-cm5-sdk/activate.sh << 'EOF'
 #!/bin/bash
 # Activate the distiller-cm5-sdk virtual environment
 source /opt/distiller-cm5-sdk/venv/bin/activate
-export PYTHONPATH="/opt/distiller-cm5-sdk:$PYTHONPATH"
+export PYTHONPATH="/opt/distiller-cm5-sdk/src:$PYTHONPATH"
 export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
-echo "Distiller CM5 SDK environment activated"
+echo "Distiller CM5 SDK environment activated (Python 3.11 with uv)"
 echo "Python packages available: distiller_cm5_sdk"
 echo "Models available in: /opt/distiller-cm5-sdk/models/"
 echo "Shared library: /opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so"
 EOF
     
     chmod +x /opt/distiller-cm5-sdk/activate.sh
-    
-    # Create a Python launcher script
-    cat > /opt/distiller-cm5-sdk/python << 'EOF'
-#!/bin/bash
-# Launch Python with the distiller-cm5-sdk environment
-source /opt/distiller-cm5-sdk/venv/bin/activate
-export PYTHONPATH="/opt/distiller-cm5-sdk:$PYTHONPATH"
-export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
-exec python3 "$@"
-EOF
-    
-    chmod +x /opt/distiller-cm5-sdk/python
     
     # Create a README file
     cat > /opt/distiller-cm5-sdk/README << 'EOF'
@@ -44,9 +55,21 @@ Distiller CM5 SDK - Debian Package Installation
 
 This package installs the Distiller CM5 SDK to /opt/distiller-cm5-sdk.
 
-Quick Start:
+The SDK uses uv for Python package management with Python 3.11.
+
+Usage:
 1. Activate the environment: source /opt/distiller-cm5-sdk/activate.sh
-2. Use Python: /opt/distiller-cm5-sdk/python your_script.py
+2. Use the SDK in your projects by setting PYTHONPATH and LD_LIBRARY_PATH
+
+For dependent projects (like distiller-cm5-mcp-hub and distiller-cm5-services):
+- Set PYTHONPATH to include /opt/distiller-cm5-sdk/src
+- Set LD_LIBRARY_PATH to include /opt/distiller-cm5-sdk/lib
+- Use the virtual environment at /opt/distiller-cm5-sdk/venv
+
+Package management:
+- To add packages: cd /opt/distiller-cm5-sdk && uv add <package>
+- To remove packages: cd /opt/distiller-cm5-sdk && uv remove <package>
+- To sync packages: cd /opt/distiller-cm5-sdk && uv sync
 
 For more information, see: /usr/share/doc/distiller-cm5-sdk/README.Debian
 EOF
@@ -60,6 +83,7 @@ EOF
     ldconfig
     
     echo "Distiller CM5 SDK installed successfully to /opt/distiller-cm5-sdk"
+    echo "Python 3.11 virtual environment created with uv"
     echo "To activate the environment, run: source /opt/distiller-cm5-sdk/activate.sh"
 fi
 

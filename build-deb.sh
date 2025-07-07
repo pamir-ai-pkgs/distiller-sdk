@@ -2,7 +2,7 @@
 
 # Script Name: build-deb.sh
 # Description: Build the distiller-cm5-sdk Debian package
-# Usage: ./build-deb.sh [--clean] [--whisper]
+# Usage: ./build-deb.sh [clean] [whisper]
 
 set -e
 
@@ -62,7 +62,7 @@ check_command "debuild"
 if [ "$CLEAN_BUILD" = true ]; then
 	echo "[INFO] Cleaning previous builds..."
 	sudo rm -rf build/ dist/ *.egg-info/ .venv/
-	sudo rm -f ../distiller-cm5-sdk_*.deb ../distiller-cm5-sdk_*.dsc ../distiller-cm5-sdk_*.tar.gz ../distiller-cm5-sdk_*.changes
+	sudo rm -f ../distiller-cm5-sdk_*.deb ../distiller-cm5-sdk_*.dsc ../distiller-cm5-sdk_*.tar.gz ../distiller-cm5-sdk_*.changes ../distiller-cm5-sdk_*.buildinfo
 	sudo rm -f distiller-cm5-sdk_*.deb distiller-cm5-sdk_*.dsc distiller-cm5-sdk_*.tar.gz distiller-cm5-sdk_*.changes
 	sudo rm -f distiller_cm5_sdk-*.whl distiller_cm5_sdk-*.tar.gz
 	sudo debian/rules clean || true
@@ -102,11 +102,23 @@ cd ../../../../..
 # Download models
 if [ "$INCLUDE_WHISPER" = true ]; then
 	echo "[INFO] Downloading models including Whisper..."
-	./build.sh --whisper
+	./build.sh whisper
 else
 	echo "[INFO] Downloading models (excluding Whisper)..."
 	./build.sh
 fi
+
+# Generate uv.lock file for the package
+echo "[INFO] Generating uv.lock file..."
+if ! command -v uv >/dev/null 2>&1; then
+	echo "[INFO] Installing uv for lockfile generation..."
+	curl -LsSf https://astral.sh/uv/install.sh | sh
+	export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# Initialize uv project and generate lockfile
+uv lock --python python3.11
+echo "[INFO] uv.lock file generated successfully"
 
 # Build Debian package
 print_status() {

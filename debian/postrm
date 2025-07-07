@@ -6,15 +6,18 @@ set -e
 if [ "$1" = "remove" ] || [ "$1" = "upgrade" ] || [ "$1" = "deconfigure" ]; then
     echo "Removing distiller-cm5-sdk..."
     
-    # Remove virtual environment
+    # Remove uv virtual environment
     if [ -d "/opt/distiller-cm5-sdk/venv" ]; then
-        echo "Removing virtual environment..."
+        echo "Removing uv virtual environment..."
         rm -rf /opt/distiller-cm5-sdk/venv
     fi
     
+    # Remove uv-related files
+    rm -f /opt/distiller-cm5-sdk/uv.lock
+    rm -f /opt/distiller-cm5-sdk/.python-version
+    
     # Remove convenience scripts
     rm -f /opt/distiller-cm5-sdk/activate.sh
-    rm -f /opt/distiller-cm5-sdk/python
     rm -f /opt/distiller-cm5-sdk/README
     
     # Remove symlink to shared library
