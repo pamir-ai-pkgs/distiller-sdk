@@ -5,33 +5,78 @@ set -e
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
     echo "Setting up Distiller CM5 SDK with uv and Python 3.11..."
     
-    # Install uv if it's not available
-    if ! command -v uv >/dev/null 2>&1; then
+    # Install uv if not available
+    UV_BINARY=""
+    if command -v uv >/dev/null 2>&1; then
+        UV_BINARY="uv"
+    elif [ -f "/usr/local/bin/uv" ] && [ -x "/usr/local/bin/uv" ]; then
+        UV_BINARY="/usr/local/bin/uv"
+        export PATH="/usr/local/bin:$PATH"
+    else
         echo "Installing uv package manager..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        # Make uv available in the current shell session
-        export PATH="$HOME/.local/bin:$PATH"
+        # Install uv system-wide
+        if ! curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null 2>&1; then
+            echo "Error: Failed to install uv package manager"
+            exit 1
+        fi
+        
+        # Make uv available system-wide
+        if [ -f "/root/.local/bin/uv" ]; then
+            # Only copy if the target doesn't exist or is different
+            if [ ! -f "/usr/local/bin/uv" ] || ! cmp -s "/root/.local/bin/uv" "/usr/local/bin/uv"; then
+                cp /root/.local/bin/uv /usr/local/bin/uv 2>/dev/null || true
+            fi
+            if [ ! -f "/usr/local/bin/uvx" ] || ! cmp -s "/root/.local/bin/uvx" "/usr/local/bin/uvx"; then
+                cp /root/.local/bin/uvx /usr/local/bin/uvx 2>/dev/null || true
+            fi
+            chmod +x /usr/local/bin/uv /usr/local/bin/uvx 2>/dev/null || true
+            UV_BINARY="/usr/local/bin/uv"
+            export PATH="/usr/local/bin:$PATH"
+        else
+            echo "Error: uv installation failed"
+            exit 1
+        fi
     fi
     
-    # Ensure we have uv in PATH for the installation
-    if [ -f "$HOME/.local/bin/uv" ]; then
-        export PATH="$HOME/.local/bin:$PATH"
+    # Verify uv installation
+    if [ -n "$UV_BINARY" ] && [ -x "$UV_BINARY" ]; then
+        echo "Using uv at: $UV_BINARY"
+    elif command -v uv >/dev/null 2>&1; then
+        UV_BINARY="uv"
+    else
+        echo "Error: uv is not available after installation"
+        exit 1
     fi
     
     # Create virtual environment using uv with Python 3.11
     cd /opt/distiller-cm5-sdk
     echo "Creating Python 3.11 virtual environment using uv..."
-    uv venv --python python3.11 venv
+    rm -rf venv 2>/dev/null || true
+    "$UV_BINARY" venv --python python3.11 venv >/dev/null 2>&1
     
     # Install dependencies using uv sync with the existing pyproject.toml
     echo "Installing Python dependencies using uv sync..."
     if [ -f "uv.lock" ]; then
         echo "Found uv.lock file, using uv sync --frozen..."
-        uv sync --frozen
+        "$UV_BINARY" sync --frozen >/dev/null 2>&1
     else
         echo "No uv.lock file found, using uv sync to generate lockfile..."
-        uv sync
+        "$UV_BINARY" sync >/dev/null 2>&1
     fi
+    
+    # Verify virtual environment was created successfully
+    VENV_PYTHON="/opt/distiller-cm5-sdk/venv/bin/python"
+    if [ ! -f "$VENV_PYTHON" ]; then
+        echo "Error: Virtual environment setup failed"
+        exit 1
+    fi
+    
+    # Test basic imports to verify installation
+    echo "Verifying Python package installation..."
+    "$VENV_PYTHON" -c "import sys; print('Python version:', sys.version)" >/dev/null 2>&1 || {
+        echo "Error: Python environment verification failed"
+        exit 1
+    }
     
     # Create convenience script for activating the environment
     cat > /opt/distiller-cm5-sdk/activate.sh << 'EOF'
@@ -40,10 +85,15 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 source /opt/distiller-cm5-sdk/venv/bin/activate
 export PYTHONPATH="/opt/distiller-cm5-sdk/src:$PYTHONPATH"
 export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
-echo "Distiller CM5 SDK environment activated (Python 3.11 with uv)"
+echo "Distiller CM5 SDK environment activated (Python 3.11 with uv package manager)"
 echo "Python packages available: distiller_cm5_sdk"
 echo "Models available in: /opt/distiller-cm5-sdk/models/"
 echo "Shared library: /opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so"
+echo ""
+echo "Package management with uv:"
+echo "  Add package: cd /opt/distiller-cm5-sdk && uv add <package>"
+echo "  Remove package: cd /opt/distiller-cm5-sdk && uv remove <package>"
+echo "  Update dependencies: cd /opt/distiller-cm5-sdk && uv sync"
 EOF
     
     chmod +x /opt/distiller-cm5-sdk/activate.sh
@@ -83,7 +133,8 @@ EOF
     ldconfig
     
     echo "Distiller CM5 SDK installed successfully to /opt/distiller-cm5-sdk"
-    echo "Python 3.11 virtual environment created with uv"
+    echo "Python 3.11 virtual environment created with uv package manager"
+    echo "All Python dependencies installed via uv sync"
     echo "To activate the environment, run: source /opt/distiller-cm5-sdk/activate.sh"
 fi
 
