@@ -51,8 +51,8 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
     # Create virtual environment using uv with Python 3.11
     cd /opt/distiller-cm5-sdk
     echo "Creating Python 3.11 virtual environment using uv..."
-    rm -rf venv 2>/dev/null || true
-    "$UV_BINARY" venv --python python3.11 venv >/dev/null 2>&1
+    rm -rf .venv 2>/dev/null || true
+    "$UV_BINARY" venv --python python3.11 .venv >/dev/null 2>&1
     
     # Install dependencies using uv sync with the existing pyproject.toml
     echo "Installing Python dependencies using uv sync..."
@@ -65,7 +65,7 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
     fi
     
     # Verify virtual environment was created successfully
-    VENV_PYTHON="/opt/distiller-cm5-sdk/venv/bin/python"
+    VENV_PYTHON="/opt/distiller-cm5-sdk/.venv/bin/python"
     if [ ! -f "$VENV_PYTHON" ]; then
         echo "Error: Virtual environment setup failed"
         exit 1
@@ -82,7 +82,7 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
     cat > /opt/distiller-cm5-sdk/activate.sh << 'EOF'
 #!/bin/bash
 # Activate the distiller-cm5-sdk virtual environment
-source /opt/distiller-cm5-sdk/venv/bin/activate
+source /opt/distiller-cm5-sdk/.venv/bin/activate
 export PYTHONPATH="/opt/distiller-cm5-sdk/src:$PYTHONPATH"
 export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
 echo "Distiller CM5 SDK environment activated (Python 3.11 with uv package manager)"
@@ -114,7 +114,7 @@ Usage:
 For dependent projects (like distiller-cm5-mcp-hub and distiller-cm5-services):
 - Set PYTHONPATH to include /opt/distiller-cm5-sdk/src
 - Set LD_LIBRARY_PATH to include /opt/distiller-cm5-sdk/lib
-- Use the virtual environment at /opt/distiller-cm5-sdk/venv
+- Use the virtual environment at /opt/distiller-cm5-sdk/.venv
 
 Package management:
 - To add packages: cd /opt/distiller-cm5-sdk && uv add <package>

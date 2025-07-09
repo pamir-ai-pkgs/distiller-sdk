@@ -9,7 +9,7 @@ if [ "$1" = "remove" ] || [ "$1" = "upgrade" ] || [ "$1" = "deconfigure" ]; then
     # Check if any processes are using the SDK files
     if [ -d "/opt/distiller-cm5-sdk" ]; then
         # Find processes using the uv virtual environment
-        VENV_PROCESSES=$(lsof +D /opt/distiller-cm5-sdk/venv 2>/dev/null | grep -v COMMAND || true)
+        VENV_PROCESSES=$(lsof +D /opt/distiller-cm5-sdk/.venv 2>/dev/null | grep -v COMMAND || true)
         if [ -n "$VENV_PROCESSES" ]; then
             echo "Warning: Some processes are still using the distiller-cm5-sdk uv virtual environment:"
             echo "$VENV_PROCESSES"
