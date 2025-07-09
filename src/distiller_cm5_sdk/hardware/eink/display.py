@@ -23,6 +23,12 @@ class DisplayMode(IntEnum):
     PARTIAL = 1   # Partial refresh - fast updates
 
 
+class FirmwareType:
+    """Supported e-ink display firmware types."""
+    EPD128x250 = "EPD128x250"
+    EPD240x416 = "EPD240x416"
+
+
 class Display:
     """
     Display class for interacting with the CM5 e-ink display system.
@@ -35,10 +41,10 @@ class Display:
     - Manage display power states
     """
     
-    # Display constants
-    WIDTH = 128
-    HEIGHT = 250
-    ARRAY_SIZE = (WIDTH * HEIGHT) // 8  # 4000 bytes for 1-bit data
+    # Display constants (will be updated dynamically)
+    WIDTH = 128  # Default, will be updated after initialization
+    HEIGHT = 250  # Default, will be updated after initialization
+    ARRAY_SIZE = (128 * 250) // 8  # Default, will be updated after initialization
     
     def __init__(self, library_path: Optional[str] = None, auto_init: bool = True):
         """
@@ -134,6 +140,25 @@ class Display:
         # convert_png_to_1bit(const char* filename, uint8_t* output_data) -> bool
         self._lib.convert_png_to_1bit.restype = c_bool
         self._lib.convert_png_to_1bit.argtypes = [c_char_p, ctypes.POINTER(ctypes.c_ubyte)]
+        
+        # Configuration functions (optional - may not exist in older libraries)
+        try:
+            # display_set_firmware(const char* firmware_str) -> bool
+            self._lib.display_set_firmware.restype = c_bool
+            self._lib.display_set_firmware.argtypes = [c_char_p]
+            
+            # display_get_firmware(char* firmware_str, uint32_t max_len) -> bool
+            self._lib.display_get_firmware.restype = c_bool
+            self._lib.display_get_firmware.argtypes = [ctypes.c_char_p, c_uint32]
+            
+            # display_initialize_config() -> bool
+            self._lib.display_initialize_config.restype = c_bool
+            self._lib.display_initialize_config.argtypes = []
+            
+            self._config_available = True
+        except AttributeError:
+            # Configuration functions not available in this library version
+            self._config_available = False
     
     def initialize(self) -> None:
         """
@@ -145,11 +170,62 @@ class Display:
         if self._initialized:
             return
         
+        # Initialize configuration system first (if available)
+        if hasattr(self, '_config_available') and self._config_available:
+            try:
+                config_success = self._lib.display_initialize_config()
+                if not config_success:
+                    # Config initialization failed, but continue with defaults
+                    print("Warning: Failed to initialize config system, using defaults")
+            except Exception as e:
+                print(f"Warning: Config system error: {e}")
+        
         success = self._lib.display_init()
         if not success:
             raise DisplayError("Failed to initialize display hardware")
         
+        # Update dimensions based on current firmware
+        self._update_dimensions()
+        
         self._initialized = True
+    
+    def _update_dimensions(self) -> None:
+        """Update display dimensions from the library."""
+        try:
+            width_ptr = ctypes.pointer(c_uint32())
+            height_ptr = ctypes.pointer(c_uint32())
+            self._lib.display_get_dimensions(width_ptr, height_ptr)
+            
+            self.WIDTH = width_ptr.contents.value
+            self.HEIGHT = height_ptr.contents.value
+            self.ARRAY_SIZE = (self.WIDTH * self.HEIGHT) // 8
+            
+            # Also update class-level constants for backwards compatibility
+            Display.WIDTH = self.WIDTH
+            Display.HEIGHT = self.HEIGHT
+            Display.ARRAY_SIZE = self.ARRAY_SIZE
+            
+        except Exception as e:
+            print(f"Warning: Could not get dimensions from library: {e}")
+            # Keep default values
+    
+    def get_dimensions(self) -> Tuple[int, int]:
+        """
+        Get display dimensions.
+        
+        Returns:
+            Tuple of (width, height) in pixels
+        """
+        if not self._initialized:
+            # Try to get dimensions without initializing
+            try:
+                width_ptr = ctypes.pointer(c_uint32())
+                height_ptr = ctypes.pointer(c_uint32())
+                self._lib.display_get_dimensions(width_ptr, height_ptr)
+                return (width_ptr.contents.value, height_ptr.contents.value)
+            except:
+                return (self.WIDTH, self.HEIGHT)
+        return (self.WIDTH, self.HEIGHT)
     
     def display_image(self, image: Union[str, bytes], mode: DisplayMode = DisplayMode.FULL, rotate: bool = False, flip_horizontal: bool = False, invert_colors: bool = False, src_width: int = None, src_height: int = None) -> None:
         """
@@ -303,6 +379,58 @@ class Display:
         if self._initialized:
             self._lib.display_cleanup()
             self._initialized = False
+    
+    def set_firmware(self, firmware_type: str) -> None:
+        """
+        Set the default firmware type for the display.
+        
+        Args:
+            firmware_type: Firmware type string (e.g., "EPD128x250", "EPD240x416")
+            
+        Raises:
+            DisplayError: If firmware type is invalid or setting fails
+        """
+        if not (hasattr(self, '_config_available') and self._config_available):
+            raise DisplayError("Configuration system not available. Please rebuild the Rust library.")
+        
+        firmware_bytes = firmware_type.encode('utf-8')
+        success = self._lib.display_set_firmware(firmware_bytes)
+        if not success:
+            raise DisplayError(f"Failed to set firmware type: {firmware_type}")
+    
+    def get_firmware(self) -> str:
+        """
+        Get the current default firmware type.
+        
+        Returns:
+            Current firmware type string
+            
+        Raises:
+            DisplayError: If getting firmware fails
+        """
+        if not (hasattr(self, '_config_available') and self._config_available):
+            raise DisplayError("Configuration system not available. Please rebuild the Rust library.")
+        
+        buffer = ctypes.create_string_buffer(64)  # Should be enough for firmware names
+        success = self._lib.display_get_firmware(buffer, 64)
+        if not success:
+            raise DisplayError("Failed to get current firmware type")
+        return buffer.value.decode('utf-8')
+    
+    def initialize_config(self) -> None:
+        """
+        Initialize the configuration system.
+        This loads configuration from environment variables and config files.
+        
+        Raises:
+            DisplayError: If configuration initialization fails
+        """
+        if not (hasattr(self, '_config_available') and self._config_available):
+            raise DisplayError("Configuration system not available. Please rebuild the Rust library.")
+        
+        success = self._lib.display_initialize_config()
+        if not success:
+            raise DisplayError("Failed to initialize configuration system")
     
     def __enter__(self):
         """Context manager entry."""
@@ -469,4 +597,66 @@ def invert_bitpacked_colors(src_data: bytes) -> bytes:
         Color-inverted 1-bit packed data (same size as input)
     """
     # Invert all bits in the data (flip white<->black)
-    return bytes(~byte & 0xFF for byte in src_data) 
+    return bytes(~byte & 0xFF for byte in src_data)
+
+
+# Configuration convenience functions
+def set_default_firmware(firmware_type: str) -> None:
+    """
+    Set the default firmware type globally.
+    
+    Args:
+        firmware_type: Firmware type string (e.g., FirmwareType.EPD128x250, FirmwareType.EPD240x416)
+        
+    Raises:
+        DisplayError: If firmware type is invalid or setting fails
+        
+    Example:
+        set_default_firmware(FirmwareType.EPD240x416)
+    """
+    display = Display(auto_init=False)
+    display.set_firmware(firmware_type)
+
+
+def get_default_firmware() -> str:
+    """
+    Get the current default firmware type.
+    
+    Returns:
+        Current firmware type string
+        
+    Raises:
+        DisplayError: If getting firmware fails
+        
+    Example:
+        current_fw = get_default_firmware()
+        print(f"Current firmware: {current_fw}")
+    """
+    display = Display(auto_init=False)
+    return display.get_firmware()
+
+
+def initialize_display_config() -> None:
+    """
+    Initialize the display configuration system.
+    
+    This loads configuration from:
+    - Environment variable: DISTILLER_EINK_FIRMWARE
+    - Config files: /opt/distiller-cm5-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf
+    - Falls back to EPD128x250 default
+    
+    Raises:
+        DisplayError: If configuration initialization fails
+        
+    Example:
+        # Set via environment variable
+        import os
+        os.environ['DISTILLER_EINK_FIRMWARE'] = 'EPD240x416'
+        initialize_display_config()
+        
+        # Or via config file
+        # echo "firmware=EPD240x416" > /opt/distiller-cm5-sdk/eink.conf
+        initialize_display_config()
+    """
+    display = Display(auto_init=False)
+    display.initialize_config() 

@@ -1,0 +1,20 @@
+# Rust build artifacts
+target/
+target-build
+*.so
+*.dylib
+*.dll
+
+# Cargo lock file (optional, but common to ignore in libraries)
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
