@@ -10,6 +10,7 @@ from ctypes import c_bool, c_char_p, c_uint32, POINTER
 from enum import IntEnum
 from typing import Optional, Tuple, Union
 import tempfile
+from PIL import Image, ImageOps
 
 
 class DisplayError(Exception):
@@ -27,6 +28,19 @@ class FirmwareType:
     """Supported e-ink display firmware types."""
     EPD128x250 = "EPD128x250"
     EPD240x416 = "EPD240x416"
+
+
+class ScalingMethod(IntEnum):
+    """Image scaling methods for auto-conversion."""
+    LETTERBOX = 0     # Maintain aspect ratio, add black borders
+    CROP_CENTER = 1   # Center crop to fill display
+    STRETCH = 2       # Stretch to fill display (may distort)
+
+
+class DitheringMethod(IntEnum):
+    """Dithering methods for 1-bit conversion."""
+    FLOYD_STEINBERG = 0  # High quality dithering
+    SIMPLE = 1           # Fast threshold conversion
 
 
 class Display:
@@ -441,10 +455,172 @@ class Display:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.close()
+    
+    def _get_display_dimensions(self) -> Tuple[int, int]:
+        """Get current display dimensions."""
+        if not self._initialized:
+            self.initialize()
+        return self.WIDTH, self.HEIGHT
+    
+    def _convert_png_auto(self, image_path: str, scaling: ScalingMethod = ScalingMethod.LETTERBOX, 
+                         dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG) -> str:
+        """
+        Convert any PNG to display-compatible format.
+        
+        Args:
+            image_path: Path to source PNG file
+            scaling: How to scale the image to fit display
+            dithering: Dithering method for 1-bit conversion
+            
+        Returns:
+            Path to converted temporary PNG file
+            
+        Raises:
+            DisplayError: If conversion fails
+        """
+        if not os.path.exists(image_path):
+            raise DisplayError(f"PNG file not found: {image_path}")
+        
+        # Get display dimensions
+        display_width, display_height = self._get_display_dimensions()
+        
+        try:
+            # Load and process the image
+            with Image.open(image_path) as img:
+                # Convert to RGB if needed (handles RGBA, palette, etc.)
+                if img.mode not in ('RGB', 'L'):
+                    img = img.convert('RGB')
+                
+                # Scale the image based on method
+                processed_img = self._scale_image(img, display_width, display_height, scaling)
+                
+                # Convert to 1-bit with dithering
+                if dithering == DitheringMethod.FLOYD_STEINBERG:
+                    bw_img = processed_img.convert('1', dither=Image.FLOYDSTEINBERG)
+                else:
+                    bw_img = processed_img.convert('1', dither=Image.NONE)
+                
+                # Save to temporary file
+                temp_fd, temp_path = tempfile.mkstemp(suffix='.png', prefix='eink_auto_')
+                try:
+                    os.close(temp_fd)
+                    bw_img.save(temp_path, 'PNG')
+                    return temp_path
+                except Exception as e:
+                    try:
+                        os.unlink(temp_path)
+                    except:
+                        pass
+                    raise DisplayError(f"Failed to save converted image: {e}")
+                
+        except Exception as e:
+            raise DisplayError(f"Failed to convert PNG: {e}")
+    
+    def _scale_image(self, img: Image.Image, target_width: int, target_height: int, 
+                    scaling: ScalingMethod) -> Image.Image:
+        """
+        Scale image according to specified method.
+        
+        Args:
+            img: Source PIL Image
+            target_width: Target display width
+            target_height: Target display height
+            scaling: Scaling method to use
+            
+        Returns:
+            Scaled PIL Image
+        """
+        orig_width, orig_height = img.size
+        
+        if scaling == ScalingMethod.STRETCH:
+            # Simple stretch to fill display
+            return img.resize((target_width, target_height), Image.LANCZOS)
+        
+        elif scaling == ScalingMethod.CROP_CENTER:
+            # Scale to fill display completely, then center crop
+            scale_w = target_width / orig_width
+            scale_h = target_height / orig_height
+            scale = max(scale_w, scale_h)  # Scale to fill
+            
+            new_width = int(orig_width * scale)
+            new_height = int(orig_height * scale)
+            
+            # Resize first
+            scaled_img = img.resize((new_width, new_height), Image.LANCZOS)
+            
+            # Center crop
+            left = (new_width - target_width) // 2
+            top = (new_height - target_height) // 2
+            right = left + target_width
+            bottom = top + target_height
+            
+            return scaled_img.crop((left, top, right, bottom))
+        
+        else:  # LETTERBOX (default)
+            # Scale to fit within display, maintaining aspect ratio
+            scale_w = target_width / orig_width
+            scale_h = target_height / orig_height
+            scale = min(scale_w, scale_h)  # Scale to fit
+            
+            new_width = int(orig_width * scale)
+            new_height = int(orig_height * scale)
+            
+            # Resize the image
+            scaled_img = img.resize((new_width, new_height), Image.LANCZOS)
+            
+            # Create new image with target dimensions and paste scaled image centered
+            result = Image.new('RGB', (target_width, target_height), 'white')
+            paste_x = (target_width - new_width) // 2
+            paste_y = (target_height - new_height) // 2
+            result.paste(scaled_img, (paste_x, paste_y))
+            
+            return result
+    
+    def display_png_auto(self, image_path: str, mode: DisplayMode = DisplayMode.FULL,
+                        scaling: ScalingMethod = ScalingMethod.LETTERBOX,
+                        dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
+                        cleanup_temp: bool = True) -> bool:
+        """
+        Display any PNG image with automatic conversion to display specifications.
+        
+        Args:
+            image_path: Path to source PNG file
+            mode: Display refresh mode
+            scaling: How to scale the image to fit display
+            dithering: Dithering method for 1-bit conversion
+            cleanup_temp: Whether to cleanup temporary files
+            
+        Returns:
+            True if successful, False otherwise
+            
+        Raises:
+            DisplayError: If display operation fails
+        """
+        temp_path = None
+        try:
+            # Convert image to display format
+            temp_path = self._convert_png_auto(image_path, scaling, dithering)
+            
+            # Display the converted image
+            self.display_image(temp_path, mode, rotate=False)
+            return True
+            
+        except Exception as e:
+            raise DisplayError(f"Failed to auto-display PNG: {e}")
+            
+        finally:
+            # Cleanup temporary file
+            if cleanup_temp and temp_path and os.path.exists(temp_path):
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass  # Ignore cleanup errors
 
 
 # Convenience functions for simple usage (following SDK pattern)
-def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: bool = False) -> None:
+def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: bool = False, 
+                auto_convert: bool = False, scaling: ScalingMethod = ScalingMethod.LETTERBOX,
+                dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG) -> None:
     """
     Convenience function to display a PNG image.
     
@@ -452,9 +628,31 @@ def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: boo
         filename: Path to PNG file 
         mode: Display refresh mode
         rotate: If True, rotate landscape PNG (250x128) to portrait (128x250)
+        auto_convert: If True, automatically convert any PNG to display format
+        scaling: How to scale the image to fit display (only used with auto_convert)
+        dithering: Dithering method for 1-bit conversion (only used with auto_convert)
     """
     with Display() as display:
-        display.display_image(filename, mode, rotate)
+        if auto_convert:
+            display.display_png_auto(filename, mode, scaling, dithering)
+        else:
+            display.display_image(filename, mode, rotate)
+
+
+def display_png_auto(filename: str, mode: DisplayMode = DisplayMode.FULL,
+                    scaling: ScalingMethod = ScalingMethod.LETTERBOX,
+                    dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG) -> None:
+    """
+    Convenience function to display any PNG image with automatic conversion.
+    
+    Args:
+        filename: Path to PNG file (any size, any format)
+        mode: Display refresh mode
+        scaling: How to scale the image to fit display
+        dithering: Dithering method for 1-bit conversion
+    """
+    with Display() as display:
+        display.display_png_auto(filename, mode, scaling, dithering)
 
 
 def clear_display() -> None:

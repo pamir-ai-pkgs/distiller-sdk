@@ -397,16 +397,91 @@ if __name__ == "__main__":
 
 ### E-ink Display Control
 
+The e-ink display system has been completely rewritten with configurable firmware support, allowing different display sizes and configurations. The system automatically detects and configures the appropriate firmware type at runtime.
+
+#### Supported Display Types
+- **EPD128x250**: 128x250 pixel display (4,000 bytes, default for backward compatibility)
+- **EPD240x416**: 240x416 pixel display (12,480 bytes)
+
+#### Configuration Priority Order
+The configuration system searches for settings in this priority order:
+1. **Environment Variable**: `DISTILLER_EINK_FIRMWARE`
+2. **Config Files**: `/opt/distiller-cm5-sdk/eink.conf`, `./eink.conf`, `~/.distiller/eink.conf`
+3. **Default**: `EPD128x250` (backward compatibility)
+
+#### Configuration Methods
+
+**Environment Variable:**
+```bash
+export DISTILLER_EINK_FIRMWARE="EPD240x416"
+python your_script.py
+```
+
+**Config File Example (`/opt/distiller-cm5-sdk/eink.conf`):**
+```ini
+# E-ink Display Configuration
+# Supported firmware types:
+# - EPD128x250: 128x250 pixel display (default)
+# - EPD240x416: 240x416 pixel display
+
+firmware=EPD240x416
+```
+
+**Programmatic Configuration:**
 ```python
-from distiller_cm5_sdk.hardware.eink import EinkDriver, load_and_convert_image
+from distiller_cm5_sdk.hardware.eink import (
+    set_default_firmware, 
+    get_default_firmware,
+    initialize_display_config, 
+    FirmwareType
+)
+
+# Set firmware type using enum
+set_default_firmware(FirmwareType.EPD240x416)
+
+# Set firmware type using string
+set_default_firmware("EPD240x416")
+
+# Initialize from environment/config files
+initialize_display_config()
+
+# Get current firmware configuration
+current_firmware = get_default_firmware()
+print(f"Current firmware: {current_firmware}")
+```
+
+#### Dynamic Dimension Updates
+Display dimensions are automatically updated based on the configured firmware:
+- **EPD128x250**: 128×250 pixels, 4,000 bytes array size
+- **EPD240x416**: 240×416 pixels, 12,480 bytes array size
+
+The `EinkDriver` class properties (`WIDTH`, `HEIGHT`, `ARRAY_SIZE`) are dynamically updated after initialization.
+
+#### Usage Examples
+
+```python
+from distiller_cm5_sdk.hardware.eink import EinkDriver, load_and_convert_image, set_default_firmware, FirmwareType
 import os
 
+def eink_configuration_example():
+    """Demonstrate e-ink display configuration"""
+    try:
+        # Configure display firmware before initialization
+        set_default_firmware(FirmwareType.EPD240x416)
+        print("Firmware set to EPD240x416")
+        
+        # Alternative: Initialize from environment/config files
+        # initialize_display_config()
+        
+    except Exception as e:
+        print(f"Error configuring display: {e}")
+
 def eink_display_example():
-    """e-ink display control example"""
+    """E-ink display control example"""
     display = None
     
     try:
-        # Initialize display
+        # Initialize display (uses configured firmware type)
         display = EinkDriver()
         display.initialize()
         print("E-ink display initialized successfully")
@@ -451,6 +526,34 @@ def eink_display_example():
             except Exception as e:
                 print(f"Error during cleanup: {e}")
 
+def eink_multi_firmware_example():
+    """Demonstrate different firmware configurations"""
+    firmware_types = [FirmwareType.EPD128x250, FirmwareType.EPD240x416]
+    
+    for firmware in firmware_types:
+        try:
+            print(f"Testing with firmware: {firmware.name}")
+            
+            # Set firmware type
+            set_default_firmware(firmware)
+            
+            # Initialize display
+            display = EinkDriver()
+            display.initialize()
+            
+            # Display dimensions are now dynamic based on firmware
+            print(f"Display dimensions: {display.WIDTH}x{display.HEIGHT}")
+            
+            # Clear display
+            display.clear_display()
+            display.cleanup()
+            
+            import time
+            time.sleep(1)
+            
+        except Exception as e:
+            print(f"Error with firmware {firmware.name}: {e}")
+
 def eink_image_processing_example():
     """Demonstrate image processing for e-ink display"""
     try:
@@ -486,7 +589,9 @@ def eink_image_processing_example():
 
 # Run examples
 if __name__ == "__main__":
+    eink_configuration_example()
     eink_display_example()
+    eink_multi_firmware_example()
     eink_image_processing_example()
 ```
 
@@ -877,12 +982,70 @@ apt rdepends distiller-cm5-sdk
 5. **E-ink display issues:**
    - Check device permissions: `ls -la /dev/spi*`
    - Verify SPI interface: `lsmod | grep spi`
+   - Test configuration system: `python -c "from distiller_cm5_sdk.hardware.eink import get_default_firmware, initialize_display_config; initialize_display_config(); print(f'Firmware: {get_default_firmware()}')"`
+   - Check firmware configuration: `echo $DISTILLER_EINK_FIRMWARE` or `cat /opt/distiller-cm5-sdk/eink.conf`
    - Test with minimal example: `python -c "from distiller_cm5_sdk.hardware.eink import EinkDriver; print('Import successful')"`
+   - For dimension mismatches, verify firmware type: `python -c "from distiller_cm5_sdk.hardware.eink import FirmwareType, set_default_firmware; set_default_firmware(FirmwareType.EPD240x416); print('Firmware updated')"`
 
 6. **Camera access problems:**
    - Check camera devices: `ls -la /dev/video*`
    - Test with v4l2: `v4l2-ctl --list-devices`
    - Verify permissions: `sudo usermod -a -G video $USER`
+
+### E-ink Configuration Troubleshooting
+
+**Configuration Issues:**
+```bash
+# Check current firmware configuration
+python -c "
+from distiller_cm5_sdk.hardware.eink import get_default_firmware, initialize_display_config
+try:
+    initialize_display_config()
+    print(f'✓ Current firmware: {get_default_firmware()}')
+except Exception as e:
+    print(f'✗ Configuration error: {e}')
+"
+
+# Verify configuration sources
+echo "Environment variable: $DISTILLER_EINK_FIRMWARE"
+echo "Config file locations:"
+ls -la /opt/distiller-cm5-sdk/eink.conf 2>/dev/null || echo "  /opt/distiller-cm5-sdk/eink.conf: Not found"
+ls -la ./eink.conf 2>/dev/null || echo "  ./eink.conf: Not found"
+ls -la ~/.distiller/eink.conf 2>/dev/null || echo "  ~/.distiller/eink.conf: Not found"
+```
+
+**Firmware Configuration Reset:**
+```bash
+# Reset to default firmware
+python -c "
+from distiller_cm5_sdk.hardware.eink import set_default_firmware, FirmwareType
+set_default_firmware(FirmwareType.EPD128x250)
+print('Firmware reset to EPD128x250 (default)')
+"
+
+# Set specific firmware for your display
+python -c "
+from distiller_cm5_sdk.hardware.eink import set_default_firmware, FirmwareType
+set_default_firmware(FirmwareType.EPD240x416)
+print('Firmware set to EPD240x416')
+"
+```
+
+**Display Dimension Verification:**
+```bash
+# Check display dimensions after configuration
+python -c "
+from distiller_cm5_sdk.hardware.eink import EinkDriver, set_default_firmware, FirmwareType
+
+# Test with different firmware types
+for firmware in [FirmwareType.EPD128x250, FirmwareType.EPD240x416]:
+    set_default_firmware(firmware)
+    display = EinkDriver()
+    display.initialize()
+    print(f'{firmware.name}: {display.WIDTH}x{display.HEIGHT} pixels, {display.ARRAY_SIZE} bytes')
+    display.cleanup()
+"
+```
 
 ### Environment Verification
 
