@@ -464,6 +464,7 @@ class Display:
     
     def _convert_png_auto(self, image_path: str, scaling: ScalingMethod = ScalingMethod.LETTERBOX, 
                          dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
+                         rotate: bool = False, flop: bool = False,
                          crop_x: Optional[int] = None, crop_y: Optional[int] = None) -> str:
         """
         Convert any PNG to display-compatible format.
@@ -472,6 +473,8 @@ class Display:
             image_path: Path to source PNG file
             scaling: How to scale the image to fit display
             dithering: Dithering method for 1-bit conversion
+            rotate: If True, rotate image 90 degrees counter-clockwise
+            flop: If True, flip image horizontally (left-right mirror)
             crop_x: X position for crop when using CROP_CENTER (None = center)
             crop_y: Y position for crop when using CROP_CENTER (None = center)
             
@@ -493,6 +496,12 @@ class Display:
                 # Convert to RGB if needed (handles RGBA, palette, etc.)
                 if img.mode not in ('RGB', 'L'):
                     img = img.convert('RGB')
+                
+                # Apply transformations (rotate, flop)
+                if flop:
+                    img = img.transpose(Image.FLIP_LEFT_RIGHT)
+                if rotate:
+                    img = img.transpose(Image.ROTATE_90)
                 
                 # Scale the image based on method
                 processed_img = self._scale_image(img, display_width, display_height, scaling, crop_x, crop_y)
@@ -593,6 +602,7 @@ class Display:
     def display_png_auto(self, image_path: str, mode: DisplayMode = DisplayMode.FULL,
                         scaling: ScalingMethod = ScalingMethod.LETTERBOX,
                         dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
+                        rotate: bool = False, flop: bool = False,
                         crop_x: Optional[int] = None, crop_y: Optional[int] = None,
                         cleanup_temp: bool = True) -> bool:
         """
@@ -603,6 +613,8 @@ class Display:
             mode: Display refresh mode
             scaling: How to scale the image to fit display
             dithering: Dithering method for 1-bit conversion
+            rotate: If True, rotate image 90 degrees counter-clockwise
+            flop: If True, flip image horizontally (left-right mirror)
             crop_x: X position for crop when using CROP_CENTER (None = center)
             crop_y: Y position for crop when using CROP_CENTER (None = center)
             cleanup_temp: Whether to cleanup temporary files
@@ -616,7 +628,7 @@ class Display:
         temp_path = None
         try:
             # Convert image to display format
-            temp_path = self._convert_png_auto(image_path, scaling, dithering, crop_x, crop_y)
+            temp_path = self._convert_png_auto(image_path, scaling, dithering, rotate, flop, crop_x, crop_y)
             
             # Display the converted image
             self.display_image(temp_path, mode, rotate=False)
@@ -638,7 +650,7 @@ class Display:
 def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: bool = False, 
                 auto_convert: bool = False, scaling: ScalingMethod = ScalingMethod.LETTERBOX,
                 dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-                crop_x: Optional[int] = None, crop_y: Optional[int] = None) -> None:
+                flop: bool = False, crop_x: Optional[int] = None, crop_y: Optional[int] = None) -> None:
     """
     Convenience function to display a PNG image.
     
@@ -649,12 +661,13 @@ def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: boo
         auto_convert: If True, automatically convert any PNG to display format
         scaling: How to scale the image to fit display (only used with auto_convert)
         dithering: Dithering method for 1-bit conversion (only used with auto_convert)
+        flop: If True, flip image horizontally (only used with auto_convert)
         crop_x: X position for crop when using CROP_CENTER with auto_convert (None = center)
         crop_y: Y position for crop when using CROP_CENTER with auto_convert (None = center)
     """
     with Display() as display:
         if auto_convert:
-            display.display_png_auto(filename, mode, scaling, dithering, crop_x, crop_y)
+            display.display_png_auto(filename, mode, scaling, dithering, rotate, flop, crop_x, crop_y)
         else:
             display.display_image(filename, mode, rotate)
 
@@ -662,6 +675,7 @@ def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: boo
 def display_png_auto(filename: str, mode: DisplayMode = DisplayMode.FULL,
                     scaling: ScalingMethod = ScalingMethod.LETTERBOX,
                     dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
+                    rotate: bool = False, flop: bool = False,
                     crop_x: Optional[int] = None, crop_y: Optional[int] = None) -> None:
     """
     Convenience function to display any PNG image with automatic conversion.
@@ -671,11 +685,13 @@ def display_png_auto(filename: str, mode: DisplayMode = DisplayMode.FULL,
         mode: Display refresh mode
         scaling: How to scale the image to fit display
         dithering: Dithering method for 1-bit conversion
+        rotate: If True, rotate image 90 degrees counter-clockwise
+        flop: If True, flip image horizontally (left-right mirror)
         crop_x: X position for crop when using CROP_CENTER (None = center)
         crop_y: Y position for crop when using CROP_CENTER (None = center)
     """
     with Display() as display:
-        display.display_png_auto(filename, mode, scaling, dithering, crop_x, crop_y)
+        display.display_png_auto(filename, mode, scaling, dithering, rotate, flop, crop_x, crop_y)
 
 
 def clear_display() -> None:
