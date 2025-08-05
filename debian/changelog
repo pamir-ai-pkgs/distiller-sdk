@@ -1,3 +1,35 @@
+distiller-cm5-sdk (0.1.0-1) unstable; urgency=medium
+
+  [ utsavbalar1231 ]
+  * fix: eink: Replace #[no_mangle] with #[unsafe(no_mangle)]
+  * chore(debian): update packaging scripts and metadata
+  * chore(debian): Improve uv installation and error handling
+
+  [ UtsavBalar1231 ]
+  * feat!(eink): Rewrite rust display library with configurable firmware
+
+  [ utsavbalar1231 ]
+  * chore(debian): Use default .venv path instead of visible venv
+  * chore: Add png auto conversion method and update docs
+
+  [ TianqiYe ]
+  * added sdk for quick eink image display
+  * added optional auto display rotate + flop
+
+  [ utsavbalar1231 ]
+  * chore: Update display and audio tests
+
+  [ Kevin Zhang ]
+  * update sam sdk to support new led uart protocol
+
+  [ utsavbalar1231 ]
+  * chore(parakeet): Reduce num_threads from 4 to 1
+  * chore: Sync uv.lock
+  * chore(debian): Fix uv package installation and use latest available python
+  * chore(pyproject.toml): Sync
+
+ -- PamirAI Incorporated <founders@pamir.ai>  Tue, 05 Aug 2025 16:08:37 +0530
+
 distiller-cm5-sdk (0.0.1-1) unstable; urgency=medium
 
   * Initial release of the Distiller CM5 SDK as a Debian package.
