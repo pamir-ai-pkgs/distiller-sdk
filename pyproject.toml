@@ -1,37 +1,51 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+requires = [ "setuptools>=61", "wheel" ]
 
 [project]
 name = "distiller-cm5-sdk"
-version = "0.0.1"
-authors = [
-  { name = "PamirAI Inc", email = "founders@pamir.ai" }
-]
+version = "0.1.0"
 readme = "README.md"
+authors = [
+  { name = "PamirAI Inc", email = "founders@pamir.ai" },
+]
 requires-python = ">=3.11"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
 dependencies = [
-    "build>=1.2.2.post1",
-    "faster-whisper>=1.1.1",
-    "opencv-python>=4.11.0.86",
-    "pillow>=11.2.1",
-    "pyaudio>=0.2.14",
-    "pyserial>=3.5",
-    "sherpa-onnx>=1.12.4",
-    "sounddevice>=0.5.2",
-    "soundfile>=0.13.1",
-    "spidev>=3.7",
+  "build>=1.2.2.post1",
+  "faster-whisper>=1.1.1",
+  "opencv-python>=4.11.0.86",
+  "pillow>=11.2.1",
+  "pyaudio>=0.2.14",
+  "pyserial>=3.5",
+  "sherpa-onnx<1.12.7",
+  "sounddevice>=0.5.2",
+  "soundfile>=0.13.1",
+  "spidev>=3.7",
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = [ "src" ]
 
 [tool.setuptools.package-data]
 "distiller_cm5_sdk" = [
-    "hardware/eink/lib/*.so",
-    "hardware/eink/lib/*.h",
-    "parakeet/models/*",
-    "piper/models/*",
-    "piper/piper/**/*",
-    "hardware/audio/test_audio.wav",
+  "hardware/eink/lib/*.so",
+  "hardware/eink/lib/*.h",
+  "parakeet/models/*",
+  "piper/models/*",
+  "piper/piper/**/*",
+  "hardware/audio/test_audio.wav",
 ]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.uv]
+index-url = "https://pypi.org/simple"
