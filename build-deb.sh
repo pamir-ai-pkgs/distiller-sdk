@@ -108,17 +108,9 @@ else
 	./build.sh
 fi
 
-# Generate uv.lock file for the package
-echo "[INFO] Generating uv.lock file..."
-if ! command -v uv >/dev/null 2>&1; then
-	echo "[INFO] Installing uv for lockfile generation..."
-	curl -LsSf https://astral.sh/uv/install.sh | sh
-	export PATH="$HOME/.local/bin:$PATH"
-fi
-
-# Initialize uv project and generate lockfile
-uv lock --python python3.11
-echo "[INFO] uv.lock file generated successfully"
+# Note: uv.lock is not generated during package build to avoid architecture conflicts
+# The postinst script will generate the lock file during installation on the target system
+echo "[INFO] Skipping uv.lock generation (will be generated during installation)"
 
 # Build Debian package
 print_status() {

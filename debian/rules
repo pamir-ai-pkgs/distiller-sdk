@@ -28,10 +28,8 @@ override_dh_auto_install:
 	cp pyproject.toml $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/
 	# Copy README.md file (required by pyproject.toml)
 	cp README.md $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/
-	# Copy uv.lock if it exists
-	if [ -f uv.lock ]; then \
-		cp uv.lock $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/; \
-	fi
+	# Note: uv.lock is not copied to avoid architecture conflicts
+	# It will be generated during installation on the target system
 	# Copy requirements.txt as backup (for compatibility)
 	if [ -f requirements.txt ]; then \
 		cp requirements.txt $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/; \

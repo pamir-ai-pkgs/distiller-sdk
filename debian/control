@@ -25,7 +25,7 @@ Depends: ${misc:Depends},
          portaudio19-dev,
          libasound2-dev,
          build-essential,
-         pkg-config
+         pkgconf
 Description: Distiller CM5 SDK - Self-contained Python SDK for hardware control
  The Distiller CM5 SDK provides a self-contained Python environment with modules,
  model files, and native libraries for audio, camera, e-ink display, and TTS/ASR

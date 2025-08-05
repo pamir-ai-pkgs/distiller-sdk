@@ -7,9 +7,9 @@ if [ "$1" = "remove" ] || [ "$1" = "upgrade" ] || [ "$1" = "deconfigure" ]; then
     echo "Removing distiller-cm5-sdk..."
     
     # Remove uv virtual environment
-    if [ -d "/opt/distiller-cm5-sdk/venv" ]; then
+    if [ -d "/opt/distiller-cm5-sdk/.venv" ]; then
         echo "Removing uv virtual environment..."
-        rm -rf /opt/distiller-cm5-sdk/venv
+        rm -rf /opt/distiller-cm5-sdk/.venv
     fi
     
     # Remove uv-related files
