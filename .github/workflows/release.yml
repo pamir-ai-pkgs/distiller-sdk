@@ -81,6 +81,7 @@ jobs:
             build-essential \
             debhelper \
             dh-python \
+            devscripts \
             curl \
             ca-certificates \
             pkg-config \
