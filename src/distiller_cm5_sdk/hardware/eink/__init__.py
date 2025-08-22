@@ -2,5 +2,7 @@ from .display import (
     Display, DisplayError, DisplayMode, FirmwareType,
     ScalingMethod, DitheringMethod,
     display_png, display_png_auto, clear_display, get_display_info,
-    set_default_firmware, get_default_firmware, initialize_display_config
+    set_default_firmware, get_default_firmware, initialize_display_config,
+    rotate_bitpacked, rotate_bitpacked_ccw_90, rotate_bitpacked_cw_90, 
+    rotate_bitpacked_180, flip_bitpacked_horizontal, invert_bitpacked_colors
 )

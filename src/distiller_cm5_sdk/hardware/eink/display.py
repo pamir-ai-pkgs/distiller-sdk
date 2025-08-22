@@ -241,14 +241,16 @@ class Display:
                 return (self.WIDTH, self.HEIGHT)
         return (self.WIDTH, self.HEIGHT)
     
-    def display_image(self, image: Union[str, bytes], mode: DisplayMode = DisplayMode.FULL, rotate: bool = False, flip_horizontal: bool = False, invert_colors: bool = False, src_width: int = None, src_height: int = None) -> None:
+    def display_image(self, image: Union[str, bytes], mode: DisplayMode = DisplayMode.FULL, rotate: Union[bool, int] = False, flip_horizontal: bool = False, invert_colors: bool = False, src_width: int = None, src_height: int = None) -> None:
         """
         Display an image on the e-ink screen.
         
         Args:
             image: Either a PNG file path (string) or raw 1-bit image data (bytes)
             mode: Display refresh mode
-            rotate: If True, rotate landscape data (250x128) to portrait (128x250) 
+            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
+                   If True, rotate 90 degrees CCW (landscape 250x128 to portrait 128x250)
+                   If False or 0, no rotation
             flip_horizontal: If True, mirror the image horizontally (left-right)
             invert_colors: If True, invert colors (black↔white)
             src_width: Source width in pixels (required when transforming raw data)
@@ -260,14 +262,20 @@ class Display:
         if not self._initialized:
             raise DisplayError("Display not initialized. Call initialize() first.")
         
+        # Handle backward compatibility for boolean rotate parameter
+        if isinstance(rotate, bool):
+            rotation_degrees = 90 if rotate else 0
+        else:
+            rotation_degrees = rotate
+        
         if isinstance(image, str):
             # PNG file path
-            self._display_png(image, mode, rotate, flip_horizontal, invert_colors)
+            self._display_png(image, mode, rotation_degrees, flip_horizontal, invert_colors)
         elif isinstance(image, (bytes, bytearray)):
             # Raw image data
             raw_data = bytes(image)
             
-            if flip_horizontal or rotate or invert_colors:
+            if flip_horizontal or rotation_degrees != 0 or invert_colors:
                 if src_width is None or src_height is None:
                     raise DisplayError("src_width and src_height are required when transforming raw data")
                 
@@ -275,9 +283,9 @@ class Display:
                 if flip_horizontal:
                     raw_data = flip_bitpacked_horizontal(raw_data, src_width, src_height)
                 
-                if rotate:
-                    # If we flipped, dimensions stay the same for rotation
-                    raw_data = rotate_bitpacked_ccw_90(raw_data, src_width, src_height)
+                if rotation_degrees != 0:
+                    # Use the generic rotation function
+                    raw_data = rotate_bitpacked(raw_data, src_width, src_height, rotation_degrees)
                 
                 if invert_colors:
                     raw_data = invert_bitpacked_colors(raw_data)
@@ -286,12 +294,18 @@ class Display:
         else:
             raise DisplayError(f"Invalid image type: {type(image)}. Expected str or bytes.")
     
-    def _display_png(self, filename: str, mode: DisplayMode, rotate: bool = False, flip_horizontal: bool = False, invert_colors: bool = False) -> None:
+    def _display_png(self, filename: str, mode: DisplayMode, rotate: Union[bool, int] = False, flip_horizontal: bool = False, invert_colors: bool = False) -> None:
         """Display a PNG image file."""
         if not os.path.exists(filename):
             raise DisplayError(f"PNG file not found: {filename}")
         
-        if rotate or flip_horizontal or invert_colors:
+        # Handle backward compatibility for boolean rotate parameter
+        if isinstance(rotate, bool):
+            rotation_degrees = 90 if rotate else 0
+        else:
+            rotation_degrees = rotate
+        
+        if rotation_degrees != 0 or flip_horizontal or invert_colors:
             # For PNG transformations, convert to raw data first
             raw_data = self.convert_png_to_raw(filename)
             # Assume PNG is 250x128 landscape format when transforming
@@ -300,8 +314,9 @@ class Display:
             if flip_horizontal:
                 raw_data = flip_bitpacked_horizontal(raw_data, 250, 128)
                 
-            if rotate:
-                raw_data = rotate_bitpacked_ccw_90(raw_data, 250, 128)
+            if rotation_degrees != 0:
+                # Use the generic rotation function
+                raw_data = rotate_bitpacked(raw_data, 250, 128, rotation_degrees)
                 
             if invert_colors:
                 raw_data = invert_bitpacked_colors(raw_data)
@@ -647,7 +662,7 @@ class Display:
 
 
 # Convenience functions for simple usage (following SDK pattern)
-def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: bool = False, 
+def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: Union[bool, int] = False, 
                 auto_convert: bool = False, scaling: ScalingMethod = ScalingMethod.LETTERBOX,
                 dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
                 flop: bool = False, crop_x: Optional[int] = None, crop_y: Optional[int] = None) -> None:
@@ -657,7 +672,9 @@ def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: boo
     Args:
         filename: Path to PNG file 
         mode: Display refresh mode
-        rotate: If True, rotate landscape PNG (250x128) to portrait (128x250)
+        rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
+               If True, rotate 90 degrees CCW (landscape 250x128 to portrait 128x250)
+               If False or 0, no rotation
         auto_convert: If True, automatically convert any PNG to display format
         scaling: How to scale the image to fit display (only used with auto_convert)
         dithering: Dithering method for 1-bit conversion (only used with auto_convert)
@@ -667,7 +684,13 @@ def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: boo
     """
     with Display() as display:
         if auto_convert:
-            display.display_png_auto(filename, mode, scaling, dithering, rotate, flop, crop_x, crop_y)
+            # For auto_convert, handle boolean rotate differently (it expects bool)
+            if isinstance(rotate, int) and rotate != 0:
+                # Convert degrees to boolean for display_png_auto
+                rotate_bool = True if rotate == 90 else False
+                display.display_png_auto(filename, mode, scaling, dithering, rotate_bool, flop, crop_x, crop_y)
+            else:
+                display.display_png_auto(filename, mode, scaling, dithering, rotate, flop, crop_x, crop_y)
         else:
             display.display_image(filename, mode, rotate)
 
@@ -769,6 +792,153 @@ def rotate_bitpacked_ccw_90(src_data: bytes, src_width: int, src_height: int) ->
                 dst_data[dst_byte_idx] |= (1 << dst_bit_pos)
     
     return bytes(dst_data)
+
+
+def rotate_bitpacked_cw_90(src_data: bytes, src_width: int, src_height: int) -> bytes:
+    """
+    Rotate 1-bit packed bitmap data 90 degrees clockwise.
+    
+    This function rotates the image 90 degrees clockwise (equivalent to 270 degrees
+    counter-clockwise). It swaps width and height dimensions.
+    
+    Args:
+        src_data: Source 1-bit packed image data
+        src_width: Source image width in pixels
+        src_height: Source image height in pixels
+        
+    Returns:
+        Rotated 1-bit packed data with dimensions (src_height x src_width)
+        
+    Raises:
+        ValueError: If data size doesn't match expected size
+    """
+    # Validate input data size
+    expected_bytes = (src_width * src_height + 7) // 8
+    if len(src_data) < expected_bytes:
+        raise ValueError(f"Input data too small. Expected {expected_bytes} bytes, got {len(src_data)}")
+    
+    # Calculate destination dimensions and buffer size
+    dst_width = src_height
+    dst_height = src_width
+    dst_bytes = (dst_width * dst_height + 7) // 8
+    
+    # Initialize destination buffer (all zeros = white)
+    dst_data = bytearray(dst_bytes)
+    
+    # For each pixel in source
+    for src_y in range(src_height):
+        for src_x in range(src_width):
+            # Get bit from source - MSB first
+            src_bit_idx = src_y * src_width + src_x
+            src_byte_idx = src_bit_idx // 8
+            src_bit_pos = 7 - (src_bit_idx % 8)  # MSB first
+            src_bit = (src_data[src_byte_idx] >> src_bit_pos) & 1
+            
+            # Calculate destination coordinates (clockwise rotation)
+            dst_x = src_height - 1 - src_y
+            dst_y = src_x
+            
+            # Set bit in destination - MSB first
+            dst_bit_idx = dst_y * dst_width + dst_x
+            dst_byte_idx = dst_bit_idx // 8
+            dst_bit_pos = 7 - (dst_bit_idx % 8)  # MSB first
+            
+            if src_bit:
+                dst_data[dst_byte_idx] |= (1 << dst_bit_pos)
+    
+    return bytes(dst_data)
+
+
+def rotate_bitpacked_180(src_data: bytes, src_width: int, src_height: int) -> bytes:
+    """
+    Rotate 1-bit packed bitmap data 180 degrees.
+    
+    This function rotates the image 180 degrees, keeping the same dimensions
+    but reversing both horizontal and vertical orientations.
+    
+    Args:
+        src_data: Source 1-bit packed image data
+        src_width: Source image width in pixels
+        src_height: Source image height in pixels
+        
+    Returns:
+        Rotated 1-bit packed data with same dimensions
+        
+    Raises:
+        ValueError: If data size doesn't match expected size
+    """
+    # Validate input data size
+    expected_bytes = (src_width * src_height + 7) // 8
+    if len(src_data) < expected_bytes:
+        raise ValueError(f"Input data too small. Expected {expected_bytes} bytes, got {len(src_data)}")
+    
+    # Initialize destination buffer (same size as source)
+    dst_data = bytearray(expected_bytes)
+    
+    # For each pixel in source
+    for src_y in range(src_height):
+        for src_x in range(src_width):
+            # Get bit from source - MSB first
+            src_bit_idx = src_y * src_width + src_x
+            src_byte_idx = src_bit_idx // 8
+            src_bit_pos = 7 - (src_bit_idx % 8)  # MSB first
+            src_bit = (src_data[src_byte_idx] >> src_bit_pos) & 1
+            
+            # Calculate destination coordinates (180 degree rotation)
+            dst_x = src_width - 1 - src_x
+            dst_y = src_height - 1 - src_y
+            
+            # Set bit in destination - MSB first
+            dst_bit_idx = dst_y * src_width + dst_x
+            dst_byte_idx = dst_bit_idx // 8
+            dst_bit_pos = 7 - (dst_bit_idx % 8)  # MSB first
+            
+            if src_bit:
+                dst_data[dst_byte_idx] |= (1 << dst_bit_pos)
+    
+    return bytes(dst_data)
+
+
+def rotate_bitpacked(src_data: bytes, src_width: int, src_height: int, degrees: int) -> bytes:
+    """
+    Rotate 1-bit packed bitmap data by specified degrees.
+    
+    This is a generic rotation function that routes to specific implementations
+    based on the rotation angle.
+    
+    Args:
+        src_data: Source 1-bit packed image data
+        src_width: Source image width in pixels
+        src_height: Source image height in pixels
+        degrees: Rotation angle in degrees (0, 90, 180, 270, or multiples)
+        
+    Returns:
+        Rotated 1-bit packed data
+        
+    Raises:
+        ValueError: If data size doesn't match expected size
+    """
+    # Normalize degrees to 0-359 range
+    normalized_degrees = degrees % 360
+    
+    if normalized_degrees == 0:
+        # No rotation needed
+        return src_data
+    elif normalized_degrees == 90:
+        # 90 degrees counter-clockwise
+        return rotate_bitpacked_ccw_90(src_data, src_width, src_height)
+    elif normalized_degrees == 180:
+        # 180 degrees
+        return rotate_bitpacked_180(src_data, src_width, src_height)
+    elif normalized_degrees == 270:
+        # 270 degrees counter-clockwise (90 degrees clockwise)
+        return rotate_bitpacked_cw_90(src_data, src_width, src_height)
+    else:
+        # For non-90-degree multiples, find the closest 90-degree multiple
+        closest = round(normalized_degrees / 90) * 90
+        if closest == 360:
+            closest = 0
+        return rotate_bitpacked(src_data, src_width, src_height, closest)
 
 
 def flip_bitpacked_horizontal(src_data: bytes, src_width: int, src_height: int) -> bytes:
