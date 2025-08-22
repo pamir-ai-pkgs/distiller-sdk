@@ -479,7 +479,7 @@ class Display:
     
     def _convert_png_auto(self, image_path: str, scaling: ScalingMethod = ScalingMethod.LETTERBOX, 
                          dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-                         rotate: bool = False, flop: bool = False,
+                         rotate: Union[bool, int] = False, flop: bool = False,
                          crop_x: Optional[int] = None, crop_y: Optional[int] = None) -> str:
         """
         Convert any PNG to display-compatible format.
@@ -488,7 +488,9 @@ class Display:
             image_path: Path to source PNG file
             scaling: How to scale the image to fit display
             dithering: Dithering method for 1-bit conversion
-            rotate: If True, rotate image 90 degrees counter-clockwise
+            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
+                   If True, rotate 90 degrees counter-clockwise
+                   If False or 0, no rotation
             flop: If True, flip image horizontally (left-right mirror)
             crop_x: X position for crop when using CROP_CENTER (None = center)
             crop_y: Y position for crop when using CROP_CENTER (None = center)
@@ -515,8 +517,23 @@ class Display:
                 # Apply transformations (rotate, flop)
                 if flop:
                     img = img.transpose(Image.FLIP_LEFT_RIGHT)
+                
+                # Handle rotation with degree support
                 if rotate:
-                    img = img.transpose(Image.ROTATE_90)
+                    # Convert boolean to degrees for backward compatibility
+                    if isinstance(rotate, bool):
+                        rotation_degrees = 90 if rotate else 0
+                    else:
+                        rotation_degrees = rotate % 360
+                    
+                    # Apply rotation based on degrees
+                    if rotation_degrees == 90:
+                        img = img.transpose(Image.ROTATE_90)
+                    elif rotation_degrees == 180:
+                        img = img.transpose(Image.ROTATE_180)
+                    elif rotation_degrees == 270:
+                        img = img.transpose(Image.ROTATE_270)
+                    # 0 degrees or other values: no rotation
                 
                 # Scale the image based on method
                 processed_img = self._scale_image(img, display_width, display_height, scaling, crop_x, crop_y)
@@ -617,7 +634,7 @@ class Display:
     def display_png_auto(self, image_path: str, mode: DisplayMode = DisplayMode.FULL,
                         scaling: ScalingMethod = ScalingMethod.LETTERBOX,
                         dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-                        rotate: bool = False, flop: bool = False,
+                        rotate: Union[bool, int] = False, flop: bool = False,
                         crop_x: Optional[int] = None, crop_y: Optional[int] = None,
                         cleanup_temp: bool = True) -> bool:
         """
@@ -628,7 +645,9 @@ class Display:
             mode: Display refresh mode
             scaling: How to scale the image to fit display
             dithering: Dithering method for 1-bit conversion
-            rotate: If True, rotate image 90 degrees counter-clockwise
+            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
+                   If True, rotate 90 degrees counter-clockwise
+                   If False or 0, no rotation
             flop: If True, flip image horizontally (left-right mirror)
             crop_x: X position for crop when using CROP_CENTER (None = center)
             crop_y: Y position for crop when using CROP_CENTER (None = center)
@@ -684,13 +703,7 @@ def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: Uni
     """
     with Display() as display:
         if auto_convert:
-            # For auto_convert, handle boolean rotate differently (it expects bool)
-            if isinstance(rotate, int) and rotate != 0:
-                # Convert degrees to boolean for display_png_auto
-                rotate_bool = True if rotate == 90 else False
-                display.display_png_auto(filename, mode, scaling, dithering, rotate_bool, flop, crop_x, crop_y)
-            else:
-                display.display_png_auto(filename, mode, scaling, dithering, rotate, flop, crop_x, crop_y)
+            display.display_png_auto(filename, mode, scaling, dithering, rotate, flop, crop_x, crop_y)
         else:
             display.display_image(filename, mode, rotate)
 
@@ -698,7 +711,7 @@ def display_png(filename: str, mode: DisplayMode = DisplayMode.FULL, rotate: Uni
 def display_png_auto(filename: str, mode: DisplayMode = DisplayMode.FULL,
                     scaling: ScalingMethod = ScalingMethod.LETTERBOX,
                     dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-                    rotate: bool = False, flop: bool = False,
+                    rotate: Union[bool, int] = False, flop: bool = False,
                     crop_x: Optional[int] = None, crop_y: Optional[int] = None) -> None:
     """
     Convenience function to display any PNG image with automatic conversion.
@@ -708,7 +721,9 @@ def display_png_auto(filename: str, mode: DisplayMode = DisplayMode.FULL,
         mode: Display refresh mode
         scaling: How to scale the image to fit display
         dithering: Dithering method for 1-bit conversion
-        rotate: If True, rotate image 90 degrees counter-clockwise
+        rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
+               If True, rotate 90 degrees counter-clockwise
+               If False or 0, no rotation
         flop: If True, flip image horizontally (left-right mirror)
         crop_x: X position for crop when using CROP_CENTER (None = center)
         crop_y: Y position for crop when using CROP_CENTER (None = center)
