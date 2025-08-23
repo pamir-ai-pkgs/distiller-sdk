@@ -39,7 +39,7 @@ class Parakeet:
             "rate": audio_config.get("rate", 16000),
             "chunk": audio_config.get("chunk", 512),
             "record_secs": audio_config.get("record_secs", 3),
-            "device": audio_config.get("device", None),  # None means default device
+            "device": audio_config.get("device", "sysdefault"),  # None means default device
             "format": audio_config.get("format", pyaudio.paInt16)
         }
 
