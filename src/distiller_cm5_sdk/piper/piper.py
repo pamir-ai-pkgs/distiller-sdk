@@ -44,6 +44,23 @@ class Piper:
 
         logger.info("Piper: Piper initialized")
 
+    def list_voices(self):
+        """
+        List available voices for Piper TTS.
+        Returns a list of voice information dictionaries.
+        """
+        voices = [
+            {
+                "name": "en_US-amy-medium",
+                "language": "English (US)",
+                "quality": "medium",
+                "model_path": self.voice_onnx,
+                "config_path": self.voice_json
+            }
+        ]
+        logger.info(f"Piper: Available voices: {[v['name'] for v in voices]}")
+        return voices
+
     def get_wav_file_path(self, text):
         output_file_path = os.path.join(os.getcwd(), "output.wav")
         escaped_text = text.replace("'", "'\\''")
