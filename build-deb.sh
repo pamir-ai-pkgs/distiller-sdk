@@ -56,7 +56,7 @@ check_command() {
 
 echo "[INFO] Checking build dependencies..."
 check_command "dpkg-buildpackage"
-check_command "debuild"
+# check_command "debuild"
 
 # Clean previous builds if requested
 if [ "$CLEAN_BUILD" = true ]; then
@@ -138,7 +138,7 @@ for arch in $TARGET_ARCHITECTURES; do
 	print_status "Building for architecture: $arch ..."
 
 	# Try with dpkg-buildpackage first
-	dpkg-buildpackage -us -uc -b -a$arch
+	dpkg-buildpackage -us -uc -b -d -a$arch
 done
 
 # Organize build artifacts

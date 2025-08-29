@@ -73,7 +73,30 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
         exit 1
     fi
     
-    # Create virtual environment using uv
+    # Create distiller user and group if they don't exist
+    if ! getent group distiller >/dev/null 2>&1; then
+        echo "Creating distiller group..."
+        groupadd --system distiller
+    fi
+    
+    if ! getent passwd distiller >/dev/null 2>&1; then
+        echo "Creating distiller user..."
+        useradd --system --gid distiller --no-create-home --shell /bin/false distiller
+    fi
+    
+    # Add distiller user to necessary groups for hardware access
+    echo "Adding distiller user to hardware access groups..."
+    for group in audio video spi dialout gpio i2c; do
+        if getent group $group >/dev/null 2>&1; then
+            usermod -a -G $group distiller 2>/dev/null || true
+        fi
+    done
+    
+    # Set up proper ownership first
+    echo "Setting up directory ownership..."
+    chown -R distiller:distiller /opt/distiller-cm5-sdk
+    
+    # Create virtual environment using uv as distiller user
     cd /opt/distiller-cm5-sdk
     echo "Creating Python virtual environment using uv..."
     
@@ -81,17 +104,17 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
     rm -rf .venv 2>/dev/null || true
     rm -f uv.lock 2>/dev/null || true
     
-    # Create fresh virtual environment
+    # Create fresh virtual environment as distiller user
     echo "Creating fresh Python virtual environment..."
-    if ! "$UV_BINARY" venv .venv; then
+    if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$UV_BINARY\" venv .venv" distiller; then
         echo "Error: Failed to create virtual environment"
         exit 1
     fi
     
-    # Install dependencies using uv sync (always generate fresh lockfile for target architecture)
+    # Install dependencies using uv sync as distiller user
     echo "Installing Python dependencies using uv sync..."
     echo "Generating architecture-specific lockfile and installing dependencies..."
-    if ! "$UV_BINARY" sync; then
+    if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$UV_BINARY\" sync" distiller; then
         echo "Error: Failed to install Python dependencies with uv sync"
         echo "This could be due to missing system dependencies or network issues"
         echo "Please check that required system packages are installed:"
@@ -108,16 +131,16 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
         exit 1
     fi
     
-    # Test basic imports to verify installation
+    # Test basic imports to verify installation (as distiller user)
     echo "Verifying Python package installation..."
-    if ! "$VENV_PYTHON" -c "import sys; print('Python version:', sys.version)"; then
+    if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$VENV_PYTHON\" -c \"import sys; print('Python version:', sys.version)\"" distiller; then
         echo "Error: Python environment verification failed"
         exit 1
     fi
     
-    # Test SDK imports
+    # Test SDK imports (as distiller user)
     echo "Testing distiller-cm5-sdk imports..."
-    if ! "$VENV_PYTHON" -c "import distiller_cm5_sdk; print('SDK imported successfully')"; then
+    if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$VENV_PYTHON\" -c \"import distiller_cm5_sdk; print('SDK imported successfully')\"" distiller; then
         echo "Error: distiller-cm5-sdk import failed"
         exit 1
     fi
@@ -131,7 +154,7 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 source /opt/distiller-cm5-sdk/.venv/bin/activate
 export PYTHONPATH="/opt/distiller-cm5-sdk/src:$PYTHONPATH"
 export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
-echo "Distiller CM5 SDK environment activated
+echo "Distiller CM5 SDK environment activated"
 echo "Python packages available: distiller_cm5_sdk"
 echo "Models available in: /opt/distiller-cm5-sdk/models/"
 echo "Shared library: /opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so"
@@ -174,10 +197,17 @@ Package management:
 For more information, see: /usr/share/doc/distiller-cm5-sdk/README.Debian
 EOF
     
-    # Set proper permissions
-    chown -R root:root /opt/distiller-cm5-sdk
+    # Ensure proper permissions with distiller ownership (redundant but ensures consistency)
+    chown -R distiller:distiller /opt/distiller-cm5-sdk
     chmod -R 755 /opt/distiller-cm5-sdk
     chmod 644 /opt/distiller-cm5-sdk/README
+    
+    # Ensure venv scripts are executable
+    chmod +x /opt/distiller-cm5-sdk/.venv/bin/*
+    
+    # Make sure distiller user can write to the directory for package management
+    chmod 775 /opt/distiller-cm5-sdk
+    chmod 775 /opt/distiller-cm5-sdk/.venv
     
     # Update shared library cache
     ldconfig
