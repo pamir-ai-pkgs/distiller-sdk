@@ -1,0 +1,9 @@
+# Strict clippy configuration for ARM64 hardware library
+cognitive-complexity-threshold = 20
+too-many-lines-threshold = 100
+too-many-arguments-threshold = 7
+msrv = "1.89.0"
+allow-dbg-in-tests = false
+allow-expect-in-tests = false
+allow-unwrap-in-tests = false
+allow-print-in-tests = false
