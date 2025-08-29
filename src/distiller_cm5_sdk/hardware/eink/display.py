@@ -356,6 +356,7 @@ class Display:
         mode: DisplayMode = DisplayMode.FULL,
         rotate: Union[bool, int] = False,
         flip_horizontal: bool = False,
+        flip_vertical: bool = False,
         invert_colors: bool = False,
         src_width: int = None,
         src_height: int = None,
@@ -370,6 +371,7 @@ class Display:
                    If True, rotate 90 degrees CCW (landscape 250x128 to portrait 128x250)
                    If False or 0, no rotation
             flip_horizontal: If True, mirror the image horizontally (left-right)
+            flip_vertical: If True, mirror the image vertically (top-bottom)
             invert_colors: If True, invert colors (black↔white)
             src_width: Source width in pixels (required when transforming raw data)
             src_height: Source height in pixels (required when transforming raw data)
@@ -388,12 +390,14 @@ class Display:
 
         if isinstance(image, str):
             # PNG file path
-            self._display_png(image, mode, rotation_degrees, flip_horizontal, invert_colors)
+            self._display_png(
+                image, mode, rotation_degrees, flip_horizontal, flip_vertical, invert_colors
+            )
         elif isinstance(image, (bytes, bytearray)):
             # Raw image data
             raw_data = bytes(image)
 
-            if flip_horizontal or rotation_degrees != 0 or invert_colors:
+            if flip_horizontal or flip_vertical or rotation_degrees != 0 or invert_colors:
                 if src_width is None or src_height is None:
                     raise DisplayError(
                         "src_width and src_height are required when transforming raw data"
@@ -402,6 +406,9 @@ class Display:
                 # Apply transformations using Rust FFI functions
                 if flip_horizontal:
                     raw_data = self._flip_horizontal_1bit(raw_data, src_width, src_height)
+
+                if flip_vertical:
+                    raw_data = self._flip_vertical_1bit(raw_data, src_width, src_height)
 
                 if rotation_degrees != 0:
                     raw_data = self._rotate_1bit(raw_data, src_width, src_height, rotation_degrees)
@@ -419,6 +426,7 @@ class Display:
         mode: DisplayMode,
         rotate: Union[bool, int] = False,
         flip_horizontal: bool = False,
+        flip_vertical: bool = False,
         invert_colors: bool = False,
     ) -> None:
         """Display a PNG image file."""
@@ -431,7 +439,7 @@ class Display:
         else:
             rotation_degrees = rotate
 
-        if rotation_degrees != 0 or flip_horizontal or invert_colors:
+        if rotation_degrees != 0 or flip_horizontal or flip_vertical or invert_colors:
             # For PNG transformations, convert to raw data first
             raw_data = self.convert_png_to_raw(filename)
             # Assume PNG is 250x128 landscape format when transforming
@@ -439,6 +447,9 @@ class Display:
             # Apply transformations using Rust FFI functions
             if flip_horizontal:
                 raw_data = self._flip_horizontal_1bit(raw_data, 250, 128)
+
+            if flip_vertical:
+                raw_data = self._flip_vertical_1bit(raw_data, 250, 128)
 
             if rotation_degrees != 0:
                 raw_data = self._rotate_1bit(raw_data, 250, 128, rotation_degrees)
@@ -728,6 +739,7 @@ class Display:
         dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
         rotate: Union[bool, int] = False,
         flop: bool = False,
+        flip: bool = False,
         crop_x: Optional[int] = None,
         crop_y: Optional[int] = None,
     ) -> bytes:
@@ -742,6 +754,7 @@ class Display:
                    If True, rotate 90 degrees counter-clockwise
                    If False or 0, no rotation
             flop: If True, flip image horizontally (left-right mirror)
+            flip: If True, flip image vertically (top-bottom mirror)
             crop_x: X position for crop when using CROP_CENTER (None = center)
             crop_y: Y position for crop when using CROP_CENTER (None = center)
 
@@ -761,15 +774,28 @@ class Display:
             rotation_degrees = rotate % 360
 
         # Map rotation to transform type
+        # Note: Rust FFI only supports one transform at a time
+        # If multiple transforms are needed, we'll apply them sequentially
         transform = TransformType.NONE
-        if flop:
-            transform = TransformType.FLIP_HORIZONTAL
-        elif rotation_degrees == 90:
+        needs_additional_transforms = False
+
+        # Determine primary transform
+        if rotation_degrees == 90:
             transform = TransformType.ROTATE_90
         elif rotation_degrees == 180:
             transform = TransformType.ROTATE_180
         elif rotation_degrees == 270:
             transform = TransformType.ROTATE_270
+        elif flop:
+            transform = TransformType.FLIP_HORIZONTAL
+        elif flip:
+            transform = TransformType.FLIP_VERTICAL
+
+        # Check if we need additional transforms
+        if (flop and transform != TransformType.FLIP_HORIZONTAL) or (
+            flip and transform != TransformType.FLIP_VERTICAL
+        ):
+            needs_additional_transforms = True
 
         # Use Rust image_process function
         output_data = (ctypes.c_ubyte * self.ARRAY_SIZE)()
@@ -793,7 +819,18 @@ class Display:
         if not success:
             raise DisplayError(f"Failed to process image: {image_path}")
 
-        return bytes(output_data)
+        result = bytes(output_data)
+
+        # Apply additional transforms if needed
+        if needs_additional_transforms:
+            # Apply horizontal flip if needed and not already applied
+            if flop and transform != TransformType.FLIP_HORIZONTAL:
+                result = self._flip_horizontal_1bit(result, self.WIDTH, self.HEIGHT)
+            # Apply vertical flip if needed and not already applied
+            if flip and transform != TransformType.FLIP_VERTICAL:
+                result = self._flip_vertical_1bit(result, self.WIDTH, self.HEIGHT)
+
+        return result
 
     def _rotate_1bit(self, data: bytes, width: int, height: int, degrees: int) -> bytes:
         """
@@ -950,6 +987,7 @@ class Display:
         dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
         rotate: Union[bool, int] = False,
         flop: bool = False,
+        flip: bool = False,
         crop_x: Optional[int] = None,
         crop_y: Optional[int] = None,
         cleanup_temp: bool = True,
@@ -966,6 +1004,7 @@ class Display:
                    If True, rotate 90 degrees counter-clockwise
                    If False or 0, no rotation
             flop: If True, flip image horizontally (left-right mirror)
+            flip: If True, flip image vertically (top-bottom mirror)
             crop_x: X position for crop when using CROP_CENTER (None = center)
             crop_y: Y position for crop when using CROP_CENTER (None = center)
             cleanup_temp: Whether to cleanup temporary files (unused, kept for API compatibility)
@@ -979,7 +1018,7 @@ class Display:
         try:
             # Convert image to raw 1-bit data
             raw_data = self._convert_png_auto(
-                image_path, scaling, dithering, rotate, flop, crop_x, crop_y
+                image_path, scaling, dithering, rotate, flop, flip, crop_x, crop_y
             )
 
             # Display the raw data
@@ -999,6 +1038,7 @@ def display_png(
     scaling: ScalingMethod = ScalingMethod.LETTERBOX,
     dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
     flop: bool = False,
+    flip: bool = False,
     crop_x: Optional[int] = None,
     crop_y: Optional[int] = None,
 ) -> None:
@@ -1015,13 +1055,14 @@ def display_png(
         scaling: How to scale the image to fit display (only used with auto_convert)
         dithering: Dithering method for 1-bit conversion (only used with auto_convert)
         flop: If True, flip image horizontally (only used with auto_convert)
+        flip: If True, flip image vertically (only used with auto_convert)
         crop_x: X position for crop when using CROP_CENTER with auto_convert (None = center)
         crop_y: Y position for crop when using CROP_CENTER with auto_convert (None = center)
     """
     with Display() as display:
         if auto_convert:
             display.display_png_auto(
-                filename, mode, scaling, dithering, rotate, flop, crop_x, crop_y
+                filename, mode, scaling, dithering, rotate, flop, flip, crop_x, crop_y
             )
         else:
             display.display_image(filename, mode, rotate)
@@ -1034,6 +1075,7 @@ def display_png_auto(
     dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
     rotate: Union[bool, int] = False,
     flop: bool = False,
+    flip: bool = False,
     crop_x: Optional[int] = None,
     crop_y: Optional[int] = None,
 ) -> None:
@@ -1049,11 +1091,14 @@ def display_png_auto(
                If True, rotate 90 degrees counter-clockwise
                If False or 0, no rotation
         flop: If True, flip image horizontally (left-right mirror)
+        flip: If True, flip image vertically (top-bottom mirror)
         crop_x: X position for crop when using CROP_CENTER (None = center)
         crop_y: Y position for crop when using CROP_CENTER (None = center)
     """
     with Display() as display:
-        display.display_png_auto(filename, mode, scaling, dithering, rotate, flop, crop_x, crop_y)
+        display.display_png_auto(
+            filename, mode, scaling, dithering, rotate, flop, flip, crop_x, crop_y
+        )
 
 
 def clear_display() -> None:
@@ -1273,6 +1318,41 @@ def flip_bitpacked_horizontal(data: bytes, width: int, height: int) -> bytes:
 
     if not success:
         raise DisplayError("Failed to flip image horizontally")
+
+    return bytes(output)
+
+
+def flip_bitpacked_vertical(data: bytes, width: int, height: int) -> bytes:
+    """
+    Flip 1-bit packed image data vertically.
+
+    Args:
+        data: 1-bit packed image data as bytes
+        width: Image width in pixels
+        height: Image height in pixels
+
+    Returns:
+        Vertically flipped 1-bit packed image data
+
+    Raises:
+        DisplayError: If flip operation fails
+    """
+    display = Display(auto_init=False)
+
+    # Calculate buffer size
+    buffer_size = (width * height + 7) // 8
+
+    # Create output buffer
+    output = (ctypes.c_ubyte * buffer_size)()
+
+    # Create input array from bytes
+    input_array = (ctypes.c_ubyte * len(data)).from_buffer_copy(data)
+
+    # Call C function
+    success = display._lib.image_flip_vertical_1bit(input_array, width, height, output)
+
+    if not success:
+        raise DisplayError("Failed to flip image vertically")
 
     return bytes(output)
 

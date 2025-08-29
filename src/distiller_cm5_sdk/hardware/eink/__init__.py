@@ -17,6 +17,7 @@ from .display import (
     rotate_bitpacked_cw_90,
     rotate_bitpacked_180,
     flip_bitpacked_horizontal,
+    flip_bitpacked_vertical,
     invert_bitpacked_colors,
 )
 
@@ -39,5 +40,6 @@ __all__ = [
     "rotate_bitpacked_cw_90",
     "rotate_bitpacked_180",
     "flip_bitpacked_horizontal",
+    "flip_bitpacked_vertical",
     "invert_bitpacked_colors",
 ]
