@@ -165,7 +165,6 @@ dependencies = [
  "cbindgen",
  "env_logger",
  "gpiod",
- "libc",
  "lodepng",
  "log",
  "spidev",
