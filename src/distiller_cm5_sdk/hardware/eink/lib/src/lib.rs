@@ -17,9 +17,12 @@ pub mod display;
 pub mod error;
 /// FFI bindings for C interoperability
 pub mod ffi;
+/// FFI bindings for image processing functions
+pub mod ffi_image_processing;
 pub mod firmware;
 pub mod hardware;
 pub mod image;
+pub mod image_processing;
 pub mod protocol;
 
 // Re-export public API
@@ -45,6 +48,14 @@ pub use error::DisplayError;
 pub use firmware::{Command, CommandSequence, DisplayFirmware, DisplaySpec};
 pub use hardware::{DefaultHardwareInterface, GpioController, HardwareInterface, SpiController};
 pub use image::{convert_png_to_1bit, create_black_image, create_white_image, get_dimensions};
+pub use image_processing::{
+    DitherMode,
+    ImageProcessor,
+    ScaleMode,
+    ShapeDrawer,
+    TextRenderer,
+    Transform,
+};
 pub use protocol::{DisplayMode, EinkProtocol};
 
 // C FFI is automatically available through the ffi module

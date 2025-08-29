@@ -13,5 +13,5 @@ __all__ = [
     "resize_image",
     "flip_horizontal",
     "rotate_ccw_90",
-    "invert_colors"
+    "invert_colors",
 ]
