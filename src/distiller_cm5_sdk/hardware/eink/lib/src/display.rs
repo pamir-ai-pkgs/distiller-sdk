@@ -1,26 +1,64 @@
-use crate::error::DisplayError;
-use crate::image;
-use crate::protocol::{DisplayMode, EinkProtocol, create_default_protocol};
+//! Display module providing high-level e-ink display control.
+
 use std::sync::Mutex;
 
-// Display driver trait for different e-ink variants
+use crate::{
+    error::DisplayError,
+    image,
+    protocol::{DisplayMode, EinkProtocol, create_default_protocol},
+};
+
+/// Display driver trait for different e-ink variants
 pub trait DisplayDriver {
+    /// Initialize the display hardware
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if hardware initialization fails
     fn init(&mut self) -> Result<(), DisplayError>;
+    /// Display a raw 1-bit image
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if image data is invalid or display fails
     fn display_image_raw(&mut self, data: &[u8], mode: DisplayMode) -> Result<(), DisplayError>;
+    /// Display a PNG image
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if file cannot be read or display fails
     fn display_image_png(&mut self, filename: &str, mode: DisplayMode) -> Result<(), DisplayError>;
+    /// Clear the display to white
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if clearing fails
     fn clear(&mut self) -> Result<(), DisplayError>;
+    /// Put the display into sleep mode
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if sleep command fails
     fn sleep(&mut self) -> Result<(), DisplayError>;
+    /// Clean up display resources
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if cleanup fails
     fn cleanup(&mut self) -> Result<(), DisplayError>;
+    /// Get the display specifications
     fn get_spec(&self) -> &crate::firmware::DisplaySpec;
 }
 
-// Generic display implementation
+/// Generic display implementation
 pub struct GenericDisplay<P: EinkProtocol> {
     protocol: P,
     initialized: bool,
 }
 
 impl<P: EinkProtocol> GenericDisplay<P> {
+    /// Create a new generic display with the given protocol
+    #[must_use]
     pub fn new(protocol: P) -> Self {
         Self {
             protocol,
@@ -57,7 +95,7 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
 
         match mode {
             DisplayMode::Partial => self.protocol.init_partial()?,
-            DisplayMode::Full => {} // Full mode uses default initialization
+            DisplayMode::Full => {}, // Full mode uses default initialization
         }
 
         let write_ram_cmd = self.protocol.get_write_ram_command();
@@ -98,7 +136,7 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
     }
 }
 
-// Default display driver type
+/// Default display driver type using configurable protocol
 pub type DefaultDisplay = GenericDisplay<crate::protocol::DefaultProtocol>;
 
 // Global state for C FFI compatibility
@@ -108,9 +146,15 @@ struct GlobalDisplayState {
 
 static GLOBAL_STATE: Mutex<GlobalDisplayState> = Mutex::new(GlobalDisplayState { display: None });
 
-// Public Rust API functions
+/// Initialize the display hardware
+///
+/// # Errors
+///
+/// Returns `DisplayError` if hardware initialization fails
 pub fn display_init() -> Result<(), DisplayError> {
-    let mut state = GLOBAL_STATE.lock().unwrap();
+    let mut state = GLOBAL_STATE
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
 
     if state.display.is_none() {
         let protocol = create_default_protocol()?;
@@ -122,8 +166,15 @@ pub fn display_init() -> Result<(), DisplayError> {
     Ok(())
 }
 
+/// Display a raw 1-bit image
+///
+/// # Errors
+///
+/// Returns `DisplayError` if the display is not initialized or display fails
 pub fn display_image_raw(data: &[u8], mode: DisplayMode) -> Result<(), DisplayError> {
-    let mut state = GLOBAL_STATE.lock().unwrap();
+    let mut state = GLOBAL_STATE
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
 
     if let Some(display) = &mut state.display {
         display.display_image_raw(data, mode)
@@ -132,8 +183,16 @@ pub fn display_image_raw(data: &[u8], mode: DisplayMode) -> Result<(), DisplayEr
     }
 }
 
+/// Display a PNG image
+///
+/// # Errors
+///
+/// Returns `DisplayError` if the display is not initialized, file cannot be
+/// read, or display fails
 pub fn display_image_png(filename: &str, mode: DisplayMode) -> Result<(), DisplayError> {
-    let mut state = GLOBAL_STATE.lock().unwrap();
+    let mut state = GLOBAL_STATE
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
 
     if let Some(display) = &mut state.display {
         display.display_image_png(filename, mode)
@@ -142,8 +201,15 @@ pub fn display_image_png(filename: &str, mode: DisplayMode) -> Result<(), Displa
     }
 }
 
+/// Clear the display to white
+///
+/// # Errors
+///
+/// Returns `DisplayError` if the display is not initialized or clearing fails
 pub fn display_clear() -> Result<(), DisplayError> {
-    let mut state = GLOBAL_STATE.lock().unwrap();
+    let mut state = GLOBAL_STATE
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
 
     if let Some(display) = &mut state.display {
         display.clear()
@@ -152,8 +218,16 @@ pub fn display_clear() -> Result<(), DisplayError> {
     }
 }
 
+/// Put the display into sleep mode
+///
+/// # Errors
+///
+/// Returns `DisplayError` if the display is not initialized or sleep command
+/// fails
 pub fn display_sleep() -> Result<(), DisplayError> {
-    let mut state = GLOBAL_STATE.lock().unwrap();
+    let mut state = GLOBAL_STATE
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
 
     if let Some(display) = &mut state.display {
         display.sleep()
@@ -162,8 +236,15 @@ pub fn display_sleep() -> Result<(), DisplayError> {
     }
 }
 
+/// Clean up display resources and put it to sleep
+///
+/// # Errors
+///
+/// Returns `DisplayError` if cleanup fails
 pub fn display_cleanup() -> Result<(), DisplayError> {
-    let mut state = GLOBAL_STATE.lock().unwrap();
+    let mut state = GLOBAL_STATE
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
 
     if let Some(display) = &mut state.display {
         display.cleanup()?;
@@ -173,31 +254,43 @@ pub fn display_cleanup() -> Result<(), DisplayError> {
     Ok(())
 }
 
+/// Get the current display dimensions
+#[must_use]
 pub fn display_get_dimensions() -> (u32, u32) {
     // For backwards compatibility, use default firmware
     image::get_dimensions()
 }
 
+/// Convert a PNG image to 1-bit format suitable for the display
+///
+/// # Errors
+///
+/// Returns `DisplayError` if the file cannot be read or conversion fails
 pub fn convert_png_to_1bit(filename: &str) -> Result<Vec<u8>, DisplayError> {
     // For backwards compatibility, use default firmware
     image::convert_png_to_1bit(filename)
 }
 
-// Advanced API functions for custom firmware
+/// Initialize display with custom firmware
+///
+/// # Errors
+///
+/// Returns `DisplayError` if initialization fails
 pub fn display_init_with_firmware<F: crate::firmware::DisplayFirmware + 'static>(
     firmware: F,
 ) -> Result<(), DisplayError> {
-    let state = GLOBAL_STATE.lock().unwrap();
+    let state = GLOBAL_STATE
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
 
     if state.display.is_none() {
         let protocol = crate::protocol::create_protocol_with_firmware(firmware)?;
         let mut display = GenericDisplay::new(protocol);
         display.init()?;
         // Note: This won't work directly due to type system constraints
-        // You'd need to use a trait object or enum for runtime firmware selection
-        // For now, this is a design template
+        // You'd need to use a trait object or enum for runtime firmware
+        // selection For now, this is a design template
     }
 
     Ok(())
 }
-

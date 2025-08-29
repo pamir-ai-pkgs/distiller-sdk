@@ -1,3 +1,5 @@
+//! Firmware implementation for 128x250 e-ink displays.
+
 use crate::firmware::{CommandSequence, DisplayFirmware, DisplaySpec};
 
 /// Firmware configuration for 128x250 E-ink display
@@ -8,6 +10,8 @@ pub struct EPD128x250Firmware {
 }
 
 impl EPD128x250Firmware {
+    /// Create a new `EPD128x250` firmware instance
+    #[must_use]
     pub fn new() -> Self {
         Self {
             spec: DisplaySpec {
@@ -111,4 +115,3 @@ impl Default for EPD128x250Firmware {
         Self::new()
     }
 }
-

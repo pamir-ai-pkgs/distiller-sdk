@@ -1,7 +1,11 @@
+//! Firmware implementation for 240x416 e-ink displays with multiple display
+//! modes.
+
 use crate::firmware::{CommandSequence, DisplayFirmware, DisplaySpec};
 
 /// Firmware configuration for 240x416 E-ink display
-/// Converted from Python EinkDriver with support for multiple initialization modes
+/// Converted from Python `EinkDriver` with support for multiple initialization
+/// modes
 pub struct EPD240x416Firmware {
     spec: DisplaySpec,
     /// 4-gray LUT data (216 bytes total)
@@ -19,6 +23,8 @@ pub struct EPD240x416Firmware {
 }
 
 impl EPD240x416Firmware {
+    /// Create a new `EPD240x416` firmware instance
+    #[must_use]
     pub fn new() -> Self {
         Self {
             spec: DisplaySpec {
@@ -74,7 +80,8 @@ impl EPD240x416Firmware {
         }
     }
 
-    /// Get initialization sequence for 4-gray mode (epd_w21_init_4g)
+    /// Get initialization sequence for 4-gray mode (`epd_w21_init_4g`)
+    #[must_use]
     pub fn get_4g_init_sequence(&self) -> CommandSequence {
         CommandSequence::new()
             // Panel Setting
@@ -118,6 +125,7 @@ impl EPD240x416Firmware {
     }
 
     /// Write 4-gray LUT sequence
+    #[must_use]
     pub fn get_4g_lut_sequence(&self) -> CommandSequence {
         let mut seq = CommandSequence::new();
 
@@ -154,7 +162,8 @@ impl EPD240x416Firmware {
         seq
     }
 
-    /// Get initialization sequence for fast mode (epd_init_fast)
+    /// Get initialization sequence for fast mode (`epd_init_fast`)
+    #[must_use]
     pub fn get_fast_init_sequence(&self) -> CommandSequence {
         CommandSequence::new()
             .cmd(0x04) // Power on
@@ -165,7 +174,8 @@ impl EPD240x416Firmware {
             .data(0x5A)
     }
 
-    /// Get initialization sequence for partial update mode (epd_init_part)
+    /// Get initialization sequence for partial update mode (`epd_init_part`)
+    #[must_use]
     pub fn get_partial_update_init_sequence(&self) -> CommandSequence {
         CommandSequence::new()
             .cmd(0x04) // Power on
@@ -178,7 +188,8 @@ impl EPD240x416Firmware {
             .data(0xD7)
     }
 
-    /// Get initialization sequence for LUT mode (epd_init_lut)
+    /// Get initialization sequence for LUT mode (`epd_init_lut`)
+    #[must_use]
     pub fn get_lut_init_sequence(&self) -> CommandSequence {
         let mut seq = CommandSequence::new()
             .cmd(0x04) // Power on
@@ -255,7 +266,7 @@ impl DisplayFirmware for EPD240x416Firmware {
         &self.spec
     }
 
-    /// Default initialization sequence (basic mode - epd_init)
+    /// Default initialization sequence (basic mode - `epd_init`)
     fn get_init_sequence(&self) -> CommandSequence {
         CommandSequence::new()
             .cmd(0x04) // Power on
@@ -311,4 +322,3 @@ impl Default for EPD240x416Firmware {
         Self::new()
     }
 }
-
