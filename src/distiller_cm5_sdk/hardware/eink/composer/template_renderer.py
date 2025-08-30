@@ -73,6 +73,11 @@ class TemplateRenderer:
         # Convert PIL to numpy array
         img_array = np.array(pil_img, dtype=np.uint8)
 
+        # Ensure proper grayscale values (0 for black, 255 for white)
+        # PIL QR code may return boolean or 0/1 values that need scaling
+        if img_array.max() <= 1:
+            img_array = img_array * 255
+
         # Resize using OpenCV
         resized = cv2.resize(img_array, size, interpolation=cv2.INTER_NEAREST)
 
