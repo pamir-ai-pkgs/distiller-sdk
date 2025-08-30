@@ -25,10 +25,16 @@ class DisplayMode(IntEnum):
 
 
 class FirmwareType:
-    """Supported e-ink display firmware types."""
+    """Supported e-ink display firmware types.
 
-    EPD128x250 = "EPD128x250"
-    EPD240x416 = "EPD240x416"
+    Note: The naming convention follows the firmware's internal naming,
+    which may differ from the actual display dimensions:
+    - EPD128x250: Actually represents a 250×128 display (default for backward compatibility)
+    - EPD240x416: Represents a 240×416 display
+    """
+
+    EPD128x250 = "EPD128x250"  # 250×128 display (width×height)
+    EPD240x416 = "EPD240x416"  # 240×416 display (width×height)
 
 
 class ScalingMethod(IntEnum):
@@ -63,17 +69,29 @@ class Display:
     Display class for interacting with the CM5 e-ink display system.
 
     This class provides functionality to:
-    - Display PNG images on the e-ink screen
+    - Display images in various formats (PNG, JPEG, GIF, BMP, TIFF, WebP, etc.)
     - Display raw 1-bit image data
+    - Automatic image scaling and dithering for any size/format
     - Clear the display
-    - Control display refresh modes
+    - Control display refresh modes (Full/Partial)
     - Manage display power states
+    - Support for multiple firmware types (EPD128x250, EPD240x416)
+    - Image transformations (rotation, flipping, inversion)
+    - Text rendering and overlay capabilities
+
+    Firmware Support:
+    - EPD128x250: 250×128 display (default for backward compatibility)
+    - EPD240x416: 240×416 display
+
+    Configuration:
+    - Set via environment variable: DISTILLER_EINK_FIRMWARE
+    - Config files: /opt/distiller-cm5-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf
     """
 
-    # Display constants (will be updated dynamically)
-    WIDTH = 128  # Default, will be updated after initialization
-    HEIGHT = 250  # Default, will be updated after initialization
-    ARRAY_SIZE = (128 * 250) // 8  # Default, will be updated after initialization
+    # Display constants (firmware-specific, updated after initialization)
+    WIDTH = 128  # Default width for EPD128x250 firmware (actually 250 pixels)
+    HEIGHT = 250  # Default height for EPD128x250 firmware (actually 128 pixels)
+    ARRAY_SIZE = (128 * 250) // 8  # Buffer size in bytes for 1-bit packed data
 
     def __init__(self, library_path: Optional[str] = None, auto_init: bool = True):
         """
@@ -376,7 +394,7 @@ class Display:
             image: Either a PNG file path (string) or raw 1-bit image data (bytes)
             mode: Display refresh mode
             rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-                   If True, rotate 90 degrees CCW (landscape 250x128 to portrait 128x250)
+                   If True, rotate 90 degrees CCW
                    If False or 0, no rotation
             flip_horizontal: If True, mirror the image horizontally (left-right)
             flip_vertical: If True, mirror the image vertically (top-bottom)
@@ -450,17 +468,17 @@ class Display:
         if rotation_degrees != 0 or flip_horizontal or flip_vertical or invert_colors:
             # For PNG transformations, convert to raw data first
             raw_data = self.convert_png_to_raw(filename)
-            # Assume PNG is 250x128 landscape format when transforming
+            # Use actual display dimensions for transformations
 
             # Apply transformations using Rust FFI functions
             if flip_horizontal:
-                raw_data = self._flip_horizontal_1bit(raw_data, 250, 128)
+                raw_data = self._flip_horizontal_1bit(raw_data, self.WIDTH, self.HEIGHT)
 
             if flip_vertical:
-                raw_data = self._flip_vertical_1bit(raw_data, 250, 128)
+                raw_data = self._flip_vertical_1bit(raw_data, self.WIDTH, self.HEIGHT)
 
             if rotation_degrees != 0:
-                raw_data = self._rotate_1bit(raw_data, 250, 128, rotation_degrees)
+                raw_data = self._rotate_1bit(raw_data, self.WIDTH, self.HEIGHT, rotation_degrees)
 
             if invert_colors:
                 raw_data = self._invert_1bit(raw_data)
@@ -578,10 +596,10 @@ class Display:
         Convert PNG file to raw 1-bit data.
 
         Args:
-            filename: Path to PNG file (must be exactly 128x250 pixels)
+            filename: Path to PNG file (must match display dimensions)
 
         Returns:
-            Raw 1-bit packed image data (4000 bytes)
+            Raw 1-bit packed image data (size depends on firmware)
 
         Raises:
             DisplayError: If conversion fails
@@ -1126,7 +1144,7 @@ def display_png(
         filename: Path to PNG file
         mode: Display refresh mode
         rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-               If True, rotate 90 degrees CCW (landscape 250x128 to portrait 128x250)
+               If True, rotate 90 degrees CCW
                If False or 0, no rotation
         auto_convert: If True, automatically convert any PNG to display format
         scaling: How to scale the image to fit display (only used with auto_convert)
@@ -1189,15 +1207,31 @@ def get_display_info() -> dict:
     Get display information.
 
     Returns:
-        Dictionary with display specs
+        Dictionary with display specs (uses instance values if available)
     """
-    return {
-        "width": Display.WIDTH,
-        "height": Display.HEIGHT,
-        "data_size": Display.ARRAY_SIZE,
-        "format": "1-bit monochrome",
-        "type": "e-ink",
-    }
+    try:
+        # Try to get instance-specific dimensions
+        display = Display(auto_init=False)
+        display.initialize()
+        width, height = display.get_dimensions()
+        array_size = (width * height) // 8
+        display.close()
+        return {
+            "width": width,
+            "height": height,
+            "data_size": array_size,
+            "format": "1-bit monochrome",
+            "type": "e-ink",
+        }
+    except Exception:
+        # Fall back to class defaults
+        return {
+            "width": Display.WIDTH,
+            "height": Display.HEIGHT,
+            "data_size": Display.ARRAY_SIZE,
+            "format": "1-bit monochrome",
+            "type": "e-ink",
+        }
 
 
 # Configuration convenience functions
