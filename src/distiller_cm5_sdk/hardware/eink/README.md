@@ -4,16 +4,17 @@ E-ink display control module for the Distiller CM5 SDK. Provides high-level Pyth
 
 ## Features
 
-- **Multi-Display Support**: Supports EPD128x250 and EPD240x416 displays with automatic detection
-- **Intelligent PNG Auto-Conversion**: Display any PNG image regardless of size or format
+- **Multi-Display Support**: Supports EPD128x250 (250×128 pixels) and EPD240x416 (240×416 pixels) displays
+- **Multi-Format Image Support**: Display PNG, JPEG, GIF, BMP, TIFF, WebP and more formats
+- **Intelligent Auto-Conversion**: Display any image regardless of size or format
 - **Smart Scaling**: Multiple scaling algorithms (letterbox, crop, stretch) with aspect ratio handling
-- **Advanced Dithering**: Floyd-Steinberg and simple threshold dithering for optimal 1-bit conversion
+- **Advanced Dithering**: Floyd-Steinberg, ordered, and threshold dithering for optimal 1-bit conversion
+- **Image Transformations**: Rotation (0°, 90°, 180°, 270°), horizontal flip, vertical flip, color inversion
 - **Display Class**: Object-oriented interface for display control
-- **PNG Image Display**: Direct PNG file display with automatic conversion
-- **Raw Data Display**: Display raw 1-bit image data
+- **Raw Data Display**: Display raw 1-bit image data with transformation support
 - **Display Modes**: Full refresh (high quality) and partial refresh (fast updates)
 - **Context Manager**: Automatic resource management
-- **Hardware Abstraction**: Clean Python API over C library implementation
+- **Hardware Abstraction**: Clean Python API over Rust library implementation
 
 ## Quick Start
 
@@ -145,9 +146,11 @@ display_png_auto("portrait.png",
 ## Display Specifications
 
 ### Supported Display Types
-- **EPD128x250**: 128 × 250 pixels (16:25 aspect ratio)
-- **EPD240x416**: 240 × 416 pixels (15:26 aspect ratio)
+- **EPD128x250**: 250 × 128 pixels actual dimensions (firmware name follows internal convention)
+- **EPD240x416**: 240 × 416 pixels
 - **Auto-Detection**: Firmware automatically detected at runtime
+
+**Note**: The EPD128x250 naming follows the firmware's internal convention but represents a 250×128 (width×height) display.
 
 ### Display Properties
 - **Color Depth**: 1-bit monochrome (black/white)
@@ -179,17 +182,39 @@ Display(library_path=None, auto_init=True)
 
 #### Methods
 
-##### display_image(image, mode=DisplayMode.FULL)
-Display an image on the screen.
-- `image`: PNG file path (str) or raw 1-bit data (bytes)
+##### display_image(image, mode=DisplayMode.FULL, rotate=0, flip_horizontal=False, flip_vertical=False, invert_colors=False, src_width=None, src_height=None)
+Display an image on the screen with optional transformations.
+- `image`: Image file path (str) or raw 1-bit data (bytes)
 - `mode`: DisplayMode.FULL or DisplayMode.PARTIAL
+- `rotate`: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
+- `flip_horizontal`: Mirror the image horizontally (left-right)
+- `flip_vertical`: Mirror the image vertically (top-bottom)
+- `invert_colors`: Invert colors (black↔white)
+- `src_width`: Source width in pixels (required for raw data transformations)
+- `src_height`: Source height in pixels (required for raw data transformations)
 
-##### display_png_auto(image_path, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG) -> bool
-Display any PNG image with automatic conversion to display specifications.
+##### display_image_file(filename, mode=DisplayMode.FULL)
+Display any supported image file format on the e-ink screen.
+- `filename`: Path to image file (PNG, JPEG, GIF, BMP, TIFF, WebP, etc.)
+- `mode`: Display refresh mode (FULL or PARTIAL)
+- Note: Image must match display dimensions exactly (no automatic scaling)
+
+##### display_image_auto(filename, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG)
+Display any image with automatic scaling and dithering.
+- `filename`: Path to image file (any supported format, any size)
+- `mode`: Display refresh mode
+- `scaling`: How to scale the image to fit display
+- `dithering`: Dithering method for 1-bit conversion
+
+##### display_png_auto(image_path, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, rotate=0, flip_horizontal=False, flip_vertical=False) -> bool
+Display any PNG image with automatic conversion and transformations.
 - `image_path`: Path to PNG file (any size, any format)
 - `mode`: Display refresh mode
 - `scaling`: How to scale the image to fit display
 - `dithering`: Dithering method for 1-bit conversion
+- `rotate`: Rotation angle in degrees (0, 90, 180, 270)
+- `flip_horizontal`: Mirror the image horizontally
+- `flip_vertical`: Mirror the image vertically
 - Returns: True if successful
 
 ##### clear()
@@ -218,14 +243,16 @@ DisplayMode.PARTIAL   # Partial refresh - fast updates
 
 ### Convenience Functions
 
-#### display_png(filename, mode=DisplayMode.FULL, rotate=False, auto_convert=False, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG)
+#### display_png(filename, mode=DisplayMode.FULL, rotate=0, auto_convert=False, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, flip_horizontal=False, flip_vertical=False)
 Quick PNG display with automatic resource management.
 - `filename`: Path to PNG file
 - `mode`: Display refresh mode
-- `rotate`: If True, rotate landscape PNG (250x128) to portrait (128x250)
+- `rotate`: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
 - `auto_convert`: If True, automatically convert any PNG to display format
 - `scaling`: How to scale the image (only used with auto_convert)
 - `dithering`: Dithering method (only used with auto_convert)
+- `flip_horizontal`: Mirror the image horizontally (only with auto_convert)
+- `flip_vertical`: Mirror the image vertically (only with auto_convert)
 
 #### display_png_auto(filename, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG)
 Quick auto-conversion PNG display with automatic resource management.
@@ -253,6 +280,7 @@ Raised for display-related errors:
 - **Size**: Exactly (width × height) ÷ 8 bytes
 - **Format**: 1-bit packed data (8 pixels per byte)
 - **Layout**: Row-major order, left-to-right, top-to-bottom
+- **Transformations**: When using transformations (rotate, flip) with raw data, you must provide `src_width` and `src_height` parameters
 
 ## Examples
 

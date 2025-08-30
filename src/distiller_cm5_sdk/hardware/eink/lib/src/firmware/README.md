@@ -10,6 +10,8 @@ The firmware abstraction consists of:
 2. **DisplaySpec** - Holds display specifications (width, height, name, description)
 3. **CommandSequence** - A declarative way to define register command sequences
 4. **Firmware implementations** - Specific configurations for each display variant
+5. **TransformType enum** - Defines image transformation types (rotation, flips)
+6. **Image Processing FFI** - C-compatible functions for transformations accessible from Python
 
 ## Adding a New Display Variant
 
@@ -142,6 +144,7 @@ When creating a new firmware, pay attention to these register values:
 ### Display Dimensions
 - Adjust width/height in DisplaySpec
 - Update Ram-X/Ram-Y address calculations in init sequence
+- **Note**: The EPD128x250 firmware name follows internal convention but actually represents a 250×128 (width×height) display
 
 ### BorderWavefrom (0x3C)
 - Full refresh: Often 0x03, 0x05, or 0x07
@@ -202,16 +205,24 @@ let display = GenericDisplay::new(protocol);
 2. **Display artifacts**: Adjust BorderWavefrom values
 3. **Slow/incomplete updates**: Check Display Update Control values
 4. **Wrong orientation**: Verify Ram-X/Ram-Y address calculations
+5. **Vertical flip not working**: Ensure you're using the latest library with `flip_vertical` support
+6. **Rotation issues**: Use degrees (0, 90, 180, 270) instead of rotation index values
+7. **Transformation requires dimensions**: For raw data transformations, always provide `src_width` and `src_height`
 
 ## Directory Structure
 
 ```
 src/firmware/
 ├── mod.rs              # Main firmware module with trait definition
-├── epd128x250.rs       # Current 128x250 display firmware
-├── epd200x200.rs       # Example 200x200 display firmware
-├── epd240x320.rs       # Your new display firmware
+├── epd128x250.rs       # 250x128 display firmware (default)
+├── epd240x416.rs       # 240x416 display firmware
 └── README.md           # This documentation
 ```
+
+Additional related modules:
+- `src/ffi.rs` - Core FFI exports for display operations
+- `src/ffi_image_processing.rs` - FFI exports for image transformations
+- `src/image_processing.rs` - Image transformation implementations
+- `src/config.rs` - Configuration management for firmware selection
 
 This abstraction makes it easy to support new display variants by simply creating a new firmware file with the appropriate register values, without touching the core protocol or hardware logic.

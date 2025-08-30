@@ -117,7 +117,9 @@ info = audio.get_device_info(device_index=0)
 
 ### E-ink Display
 
-Supports EPD128x250 (default) and EPD240x416 displays with comprehensive image processing capabilities.
+Supports EPD128x250 (250×128 pixels) and EPD240x416 (240×416 pixels) displays with comprehensive image processing capabilities.
+
+**Note**: The EPD128x250 firmware name follows internal convention but actually represents a 250×128 (width×height) display.
 
 #### Configuration
 
@@ -129,7 +131,8 @@ from distiller_cm5_sdk.hardware.eink import (
 )
 
 # Configure firmware type (persists across sessions)
-set_default_firmware(FirmwareType.EPD240x416)  # or EPD128x250
+set_default_firmware(FirmwareType.EPD240x416)  # 240×416 display
+set_default_firmware(FirmwareType.EPD128x250)  # 250×128 display (default)
 current_fw = get_default_firmware()
 
 # Configuration priority:
@@ -149,21 +152,27 @@ with Display() as display:
     display.display_image(
         "image.png",
         mode=DisplayMode.FULL,
-        rotate=90,              # Rotation: 0, 90, 180, 270 degrees
+        rotate=90,              # Rotation: 0, 90, 180, 270 degrees (or True for 90°)
         flip_horizontal=True,   # Mirror left-right
-        flip_vertical=True,     # Mirror top-bottom (NEW)
+        flip_vertical=True,     # Mirror top-bottom
         invert_colors=True      # Invert black/white
     )
     
-    # Raw 1-bit data display
+    # Display various image formats (JPEG, GIF, BMP, TIFF, WebP)
+    display.display_image_file("photo.jpg", mode=DisplayMode.FULL)
+    display.display_image_file("animation.gif", mode=DisplayMode.FULL)
+    
+    # Raw 1-bit data display with transformations
     raw_data = bytes([0xFF] * 4000)  # White screen
     display.display_image(
         raw_data,
         mode=DisplayMode.PARTIAL,  # Fast update mode
-        rotate=180,
-        flip_vertical=True,
+        rotate=180,             # Rotate 180 degrees
+        flip_vertical=True,     # Flip vertically
+        flip_horizontal=False,  # Don't flip horizontally
+        invert_colors=False,    # Don't invert colors
         src_width=250,  # Required for raw data transformations
-        src_height=128
+        src_height=128  # Required for raw data transformations
     )
     
     # Clear display
@@ -173,17 +182,25 @@ with Display() as display:
 #### Auto-Conversion with Scaling and Dithering
 
 ```python
-# Display any PNG with automatic conversion
+# Display any image with automatic conversion (supports PNG, JPEG, GIF, BMP, TIFF, WebP)
+display.display_image_auto(
+    "large_photo.jpg",  # Any size, any supported format
+    mode=DisplayMode.FULL,
+    scaling=ScalingMethod.LETTERBOX,      # Maintain aspect ratio
+    dithering=DitheringMethod.FLOYD_STEINBERG  # High quality
+)
+
+# PNG-specific auto-conversion with all transformation options
 display.display_png_auto(
     "any_image.png",
     mode=DisplayMode.FULL,
     scaling=ScalingMethod.LETTERBOX,      # Maintain aspect ratio
     dithering=DitheringMethod.FLOYD_STEINBERG,  # High quality
-    rotate=90,
-    flip_horizontal=False,
-    flip_vertical=True,     # Vertical flip support
+    rotate=90,              # Rotation in degrees (0, 90, 180, 270)
+    flip_horizontal=False,  # Horizontal flip
+    flip_vertical=True,     # Vertical flip
     crop_x=None,           # Auto-center for CROP_CENTER
-    crop_y=None
+    crop_y=None            # Auto-center for CROP_CENTER
 )
 
 # Scaling methods:
@@ -242,25 +259,31 @@ display.display_image(with_rect, mode=DisplayMode.FULL)
 
 ```python
 from distiller_cm5_sdk.hardware.eink import (
-    rotate_bitpacked, rotate_bitpacked_ccw_90, rotate_bitpacked_180,
-    flip_bitpacked_horizontal, flip_bitpacked_vertical,
+    rotate_bitpacked, rotate_bitpacked_ccw_90, rotate_bitpacked_cw_90,
+    rotate_bitpacked_180, flip_bitpacked_horizontal, flip_bitpacked_vertical,
     invert_bitpacked_colors
 )
 
-# 1-bit packed data (128x250 display)
+# 1-bit packed data (250x128 display for EPD128x250)
 data = bytes([0xAA] * 4000)  # Alternating pattern
 
-# Transformations
-rotated_90 = rotate_bitpacked(data, 90, 128, 250)
-rotated_180 = rotate_bitpacked_180(data, 128, 250)
-flipped_h = flip_bitpacked_horizontal(data, 128, 250)
-flipped_v = flip_bitpacked_vertical(data, 128, 250)  # NEW
-inverted = invert_bitpacked_colors(data)
+# Rotation transformations
+rotated_90_ccw = rotate_bitpacked(data, 90, 250, 128)  # Counter-clockwise
+rotated_90_ccw = rotate_bitpacked_ccw_90(data, 250, 128)  # Same as above
+rotated_90_cw = rotate_bitpacked_cw_90(data, 250, 128)  # Clockwise 90°
+rotated_180 = rotate_bitpacked_180(data, 250, 128)  # 180° rotation
+
+# Flip transformations
+flipped_h = flip_bitpacked_horizontal(data, 250, 128)  # Mirror left-right
+flipped_v = flip_bitpacked_vertical(data, 250, 128)  # Mirror top-bottom
+
+# Color inversion
+inverted = invert_bitpacked_colors(data)  # Swap black and white
 
 # Chain transformations
 result = flip_bitpacked_vertical(
-    rotate_bitpacked_ccw_90(data, 128, 250),
-    250, 128  # Note: dimensions swap after 90° rotation
+    rotate_bitpacked_ccw_90(data, 250, 128),
+    128, 250  # Note: dimensions swap after 90° rotation
 )
 ```
 
