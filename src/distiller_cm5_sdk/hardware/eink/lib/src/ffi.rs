@@ -118,6 +118,110 @@ pub unsafe extern "C" fn display_image_png(filename: *const c_char, mode: c_int)
     }
 }
 
+/// Display any supported image file format on the e-ink display.
+///
+/// # Safety
+///
+/// The caller must ensure:
+/// - `filename` is a valid pointer to a null-terminated C string
+/// - The string remains valid for the duration of this call
+///
+/// # Parameters
+///
+/// - `filename`: Path to image file as null-terminated C string
+/// - `mode`: Display mode (0 = Full, 1 = Partial)
+///
+/// # Returns
+///
+/// 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn display_image_file(filename: *const c_char, mode: c_int) -> c_int {
+    if filename.is_null() {
+        return 0;
+    }
+
+    let Ok(filename_str) = unsafe { CStr::from_ptr(filename) }.to_str() else {
+        return 0;
+    };
+
+    let display_mode = match mode {
+        0 => DisplayMode::Full,
+        1 => DisplayMode::Partial,
+        _ => return 0,
+    };
+
+    match display::display_image_file(filename_str, display_mode) {
+        Ok(()) => 1,
+        Err(e) => {
+            log::error!("Display image file failed: {e}");
+            0
+        },
+    }
+}
+
+/// Display image with automatic processing (scaling and dithering).
+///
+/// # Safety
+///
+/// The caller must ensure:
+/// - `filename` is a valid pointer to a null-terminated C string
+/// - The string remains valid for the duration of this call
+///
+/// # Parameters
+///
+/// - `filename`: Path to image file as null-terminated C string
+/// - `mode`: Display mode (0 = Full, 1 = Partial)
+/// - `scale_mode`: Scale mode (0 = Letterbox, 1 = `CropCenter`, 2 = Stretch)
+/// - `dither_mode`: Dither mode (0 = Threshold, 1 = `FloydSteinberg`, 2 =
+///   Ordered)
+///
+/// # Returns
+///
+/// 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn display_image_auto(
+    filename: *const c_char,
+    mode: c_int,
+    scale_mode: c_int,
+    dither_mode: c_int,
+) -> c_int {
+    if filename.is_null() {
+        return 0;
+    }
+
+    let Ok(filename_str) = unsafe { CStr::from_ptr(filename) }.to_str() else {
+        return 0;
+    };
+
+    let display_mode = match mode {
+        0 => DisplayMode::Full,
+        1 => DisplayMode::Partial,
+        _ => return 0,
+    };
+
+    let scale = match scale_mode {
+        0 => crate::image_processing::ScaleMode::Letterbox,
+        1 => crate::image_processing::ScaleMode::CropCenter,
+        2 => crate::image_processing::ScaleMode::Stretch,
+        _ => return 0,
+    };
+
+    let dither = match dither_mode {
+        0 => crate::image_processing::DitherMode::Threshold,
+        1 => crate::image_processing::DitherMode::FloydSteinberg,
+        2 => crate::image_processing::DitherMode::Ordered,
+        _ => return 0,
+    };
+
+    match display::display_image_auto(filename_str, display_mode, scale, dither) {
+        Ok(()) => 1,
+        Err(e) => {
+            log::error!("Display image auto failed: {e}");
+            0
+        },
+    }
+}
+
 /// Clear the display to white.
 ///
 /// # Safety

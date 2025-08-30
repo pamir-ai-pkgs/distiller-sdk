@@ -1,8 +1,66 @@
 //! Image processing utilities for converting images to e-ink display format.
 
+use image::Pixel;
+
 use crate::{config, error::DisplayError, firmware::DisplaySpec};
 
-/// Convert a PNG image to 1-bit format for a specific display spec
+/// Convert any supported image format to 1-bit format for a specific display
+/// spec
+///
+/// # Errors
+///
+/// Returns `DisplayError::Png` if the file cannot be read or conversion fails
+pub fn convert_image_to_1bit_with_spec(
+    filename: &str,
+    spec: &DisplaySpec,
+) -> Result<Vec<u8>, DisplayError> {
+    // Load image using the image crate (supports multiple formats)
+    let img = image::open(filename)
+        .map_err(|e| DisplayError::Png(format!("Failed to load image: {e}")))?;
+
+    // Check dimensions
+    if img.width() != spec.width || img.height() != spec.height {
+        return Err(DisplayError::Png(format!(
+            "Invalid image size: {}x{}, expected {}x{}",
+            img.width(),
+            img.height(),
+            spec.width,
+            spec.height
+        )));
+    }
+
+    let mut output = vec![0u8; spec.array_size()];
+
+    // Convert to RGBA and process
+    let rgba = img.to_rgba8();
+
+    for y in 0..spec.height {
+        for x in 0..spec.width {
+            let pixel = rgba.get_pixel(x, y);
+            let channels = pixel.channels();
+
+            // Convert RGBA to grayscale
+            let gray =
+                (u16::from(channels[0]) + u16::from(channels[1]) + u16::from(channels[2])) / 3;
+
+            // Convert to 1-bit (threshold at 128)
+            let bit_value = u8::from(gray > 128);
+
+            // Pack into output buffer
+            let byte_idx = (y * spec.width + x) / 8;
+            let bit_idx = (y * spec.width + x) % 8;
+
+            if bit_value == 1 {
+                output[byte_idx as usize] |= 1 << (7 - bit_idx);
+            }
+        }
+    }
+
+    Ok(output)
+}
+
+/// Convert a PNG image to 1-bit format for a specific display spec (legacy
+/// compatibility)
 ///
 /// # Errors
 ///
@@ -11,50 +69,29 @@ pub fn convert_png_to_1bit_with_spec(
     filename: &str,
     spec: &DisplaySpec,
 ) -> Result<Vec<u8>, DisplayError> {
-    let image = lodepng::decode32_file(filename)
-        .map_err(|e| DisplayError::Png(format!("Failed to decode PNG: {e}")))?;
-
-    if image.width != spec.width as usize || image.height != spec.height as usize {
-        return Err(DisplayError::Png(format!(
-            "Invalid image size: {}x{}, expected {}x{}",
-            image.width, image.height, spec.width, spec.height
-        )));
-    }
-
-    let mut output = vec![0u8; spec.array_size()];
-
-    for y in 0..image.height {
-        for x in 0..image.width {
-            let pixel_idx = y * image.width + x;
-            let pixel = image.buffer[pixel_idx];
-
-            // Convert RGBA to grayscale
-            let gray = (u16::from(pixel.r) + u16::from(pixel.g) + u16::from(pixel.b)) / 3;
-
-            // Convert to 1-bit (threshold at 128)
-            let bit_value = u8::from(gray > 128);
-
-            // Pack into output buffer
-            let byte_idx = (y * image.width + x) / 8;
-            let bit_idx = (y * image.width + x) % 8;
-
-            if bit_value == 1 {
-                output[byte_idx] |= 1 << (7 - bit_idx);
-            }
-        }
-    }
-
-    Ok(output)
+    // Just use the generic image converter
+    convert_image_to_1bit_with_spec(filename, spec)
 }
 
-/// Convert a PNG image to 1-bit format using the default firmware spec
+/// Convert any supported image format to 1-bit format using the default
+/// firmware spec
+///
+/// # Errors
+///
+/// Returns `DisplayError` if the file cannot be read or conversion fails
+pub fn convert_image_to_1bit(filename: &str) -> Result<Vec<u8>, DisplayError> {
+    let spec = config::get_default_spec()?;
+    convert_image_to_1bit_with_spec(filename, &spec)
+}
+
+/// Convert a PNG image to 1-bit format using the default firmware spec (legacy
+/// compatibility)
 ///
 /// # Errors
 ///
 /// Returns `DisplayError` if the file cannot be read or conversion fails
 pub fn convert_png_to_1bit(filename: &str) -> Result<Vec<u8>, DisplayError> {
-    let spec = config::get_default_spec()?;
-    convert_png_to_1bit_with_spec(filename, &spec)
+    convert_image_to_1bit(filename)
 }
 
 /// Get display dimensions from a display spec

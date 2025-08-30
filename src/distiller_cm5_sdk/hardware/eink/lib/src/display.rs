@@ -28,6 +28,25 @@ pub trait DisplayDriver {
     ///
     /// Returns `DisplayError` if file cannot be read or display fails
     fn display_image_png(&mut self, filename: &str, mode: DisplayMode) -> Result<(), DisplayError>;
+    /// Display any supported image file format
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if file cannot be read or display fails
+    fn display_image_file(&mut self, filename: &str, mode: DisplayMode)
+    -> Result<(), DisplayError>;
+    /// Display image with automatic processing
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if processing or display fails
+    fn display_image_auto(
+        &mut self,
+        filename: &str,
+        mode: DisplayMode,
+        scale_mode: crate::image_processing::ScaleMode,
+        dither_mode: crate::image_processing::DitherMode,
+    ) -> Result<(), DisplayError>;
     /// Clear the display to white
     ///
     /// # Errors
@@ -109,6 +128,40 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
     fn display_image_png(&mut self, filename: &str, mode: DisplayMode) -> Result<(), DisplayError> {
         let spec = self.protocol.get_spec();
         let raw_data = image::convert_png_to_1bit_with_spec(filename, spec)?;
+        self.display_image_raw(&raw_data, mode)
+    }
+
+    fn display_image_file(
+        &mut self,
+        filename: &str,
+        mode: DisplayMode,
+    ) -> Result<(), DisplayError> {
+        let spec = self.protocol.get_spec();
+        let raw_data = image::convert_image_to_1bit_with_spec(filename, spec)?;
+        self.display_image_raw(&raw_data, mode)
+    }
+
+    fn display_image_auto(
+        &mut self,
+        filename: &str,
+        mode: DisplayMode,
+        scale_mode: crate::image_processing::ScaleMode,
+        dither_mode: crate::image_processing::DitherMode,
+    ) -> Result<(), DisplayError> {
+        let spec = self.protocol.get_spec();
+        let processor = crate::image_processing::ImageProcessor::new(spec.clone());
+
+        // Process the image with scaling and dithering
+        let raw_data = processor.process_image(
+            filename,
+            scale_mode,
+            dither_mode,
+            None,  // brightness
+            None,  // contrast
+            None,  // transform
+            false, // invert
+        )?;
+
         self.display_image_raw(&raw_data, mode)
     }
 
@@ -196,6 +249,47 @@ pub fn display_image_png(filename: &str, mode: DisplayMode) -> Result<(), Displa
 
     if let Some(display) = &mut state.display {
         display.display_image_png(filename, mode)
+    } else {
+        Err(DisplayError::NotInitialized)
+    }
+}
+
+/// Display any supported image file format
+///
+/// # Errors
+///
+/// Returns `DisplayError` if the display is not initialized, file cannot be
+/// read, or display fails
+pub fn display_image_file(filename: &str, mode: DisplayMode) -> Result<(), DisplayError> {
+    let mut state = GLOBAL_STATE
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
+
+    if let Some(display) = &mut state.display {
+        display.display_image_file(filename, mode)
+    } else {
+        Err(DisplayError::NotInitialized)
+    }
+}
+
+/// Display image with automatic processing
+///
+/// # Errors
+///
+/// Returns `DisplayError` if the display is not initialized, processing fails,
+/// or display fails
+pub fn display_image_auto(
+    filename: &str,
+    mode: DisplayMode,
+    scale_mode: crate::image_processing::ScaleMode,
+    dither_mode: crate::image_processing::DitherMode,
+) -> Result<(), DisplayError> {
+    let mut state = GLOBAL_STATE
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
+
+    if let Some(display) = &mut state.display {
+        display.display_image_auto(filename, mode, scale_mode, dither_mode)
     } else {
         Err(DisplayError::NotInitialized)
     }

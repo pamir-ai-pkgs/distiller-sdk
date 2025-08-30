@@ -150,6 +150,14 @@ class Display:
         self._lib.display_image_png.restype = c_bool
         self._lib.display_image_png.argtypes = [c_char_p, ctypes.c_int]
 
+        # display_image_file(const char* filename, display_mode_t mode) -> bool
+        self._lib.display_image_file.restype = c_bool
+        self._lib.display_image_file.argtypes = [c_char_p, ctypes.c_int]
+
+        # display_image_auto(const char* filename, display_mode_t mode, scale_mode, dither_mode) -> bool
+        self._lib.display_image_auto.restype = c_bool
+        self._lib.display_image_auto.argtypes = [c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+
         # display_clear() -> bool
         self._lib.display_clear.restype = c_bool
         self._lib.display_clear.argtypes = []
@@ -476,6 +484,75 @@ class Display:
         success = self._lib.display_image_raw(data_array, int(mode))
         if not success:
             raise DisplayError("Failed to display raw image data")
+
+    def display_image_file(
+        self,
+        filename: str,
+        mode: DisplayMode = DisplayMode.FULL,
+    ) -> None:
+        """
+        Display any supported image file format on the e-ink screen.
+
+        This method supports various image formats including:
+        - PNG, JPEG, GIF, BMP, TIFF, WebP, and more
+
+        The image must match the display dimensions exactly (no automatic scaling).
+        For automatic scaling and processing, use display_image_auto() instead.
+
+        Args:
+            filename: Path to image file (any supported format)
+            mode: Display refresh mode (FULL or PARTIAL)
+
+        Raises:
+            DisplayError: If display operation fails or image dimensions don't match
+        """
+        if not self._initialized:
+            raise DisplayError("Display not initialized. Call initialize() first.")
+
+        if not os.path.exists(filename):
+            raise DisplayError(f"Image file not found: {filename}")
+
+        filename_bytes = filename.encode("utf-8")
+        success = self._lib.display_image_file(filename_bytes, int(mode))
+        if not success:
+            raise DisplayError(f"Failed to display image file: {filename}")
+
+    def display_image_auto(
+        self,
+        filename: str,
+        mode: DisplayMode = DisplayMode.FULL,
+        scaling: ScalingMethod = ScalingMethod.LETTERBOX,
+        dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
+    ) -> None:
+        """
+        Display any image with automatic scaling and dithering.
+
+        This method supports various image formats and automatically:
+        - Scales the image to fit the display using the specified method
+        - Converts to 1-bit using the specified dithering algorithm
+        - Handles any image size and format
+
+        Args:
+            filename: Path to image file (any supported format, any size)
+            mode: Display refresh mode (FULL or PARTIAL)
+            scaling: How to scale the image to fit display
+            dithering: Dithering method for 1-bit conversion
+
+        Raises:
+            DisplayError: If display operation fails
+        """
+        if not self._initialized:
+            raise DisplayError("Display not initialized. Call initialize() first.")
+
+        if not os.path.exists(filename):
+            raise DisplayError(f"Image file not found: {filename}")
+
+        filename_bytes = filename.encode("utf-8")
+        success = self._lib.display_image_auto(
+            filename_bytes, int(mode), int(scaling), int(dithering)
+        )
+        if not success:
+            raise DisplayError(f"Failed to auto-display image: {filename}")
 
     def clear(self) -> None:
         """
