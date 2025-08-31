@@ -16,11 +16,6 @@ override_dh_auto_install:
 	
 	# Remove embedded Rust sources/build artifacts that are not needed at run-time
 	rm -rf $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/src/distiller_cm5_sdk/hardware/eink/lib
-	# Remove model files from src directory to avoid duplication (they're in models/ directory)
-	rm -rf $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/src/distiller_cm5_sdk/parakeet/models/*
-	rm -rf $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/src/distiller_cm5_sdk/piper/models/*
-	rm -rf $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/src/distiller_cm5_sdk/piper/piper/*
-	rm -rf $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/src/distiller_cm5_sdk/whisper/models/*
 	
 	# Create a symlink to the shared library in system lib for compatibility
 	ln -sf /opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so \
