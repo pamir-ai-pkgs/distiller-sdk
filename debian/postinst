@@ -2,153 +2,109 @@
 set -e
 
 # Setup the Python environment using uv
-if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
-    echo "Setting up Distiller CM5 SDK with uv..."
-    
-    # Check for required system dependencies
-    echo "Checking system dependencies..."
-    MISSING_DEPS=""
-    
-    # Check for build tools (needed for native extensions)
-    if ! command -v gcc >/dev/null 2>&1; then
-        MISSING_DEPS="$MISSING_DEPS build-essential"
-    fi
-    
-    # Check for pkg-config (needed for library detection)
-    if ! command -v pkg-config >/dev/null 2>&1; then
-        MISSING_DEPS="$MISSING_DEPS pkg-config"
-    fi
-    
-    # Check for curl (needed for uv installation)
-    if ! command -v curl >/dev/null 2>&1; then
-        MISSING_DEPS="$MISSING_DEPS curl"
-    fi
-    
-    if [ -n "$MISSING_DEPS" ]; then
-        echo "Warning: Some system dependencies may be missing:$MISSING_DEPS"
-        echo "You may need to install them with: apt-get install$MISSING_DEPS"
-        echo "Continuing with installation..."
-    fi
-    
-    # Install uv if not available
-    UV_BINARY=""
-    if command -v uv >/dev/null 2>&1; then
-        UV_BINARY="uv"
-    elif [ -f "/usr/local/bin/uv" ] && [ -x "/usr/local/bin/uv" ]; then
-        UV_BINARY="/usr/local/bin/uv"
-        export PATH="/usr/local/bin:$PATH"
-    else
-        echo "Installing uv package manager..."
-        # Install uv system-wide
-        if ! curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null 2>&1; then
-            echo "Error: Failed to install uv package manager"
-            exit 1
-        fi
-        
-        # Make uv available system-wide
-        if [ -f "/root/.local/bin/uv" ]; then
-            # Only copy if the target doesn't exist or is different
-            if [ ! -f "/usr/local/bin/uv" ] || ! cmp -s "/root/.local/bin/uv" "/usr/local/bin/uv"; then
-                cp /root/.local/bin/uv /usr/local/bin/uv 2>/dev/null || true
-            fi
-            if [ ! -f "/usr/local/bin/uvx" ] || ! cmp -s "/root/.local/bin/uvx" "/usr/local/bin/uvx"; then
-                cp /root/.local/bin/uvx /usr/local/bin/uvx 2>/dev/null || true
-            fi
-            chmod +x /usr/local/bin/uv /usr/local/bin/uvx 2>/dev/null || true
-            UV_BINARY="/usr/local/bin/uv"
-            export PATH="/usr/local/bin:$PATH"
-        else
-            echo "Error: uv installation failed"
-            exit 1
-        fi
-    fi
-    
-    # Verify uv installation
-    if [ -n "$UV_BINARY" ] && [ -x "$UV_BINARY" ]; then
-        echo "Using uv at: $UV_BINARY"
-    elif command -v uv >/dev/null 2>&1; then
-        UV_BINARY="uv"
-    else
-        echo "Error: uv is not available after installation"
-        exit 1
-    fi
-    
-    # Create distiller user and group if they don't exist
-    if ! getent group distiller >/dev/null 2>&1; then
-        echo "Creating distiller group..."
-        groupadd --system distiller
-    fi
-    
-    if ! getent passwd distiller >/dev/null 2>&1; then
-        echo "Creating distiller user..."
-        useradd --system --gid distiller --no-create-home --shell /bin/false distiller
-    fi
-    
-    # Add distiller user to necessary groups for hardware access
-    echo "Adding distiller user to hardware access groups..."
-    for group in audio video spi dialout gpio i2c; do
-        if getent group $group >/dev/null 2>&1; then
-            usermod -a -G $group distiller 2>/dev/null || true
-        fi
-    done
-    
-    # Set up proper ownership first
-    echo "Setting up directory ownership..."
-    chown -R distiller:distiller /opt/distiller-cm5-sdk
-    
-    # Create virtual environment using uv as distiller user
-    cd /opt/distiller-cm5-sdk
-    echo "Creating Python virtual environment using uv..."
-    
-    # Clean up any existing virtual environment and lock file
-    rm -rf .venv 2>/dev/null || true
-    rm -f uv.lock 2>/dev/null || true
-    
-    # Create fresh virtual environment as distiller user
-    echo "Creating fresh Python virtual environment..."
-    if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$UV_BINARY\" venv .venv" distiller; then
-        echo "Error: Failed to create virtual environment"
-        exit 1
-    fi
-    
-    # Install dependencies using uv sync as distiller user
-    echo "Installing Python dependencies using uv sync..."
-    echo "Generating architecture-specific lockfile and installing dependencies..."
-    if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$UV_BINARY\" sync" distiller; then
-        echo "Error: Failed to install Python dependencies with uv sync"
-        echo "This could be due to missing system dependencies or network issues"
-        echo "Please check that required system packages are installed:"
-        echo "  - portaudio19-dev (for pyaudio)"
-        echo "  - build-essential (for native extensions)"
-        echo "  - pkg-config (for library detection)"
-        exit 1
-    fi
-    
-    # Verify virtual environment was created successfully
-    VENV_PYTHON="/opt/distiller-cm5-sdk/.venv/bin/python"
-    if [ ! -f "$VENV_PYTHON" ]; then
-        echo "Error: Virtual environment setup failed"
-        exit 1
-    fi
-    
-    # Test basic imports to verify installation (as distiller user)
-    echo "Verifying Python package installation..."
-    if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$VENV_PYTHON\" -c \"import sys; print('Python version:', sys.version)\"" distiller; then
-        echo "Error: Python environment verification failed"
-        exit 1
-    fi
-    
-    # Test SDK imports (as distiller user)
-    echo "Testing distiller-cm5-sdk imports..."
-    if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$VENV_PYTHON\" -c \"import distiller_cm5_sdk; print('SDK imported successfully')\"" distiller; then
-        echo "Error: distiller-cm5-sdk import failed"
-        exit 1
-    fi
-    
-    echo "Installation verification completed successfully"
-    
-    # Create convenience script for activating the environment
-    cat > /opt/distiller-cm5-sdk/activate.sh << 'EOF'
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ]; then
+	echo "Setting up Distiller CM5 SDK with uv..."
+
+	# Find uv binary
+	UV_BINARY=""
+	if command -v uv >/dev/null 2>&1; then
+		UV_BINARY="uv"
+	elif [ -f "/usr/local/bin/uv" ] && [ -x "/usr/local/bin/uv" ]; then
+		UV_BINARY="/usr/local/bin/uv"
+		export PATH="/usr/local/bin:$PATH"
+	elif [ -f "$HOME/.local/bin/uv" ] && [ -x "$HOME/.local/bin/uv" ]; then
+		UV_BINARY="$HOME/.local/bin/uv"
+	elif [ -f "/root/.local/bin/uv" ] && [ -x "/root/.local/bin/uv" ]; then
+		UV_BINARY="/root/.local/bin/uv"
+	else
+		echo "Error: uv package manager not found despite preinst check"
+		exit 1
+	fi
+
+	# Verify uv installation
+	if [ -n "$UV_BINARY" ] && [ -x "$UV_BINARY" ]; then
+		echo "Using uv at: $UV_BINARY"
+	elif command -v uv >/dev/null 2>&1; then
+		UV_BINARY="uv"
+	else
+		echo "Error: uv is not available after installation"
+		exit 1
+	fi
+
+	# Verify distiller user exists
+	if ! getent passwd distiller >/dev/null 2>&1; then
+		echo "Error: distiller user not found despite preinst check"
+		exit 1
+	fi
+
+	# Add distiller user to necessary groups for hardware access
+	echo "Adding distiller user to hardware access groups..."
+	for group in audio video spi dialout gpio i2c; do
+		if getent group $group >/dev/null 2>&1; then
+			usermod -a -G $group distiller 2>/dev/null || true
+		fi
+	done
+
+	# Set up proper ownership first
+	echo "Setting up directory ownership..."
+	chown -R distiller:distiller /opt/distiller-cm5-sdk
+
+	# Create virtual environment using uv as distiller user
+	cd /opt/distiller-cm5-sdk
+	echo "Creating Python virtual environment using uv..."
+
+	# Clean up any existing virtual environment and lock file
+	rm -rf .venv 2>/dev/null || true
+	rm -f uv.lock 2>/dev/null || true
+
+	# Create fresh virtual environment as distiller user
+	echo "Creating fresh Python virtual environment..."
+	if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$UV_BINARY\" venv .venv" distiller; then
+		echo "Error: Failed to create virtual environment"
+		exit 1
+	fi
+
+	# Install dependencies using uv sync as distiller user
+	echo "Installing Python dependencies using uv sync..."
+	echo "Generating architecture-specific lockfile and installing dependencies..."
+	if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$UV_BINARY\" sync" distiller; then
+		echo "Error: Failed to install Python dependencies with uv sync"
+		echo "This could be due to:"
+		echo "  - Network connectivity issues (check internet connection)"
+		echo "  - PyPI repository unavailable"
+		echo "  - Incompatible Python packages for ARM64 architecture"
+		echo "  - Insufficient disk space"
+		echo ""
+		echo "All required system dependencies should have been installed automatically."
+		echo "If you continue to have issues, check the error messages above for details."
+		exit 1
+	fi
+
+	# Verify virtual environment was created successfully
+	VENV_PYTHON="/opt/distiller-cm5-sdk/.venv/bin/python"
+	if [ ! -f "$VENV_PYTHON" ]; then
+		echo "Error: Virtual environment setup failed"
+		exit 1
+	fi
+
+	# Test basic imports to verify installation (as distiller user)
+	echo "Verifying Python package installation..."
+	if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$VENV_PYTHON\" -c \"import sys; print('Python version:', sys.version)\"" distiller; then
+		echo "Error: Python environment verification failed"
+		exit 1
+	fi
+
+	# Test SDK imports (as distiller user)
+	echo "Testing distiller-cm5-sdk imports..."
+	if ! su -s /bin/bash -c "cd /opt/distiller-cm5-sdk && \"$VENV_PYTHON\" -c \"import distiller_cm5_sdk; print('SDK imported successfully')\"" distiller; then
+		echo "Error: distiller-cm5-sdk import failed"
+		exit 1
+	fi
+
+	echo "Installation verification completed successfully"
+
+	# Create convenience script for activating the environment
+	cat >/opt/distiller-cm5-sdk/activate.sh <<'EOF'
 #!/bin/bash
 # Activate the distiller-cm5-sdk virtual environment
 source /opt/distiller-cm5-sdk/.venv/bin/activate
@@ -166,11 +122,11 @@ echo "  Update dependencies: cd /opt/distiller-cm5-sdk && uv sync"
 echo ""
 echo "Installation was successful! uv.lock generated for $(uname -m) architecture"
 EOF
-    
-    chmod +x /opt/distiller-cm5-sdk/activate.sh
-    
-    # Create a README file
-    cat > /opt/distiller-cm5-sdk/README << 'EOF'
+
+	chmod +x /opt/distiller-cm5-sdk/activate.sh
+
+	# Create a README file
+	cat >/opt/distiller-cm5-sdk/README <<'EOF'
 Distiller CM5 SDK - Debian Package Installation
 ===============================================
 
@@ -196,26 +152,24 @@ Package management:
 
 For more information, see: /usr/share/doc/distiller-cm5-sdk/README.Debian
 EOF
-    
-    # Ensure proper permissions with distiller ownership (redundant but ensures consistency)
-    chown -R distiller:distiller /opt/distiller-cm5-sdk
-    chmod -R 755 /opt/distiller-cm5-sdk
-    chmod 644 /opt/distiller-cm5-sdk/README
-    
-    # Ensure venv scripts are executable
-    chmod +x /opt/distiller-cm5-sdk/.venv/bin/*
-    
-    # Make sure distiller user can write to the directory for package management
-    chmod 775 /opt/distiller-cm5-sdk
-    chmod 775 /opt/distiller-cm5-sdk/.venv
-    
-    # Update shared library cache
-    ldconfig
-    
-    echo "Distiller CM5 SDK installed successfully to /opt/distiller-cm5-sdk"
-    echo "Python virtual environment created with uv package manager"
-    echo "All Python dependencies installed via uv sync"
-    echo "To activate the environment, run: source /opt/distiller-cm5-sdk/activate.sh"
+
+	# Ensure proper permissions with distiller ownership (redundant but ensures consistency)
+	chown -R distiller:distiller /opt/distiller-cm5-sdk
+	chmod -R 755 /opt/distiller-cm5-sdk
+	chmod 644 /opt/distiller-cm5-sdk/README
+
+	# Ensure venv scripts are executable
+	chmod +x /opt/distiller-cm5-sdk/.venv/bin/*
+
+	# Make sure distiller user can write to the directory for package management
+	chmod 775 /opt/distiller-cm5-sdk
+	chmod 775 /opt/distiller-cm5-sdk/.venv
+
+	# Update shared library cache
+	ldconfig
+
+	echo "Distiller CM5 SDK installed successfully to /opt/distiller-cm5-sdk"
+	echo "To activate the environment, run: source /opt/distiller-cm5-sdk/activate.sh"
 fi
 
-#DEBHELPER# 
+#DEBHELPER#

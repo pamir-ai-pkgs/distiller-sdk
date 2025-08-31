@@ -1,0 +1,14 @@
+# Install Python source code
+src opt/distiller-cm5-sdk/
+
+# Install configuration files
+pyproject.toml opt/distiller-cm5-sdk/
+README.md opt/distiller-cm5-sdk/
+
+# Install model files
+src/distiller_cm5_sdk/parakeet/models opt/distiller-cm5-sdk/models/parakeet/
+src/distiller_cm5_sdk/piper/models opt/distiller-cm5-sdk/models/piper/
+src/distiller_cm5_sdk/piper/piper opt/distiller-cm5-sdk/models/piper/
+
+# Install the ARM64 shared library
+src/distiller_cm5_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so opt/distiller-cm5-sdk/lib/

@@ -1,20 +1,20 @@
 Source: distiller-cm5-sdk
 Section: python
 Priority: optional
-Maintainer: PamirAI Incorporated <founders@pamir.ai>
+Maintainer: PamirAI Incorporated <support@pamir.ai>
 Build-Depends: debhelper-compat (= 13),
                dh-python,
                python3-setuptools,
                curl,
-               ca-certificates,
+               ca-certificates
 Standards-Version: 4.6.2
 Homepage: https://github.com/Pamir-AI/distiller-cm5-sdk
 Rules-Requires-Root: no
 
 Package: distiller-cm5-sdk
-Architecture: any
+Architecture: arm64
 Depends: ${misc:Depends},
-         python3,
+         python3 (>= 3.11),
          python3-dev,
          python3-venv,
          curl,
@@ -28,14 +28,6 @@ Depends: ${misc:Depends},
          pkgconf,
          rpicam-apps | libcamera-apps
 Description: Distiller CM5 SDK - Self-contained Python SDK for hardware control
- The Distiller CM5 SDK provides a self-contained Python environment with modules,
- model files, and native libraries for audio, camera, e-ink display, and TTS/ASR
- on the CM5 platform.
- .
- This package installs to /opt/distiller-cm5-sdk and includes:
-  * Python 3.11 virtual environment managed by uv
-  * Python modules (distiller_cm5_sdk)
-  * Model files for Whisper, Parakeet, Piper
-  * Native shared library for e-ink display
-  * All dependencies for hardware access and audio/video processing
-  * uv package manager for Python dependency management 
+ The Distiller CM5 SDK provides a self-contained Python environment with 
+ modules, model files, and native libraries for audio, camera, e-ink display,
+ and TTS/ASR.
