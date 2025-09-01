@@ -10,6 +10,10 @@ override_dh_auto_build:
 	# This ensures all assets are ready for packaging
 	true
 
+	# Clean up Rust build artifacts before packaging
+	rm -rf src/distiller_cm5_sdk/hardware/eink/lib/target
+	rm -f src/distiller_cm5_sdk/hardware/eink/lib/target-build
+
 override_dh_auto_install:
 	# Process files installed by debian/install
 	dh_auto_install

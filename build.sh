@@ -131,11 +131,11 @@ else
 	if [ -d "$RUST_LIB_DIR" ]; then
 		echo "[INFO] Entering $RUST_LIB_DIR"
 		cd "$RUST_LIB_DIR"
-		
+
 		# Clean any previous build artifacts
 		echo "[INFO] Cleaning previous build artifacts..."
 		make -f Makefile.rust clean || true
-		
+
 		# Build the Rust library for ARM64
 		echo "[INFO] Building Rust library for ARM64..."
 		if make -f Makefile.rust build; then
@@ -151,9 +151,14 @@ else
 			echo "[ERROR] Failed to build Rust library"
 			exit 1
 		fi
-		
+
+		# Clean build artifacts but keep the library
+		echo "[INFO] Cleaning Rust build artifacts to reduce package size..."
+		rm -rf target/ target-build
+		echo "[INFO] Rust build artifacts cleaned"
+
 		# Return to original directory
-		cd - > /dev/null
+		cd - >/dev/null
 	else
 		echo "[WARNING] Rust library directory not found at $RUST_LIB_DIR"
 		echo "[WARNING] E-ink display support may not be available"
