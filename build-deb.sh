@@ -193,34 +193,6 @@ prepare_python_uv() {
             log_error "build.sh not found for distiller-cm5-sdk"
             return 1
         fi
-        
-        # Move models out of src to prevent duplication in package
-        log_info "Reorganizing models to prevent duplication in package..."
-        mkdir -p models/parakeet models/piper models/whisper
-        
-        # Move Parakeet models
-        if [ -d "src/distiller_cm5_sdk/parakeet/models" ]; then
-            log_info "Moving Parakeet models..."
-            mv src/distiller_cm5_sdk/parakeet/models/* models/parakeet/ 2>/dev/null || true
-        fi
-        
-        # Move Piper models and executable
-        if [ -d "src/distiller_cm5_sdk/piper/models" ]; then
-            log_info "Moving Piper models..."
-            mv src/distiller_cm5_sdk/piper/models/* models/piper/ 2>/dev/null || true
-        fi
-        if [ -d "src/distiller_cm5_sdk/piper/piper" ]; then
-            log_info "Moving Piper executable..."
-            mv src/distiller_cm5_sdk/piper/piper/* models/piper/ 2>/dev/null || true
-        fi
-        
-        # Move Whisper models if they exist
-        if [ -d "src/distiller_cm5_sdk/whisper/models" ]; then
-            log_info "Moving Whisper models..."
-            mv src/distiller_cm5_sdk/whisper/models/* models/whisper/ 2>/dev/null || true
-        fi
-        
-        log_success "Models reorganized successfully"
     fi
     
     # Check for uv.lock - we don't include it in packages
@@ -371,12 +343,6 @@ build_package() {
     rm -f ../"${package_name}"_*.changes
     rm -f ../"${package_name}"_*.buildinfo
     
-    # Clean up temporary models directory if it exists
-    if [ -d "models" ]; then
-        log_info "Cleaning up temporary models directory..."
-        rm -rf models/
-    fi
-    
     return 0
 }
 
@@ -415,7 +381,7 @@ main() {
     # Parse command line arguments
     case "${1:-}" in
         clean)
-            clean_build
+            clean_build "$@"
             exit 0
             ;;
         check)

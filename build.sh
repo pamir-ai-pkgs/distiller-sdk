@@ -72,13 +72,10 @@ download_if_not_exists "https://github.com/k2-fsa/sherpa-onnx/releases/download/
 
 # Piper files
 PIPER_MODEL_DIR="src/distiller_cm5_sdk/piper/models"
-PIPER_EXE_FILE_DIR="src/distiller_cm5_sdk/piper/piper"
-PIPER_EXE_FILE_UNZIP_DIR="src/distiller_cm5_sdk/piper"
 PIPER_TAR="src/distiller_cm5_sdk/piper/piper_arm64.tar.gz"
 make_dir_if_not_exists "$PIPER_MODEL_DIR"
-make_dir_if_not_exists "$PIPER_EXE_FILE_DIR"
 
-# Check for Piper executable files
+# Check for Piper executable files in models directory
 PIPER_REQUIRED_FILES=(
 	"libespeak-ng.so.1"
 	"libespeak-ng.so.1.1.51"
@@ -91,7 +88,7 @@ PIPER_REQUIRED_FILES=(
 
 piper_needs_download=false
 for file in "${PIPER_REQUIRED_FILES[@]}"; do
-	if [ ! -f "$PIPER_EXE_FILE_DIR/$file" ]; then
+	if [ ! -f "$PIPER_MODEL_DIR/piper/$file" ]; then
 		piper_needs_download=true
 		break
 	fi
@@ -100,7 +97,8 @@ done
 if [ "$piper_needs_download" = true ]; then
 	echo "[INFO] Piper files are incomplete. Downloading and extracting..."
 	download_if_not_exists "https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_arm64.tar.gz" "$PIPER_TAR"
-	tar -xvf "$PIPER_TAR" -C "$PIPER_EXE_FILE_UNZIP_DIR"
+	# Extract directly to models directory
+	tar -xvf "$PIPER_TAR" -C "$PIPER_MODEL_DIR"
 	rm "$PIPER_TAR"
 else
 	echo "[INFO] All Piper executable files already exist."
