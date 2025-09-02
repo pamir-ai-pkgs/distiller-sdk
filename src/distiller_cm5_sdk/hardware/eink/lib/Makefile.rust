@@ -15,24 +15,39 @@ endif
 
 CARGO = cargo
 
-.PHONY: all clean build install-target target-info
+# Find all Rust source files
+RUST_SOURCES := $(shell find src -name "*.rs" 2>/dev/null)
+CARGO_FILES := Cargo.toml Cargo.lock
+
+.PHONY: all clean build install-target target-info check-rebuild
 
 all: build
 
 build: libdistiller_display_sdk_shared.so
 
-libdistiller_display_sdk_shared.so: target-build
-	cp target-build $@
-
-target-build:
+# Main library target with proper dependencies
+libdistiller_display_sdk_shared.so: $(RUST_SOURCES) $(CARGO_FILES)
+	@echo "Building Rust library (dependencies changed)..."
 ifeq ($(RUST_TARGET),)
 	$(CARGO) build --release
-	cp target/release/libdistiller_display_sdk_shared.so target-build
+	cp target/release/libdistiller_display_sdk_shared.so $@
 else
 	$(CARGO) build --release --target $(RUST_TARGET)
-	cp target/$(RUST_TARGET)/release/libdistiller_display_sdk_shared.so target-build
+	cp target/$(RUST_TARGET)/release/libdistiller_display_sdk_shared.so $@
 endif
 	@echo "Library built successfully: $@"
+
+# Check if rebuild is needed (useful for debugging)
+check-rebuild: 
+	@if [ ! -f libdistiller_display_sdk_shared.so ]; then \
+		echo "Library does not exist, rebuild needed"; \
+	elif [ -n "$$(find src -name '*.rs' -newer libdistiller_display_sdk_shared.so 2>/dev/null)" ]; then \
+		echo "Source files changed, rebuild needed"; \
+	elif [ Cargo.toml -nt libdistiller_display_sdk_shared.so ] || [ Cargo.lock -nt libdistiller_display_sdk_shared.so ]; then \
+		echo "Cargo files changed, rebuild needed"; \
+	else \
+		echo "Library is up-to-date"; \
+	fi
 
 clean:
 	$(CARGO) clean

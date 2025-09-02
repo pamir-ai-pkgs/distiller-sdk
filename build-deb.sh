@@ -159,6 +159,49 @@ clean_build() {
     log_success "Clean completed"
 }
 
+# Check if Rust library needs rebuilding
+check_rust_rebuild_needed() {
+    local rust_lib="src/distiller_cm5_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so"
+    local rust_src_dir="src/distiller_cm5_sdk/hardware/eink/lib/src"
+    
+    # If library doesn't exist, rebuild is needed
+    if [ ! -f "$rust_lib" ]; then
+        log_info "Rust library not found, rebuild needed"
+        return 0
+    fi
+    
+    # Check if any Rust source file is newer than the library
+    local rebuild_needed=false
+    if [ -d "$rust_src_dir" ]; then
+        # Find any .rs file newer than the library
+        if find "$rust_src_dir" -name "*.rs" -newer "$rust_lib" | grep -q .; then
+            log_info "Rust source files have changed, rebuild needed"
+            rebuild_needed=true
+        fi
+        
+        # Also check Cargo.toml and Cargo.lock
+        local cargo_toml="src/distiller_cm5_sdk/hardware/eink/lib/Cargo.toml"
+        local cargo_lock="src/distiller_cm5_sdk/hardware/eink/lib/Cargo.lock"
+        
+        if [ -f "$cargo_toml" ] && [ "$cargo_toml" -nt "$rust_lib" ]; then
+            log_info "Cargo.toml has changed, rebuild needed"
+            rebuild_needed=true
+        fi
+        
+        if [ -f "$cargo_lock" ] && [ "$cargo_lock" -nt "$rust_lib" ]; then
+            log_info "Cargo.lock has changed, rebuild needed"
+            rebuild_needed=true
+        fi
+    fi
+    
+    if [ "$rebuild_needed" = true ]; then
+        return 0
+    else
+        log_info "Rust library is up-to-date, no rebuild needed"
+        return 1
+    fi
+}
+
 # Prepare Python project with uv
 prepare_python_uv() {
     log_info "Preparing Python project with uv..."
@@ -166,16 +209,24 @@ prepare_python_uv() {
     # Special handling for distiller-cm5-sdk
     local package_name=$(get_package_name)
     if [ "$package_name" = "distiller-cm5-sdk" ]; then
-        log_info "Detected distiller-cm5-sdk - running build.sh to prepare models and Rust library..."
+        log_info "Detected distiller-cm5-sdk - checking if build is needed..."
         
         # Check if build.sh exists
         if [ -f "./build.sh" ]; then
             # Make it executable
             chmod +x ./build.sh
             
-            # Run build.sh to download models and build Rust library
-            log_info "Running build.sh to download models and build Rust library..."
-            if ./build.sh; then
+            # Determine if we should skip Rust rebuild
+            local build_flags=""
+            if check_rust_rebuild_needed; then
+                log_info "Running build.sh to download models and build Rust library..."
+            else
+                log_info "Running build.sh to download models (skipping Rust library rebuild)..."
+                build_flags="--skip-rust"
+            fi
+            
+            # Run build.sh with appropriate flags
+            if ./build.sh $build_flags; then
                 log_success "build.sh completed successfully"
                 
                 # Verify Rust library was built
