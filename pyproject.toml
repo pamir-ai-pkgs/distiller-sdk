@@ -37,9 +37,10 @@ where = [ "src" ]
 "distiller_cm5_sdk" = [
   "hardware/eink/lib/*.so",
   "hardware/eink/lib/*.h",
-  "parakeet/models/*",
-  "piper/models/*",
+  "parakeet/models/**/*",
+  "piper/models/**/*",
   "piper/piper/**/*",
+  "whisper/models/**/*",
   "hardware/audio/test_audio.wav",
 ]
 
