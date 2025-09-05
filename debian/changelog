@@ -1,3 +1,42 @@
+distiller-cm5-sdk (2.0.0) unstable; urgency=medium
+
+  [ utsavbalar1231 ]
+  * feat: Add github workflow for deb package release
+  * fix(debian): Add devscripts to build dependencies
+
+  [ TianqiYe ]
+  * feat: Add composer module and update dependencies
+
+  [ utsavbalar1231 ]
+  * feat(eink): Add simple degree-based rotation support
+  * fix(eink): Update _convert_png_auto for degree-based rotation support
+
+  [ Nischal-BK ]
+  * Update parakeet.py
+
+  [ utsavbalar1231 ]
+  * fix(piper): add the list_voices method to the Piper class
+  * refactor(camera)!: migrate to rpicam-apps for modern camera support
+  * chore(eink): add Rust linting and formatting configuration
+  * chore(eink): remove unused dependencies and example code
+  * refactor(eink): address clippy warnings, improve error handling, docs, and code quality
+  * refactor(eink)!: rust based image processing
+  * build: improve package installation and dependency management
+  * chore(eink): Add support for vertical flip
+  * docs: Update README
+  * feat(eink): add multi-format image support with automatic scaling
+  * docs: Fix documentation inconsistencies in display.py
+  * docs: update eink documentation with the codebase
+  * fix(eink): ensure QR codes use proper grayscale values
+  * refactor(debian): update for modern debian packaging
+  * fix(debian): duplicate models issue in the debian packaging
+  * fix(debian): keep models in their proper locations
+  * fix(debian): cleanup rust build artifacts before packaging
+  * fix(pyproject.toml): ensure all model subdirectories are included in package
+  * feat(build): add smart dependency tracking for Rust library builds
+
+ -- PamirAI Incorporated <support@pamir.ai>  Fri, 05 Sep 2025 08:54:09 +0000
+
 distiller-cm5-sdk (0.1.0-1) unstable; urgency=medium
 
   [ utsavbalar1231 ]
