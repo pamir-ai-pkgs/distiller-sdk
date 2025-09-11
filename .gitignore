@@ -51,6 +51,7 @@ nbproject/
 
 # Extras
 final_review_gate.py
+CLAUDE.md
 
 # Debian packaging files
 debian/.debhelper/

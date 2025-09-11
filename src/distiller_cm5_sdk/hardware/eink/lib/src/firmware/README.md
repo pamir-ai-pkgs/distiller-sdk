@@ -1,17 +1,19 @@
 # E-ink Display Firmware Abstraction
 
-This directory contains firmware configurations for different e-ink display variants. The firmware abstraction system allows you to easily support multiple display models with different dimensions and register configurations.
+This directory contains firmware configurations for different e-ink display variants. The firmware
+abstraction system allows you to easily support multiple display models with different dimensions
+and register configurations.
 
 ## Architecture
 
 The firmware abstraction consists of:
 
-1. **DisplayFirmware trait** - The interface that all display variants must implement
-2. **DisplaySpec** - Holds display specifications (width, height, name, description)
-3. **CommandSequence** - A declarative way to define register command sequences
-4. **Firmware implementations** - Specific configurations for each display variant
-5. **TransformType enum** - Defines image transformation types (rotation, flips)
-6. **Image Processing FFI** - C-compatible functions for transformations accessible from Python
+1. **DisplayFirmware trait**: The interface that all display variants must implement
+2. **DisplaySpec**: Holds display specifications (width, height, name, description)
+3. **CommandSequence**: A declarative way to define register command sequences
+4. **Firmware implementations**: Specific configurations for each display variant
+5. **TransformType enum**: Defines image transformation types (rotation, flips)
+6. **Image Processing FFI**: C-compatible functions for transformations accessible from Python
 
 ## Adding a New Display Variant
 
@@ -53,38 +55,38 @@ impl DisplayFirmware for EPD240x320Firmware {
     fn get_init_sequence(&self) -> CommandSequence {
         let height = self.spec.height;
         let width = self.spec.width;
-        
+
         CommandSequence::new()
             // Software reset
             .cmd(0x12)
             .check_status()
-            
+
             // Driver output control - adjusted for 240x320
             .cmd(0x01)
             .data(((height - 1) % 256) as u8)
             .data(((height - 1) / 256) as u8)
             .data(0x00)
-            
+
             // Data entry mode
             .cmd(0x11)
             .data(0x01)
-            
+
             // Set Ram-X address - adjusted for 240x320
             .cmd(0x44)
             .data(0x00)
             .data((width / 8 - 1) as u8)
-            
+
             // Set Ram-Y address - adjusted for 240x320
             .cmd(0x45)
             .data(((height - 1) % 256) as u8)
             .data(((height - 1) / 256) as u8)
             .data(0x00)
             .data(0x00)
-            
+
             // BorderWavefrom - may need different value
             .cmd(0x3C)
             .data(0x03) // Adjusted for this display
-            
+
             // Continue with other initialization commands...
             // (Copy from existing firmware and adjust values)
     }
@@ -142,19 +144,24 @@ pub use epd240x320::EPD240x320Firmware; // Export your new firmware
 When creating a new firmware, pay attention to these register values:
 
 ### Display Dimensions
+
 - Adjust width/height in DisplaySpec
 - Update Ram-X/Ram-Y address calculations in init sequence
-- **Note**: The EPD128x250 firmware name follows internal convention but actually represents a 250×128 (width×height) display
+- **Note**: The EPD128x250 firmware name follows internal convention but actually represents a
+  250×128 (width×height) display
 
 ### BorderWavefrom (0x3C)
+
 - Full refresh: Often 0x03, 0x05, or 0x07
 - Partial refresh: Often 0x80, 0x82, or similar
 
 ### Display Update Control (0x22)
+
 - Full refresh: Often 0xF4, 0xF7, or 0xC7
 - Partial refresh: Often 0xCF, 0xFF, or similar
 
 ### Driver Output Control (0x01)
+
 - Height-dependent values
 - Third byte often 0x00 but may vary
 
@@ -180,6 +187,7 @@ CommandSequence::new()
 ## Switching Between Firmware Variants
 
 ### At Compile Time
+
 Change the default firmware in `protocol.rs`:
 
 ```rust
@@ -191,6 +199,7 @@ pub type DefaultProtocol = GenericEinkProtocol<
 ```
 
 ### At Runtime (Advanced)
+
 Use the generic protocol functions:
 
 ```rust
@@ -205,9 +214,11 @@ let display = GenericDisplay::new(protocol);
 2. **Display artifacts**: Adjust BorderWavefrom values
 3. **Slow/incomplete updates**: Check Display Update Control values
 4. **Wrong orientation**: Verify Ram-X/Ram-Y address calculations
-5. **Vertical flip not working**: Ensure you're using the latest library with `flip_vertical` support
+5. **Vertical flip not working**: Ensure you're using the latest library with `flip_vertical`
+   support
 6. **Rotation issues**: Use degrees (0, 90, 180, 270) instead of rotation index values
-7. **Transformation requires dimensions**: For raw data transformations, always provide `src_width` and `src_height`
+7. **Transformation requires dimensions**: For raw data transformations, always provide `src_width`
+   and `src_height`
 
 ## Directory Structure
 
@@ -220,9 +231,11 @@ src/firmware/
 ```
 
 Additional related modules:
+
 - `src/ffi.rs` - Core FFI exports for display operations
 - `src/ffi_image_processing.rs` - FFI exports for image transformations
 - `src/image_processing.rs` - Image transformation implementations
 - `src/config.rs` - Configuration management for firmware selection
 
-This abstraction makes it easy to support new display variants by simply creating a new firmware file with the appropriate register values, without touching the core protocol or hardware logic.
+This abstraction makes it easy to support new display variants by simply creating a new firmware
+file with the appropriate register values, without touching the core protocol or hardware logic.

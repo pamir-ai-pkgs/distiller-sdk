@@ -1,10 +1,12 @@
 # Distiller CM5 SDK
 
-Python SDK for the Distiller CM5 platform, providing hardware control, audio processing, computer vision, and AI capabilities using **uv** package management.
+Python SDK for the Distiller CM5 platform, providing hardware control, audio processing, computer
+vision, and AI capabilities using **uv** package management.
 
 ## Quick Start
 
 ### Prerequisites
+
 - **Python 3.11+** (automatically installed with package)
 - **ARM64 Linux system** (CM5 platform)
 - **uv package manager** (auto-installed during setup)
@@ -32,7 +34,7 @@ python -c "import distiller_cm5_sdk; print('SDK imported successfully!')"
 
 ## Package Structure
 
-```
+```text
 /opt/distiller-cm5-sdk/
 ├── distiller_cm5_sdk/    # Python SDK modules
 │   ├── hardware/         # Hardware control
@@ -102,24 +104,51 @@ audio = Audio()
 Audio.set_mic_gain_static(80)      # 0-100
 Audio.set_speaker_volume_static(70) # 0-100
 
-# Recording
-audio_data = audio.record_audio(duration=5.0, sample_rate=16000)
-audio.save_recording("output.wav", audio_data)
+# Recording to file
+audio.record("output.wav", duration=5.0)  # Record for 5 seconds
+# OR without duration (manual stop required)
+audio.record("output.wav")
+audio.stop_recording()
 
-# Playback
-audio.play_audio_file("sound.wav")
-audio.play_audio(audio_data, sample_rate=16000)
+# Streaming recording with callback
+def audio_callback(data):
+    print(f"Received {len(data)} bytes")
 
-# Get device info
-devices = audio.get_audio_devices()
-info = audio.get_device_info(device_index=0)
+thread = audio.stream_record(callback=audio_callback, buffer_size=4096)
+# ... do something ...
+audio.stop_recording()
+
+# Playback from file
+audio.play("sound.wav")
+
+# Stream playback
+audio_data = b'...'  # Your audio data
+audio.stream_play(audio_data,
+      format_type="S16_LE",
+      sample_rate=16000,
+      channels=1)
+
+# Volume control
+audio.set_mic_gain(85)  # Instance method
+audio.set_speaker_volume(60)
+gain = audio.get_mic_gain()
+volume = audio.get_speaker_volume()
+
+# Status checks
+is_recording = audio.is_recording()
+is_playing = audio.is_playing()
+
+# Cleanup
+audio.close()
 ```
 
 ### E-ink Display
 
-Supports EPD128x250 (250×128 pixels) and EPD240x416 (240×416 pixels) displays with comprehensive image processing capabilities.
+Supports EPD128x250 (250×128 pixels) and EPD240x416 (240×416 pixels) displays with comprehensive
+image processing capabilities.
 
-**Note**: The EPD128x250 firmware name follows internal convention but actually represents a 250×128 (width×height) display.
+**Note**: The EPD128x250 firmware name follows internal convention but actually represents a 250×128
+(width×height) display.
 
 #### Configuration
 
@@ -147,21 +176,21 @@ current_fw = get_default_firmware()
 with Display() as display:
     # Simple PNG display (must match display dimensions)
     display.display_image("image.png", mode=DisplayMode.FULL)
-    
+
     # Display with transformations
     display.display_image(
         "image.png",
         mode=DisplayMode.FULL,
-        rotate=90,              # Rotation: 0, 90, 180, 270 degrees (or True for 90°)
+        rotate=90,        # Rotation: 0, 90, 180, 270 degrees (or True for 90°)
         flip_horizontal=True,   # Mirror left-right
         flip_vertical=True,     # Mirror top-bottom
         invert_colors=True      # Invert black/white
     )
-    
+
     # Display various image formats (JPEG, GIF, BMP, TIFF, WebP)
     display.display_image_file("photo.jpg", mode=DisplayMode.FULL)
     display.display_image_file("animation.gif", mode=DisplayMode.FULL)
-    
+
     # Raw 1-bit data display with transformations
     raw_data = bytes([0xFF] * 4000)  # White screen
     display.display_image(
@@ -174,7 +203,7 @@ with Display() as display:
         src_width=250,  # Required for raw data transformations
         src_height=128  # Required for raw data transformations
     )
-    
+
     # Clear display
     display.clear()
 ```
@@ -182,7 +211,8 @@ with Display() as display:
 #### Auto-Conversion with Scaling and Dithering
 
 ```python
-# Display any image with automatic conversion (supports PNG, JPEG, GIF, BMP, TIFF, WebP)
+# Display any image with automatic conversion
+# supports PNG, JPEG, GIF, BMP, TIFF, WebP
 display.display_image_auto(
     "large_photo.jpg",  # Any size, any supported format
     mode=DisplayMode.FULL,
@@ -294,40 +324,61 @@ from distiller_cm5_sdk.hardware.camera import Camera
 
 camera = Camera()
 
-# Capture image
+# Capture image (saves to file if filepath provided)
+image = camera.capture_image("photo.jpg")
+# OR without filepath (returns numpy array only)
 image = camera.capture_image()
-camera.save_image(image, "photo.jpg")
 
-# Video recording
-camera.start_recording("video.mp4")
-# ... do something ...
-camera.stop_recording()
+# Get single frame
+frame = camera.get_frame()
 
-# Stream processing
-for frame in camera.capture_stream(duration=10):
+# Stream processing with callback
+def frame_callback(frame):
+    print(f"Frame shape: {frame.shape}")
     # Process frame
-    pass
 
-camera.release()
+camera.start_stream(callback=frame_callback)
+# ... do something ...
+camera.stop_stream()
+
+# Adjust settings
+camera.adjust_setting("brightness", 50)
+setting_value = camera.get_setting("brightness")
+available = camera.get_available_settings()
+
+# Cleanup
+camera.close()
 ```
 
 ### LED Control
 
 ```python
 from distiller_cm5_sdk.hardware.sam import LED
+import time
 
-led = LED()
+led = LED(use_sudo=True)  # May need sudo for sysfs access
 
-# Basic control
-led.turn_on()
-led.set_color(255, 0, 0)  # Red
-led.set_brightness(50)     # 0-100
-led.turn_off()
+# Basic control (per-LED)
+led.set_rgb_color(led_id=0, red=255, green=0, blue=0)  # Red
+led.set_brightness(led_id=0, brightness=128)  # 0-255
+led.turn_off(led_id=0)
 
-# Patterns
-for brightness in range(0, 101, 5):  # Breathing
-    led.set_brightness(brightness)
+# Get current state
+red, green, blue = led.get_rgb_color(led_id=0)
+brightness = led.get_brightness(led_id=0)
+
+# Control all LEDs
+led.set_color_all(red=0, green=255, blue=0)  # All green
+led.set_brightness_all(200)  # 0-255
+led.turn_off_all()
+
+# Breathing pattern example
+for brightness in range(0, 256, 5):  # Breathing
+    led.set_brightness(led_id=0, brightness=brightness)
     time.sleep(0.05)
+
+# Get available LEDs
+available = led.get_available_leds()  # Returns list of LED IDs
 ```
 
 ### Parakeet ASR (with VAD)
@@ -338,24 +389,25 @@ from distiller_cm5_sdk.parakeet import Parakeet
 # Initialize
 asr = Parakeet()
 
-# One-shot transcription
-text = asr.transcribe_audio_file("speech.wav")
-
-# Streaming with VAD
-def on_transcription(text):
+# Push-to-talk recording and transcription
+for text in asr.record_and_transcribe_ptt():
     print(f"Transcribed: {text}")
 
-asr.start_streaming(callback=on_transcription)
-# Speak into microphone...
-asr.stop_streaming()
+# Automatic recording with VAD (Voice Activity Detection)
+for text in asr.auto_record_and_transcribe():
+    print(f"Transcribed: {text}")
 
-# Auto-record with silence detection
-audio_data = asr.auto_record(
-    silence_threshold=0.02,
-    silence_duration=1.5,
-    max_duration=30.0
-)
-text = asr.transcribe_audio(audio_data)
+# Manual recording control
+asr.start_recording()
+# ... speak ...
+audio_data = asr.stop_recording()
+
+# Transcribe the recorded audio
+for text in asr.transcribe_buffer(audio_data):
+    print(f"Transcribed: {text}")
+
+# Cleanup
+asr.cleanup()
 ```
 
 ### Piper TTS
@@ -366,18 +418,21 @@ from distiller_cm5_sdk.piper import Piper
 # Initialize
 tts = Piper()
 
-# Generate speech
-tts.speak("Hello, world!")
+# Stream speech directly to speakers
+tts.speak_stream("Hello, world!", volume=50)
 
-# Save to file
-tts.generate_speech_file("Hello", "output.wav")
+# Stream with specific sound card
+tts.speak_stream("Hello", volume=30, sound_card_name="snd_pamir_ai_soundcard")
 
-# Stream to speaker
-tts.stream_speech("This is streaming text to speech.")
+# Get WAV file (saves to current directory as output.wav)
+wav_path = tts.get_wav_file_path("Hello, this is a test")
+print(f"WAV file saved to: {wav_path}")
 
-# List voices
+# List available voices
 voices = tts.list_voices()
-tts.set_voice("en_US-amy-medium")
+for voice in voices:
+    print(f"Voice: {voice['name']}, Language: {voice['language']}")
+# Note: Currently only 'en_US-amy-medium' is available
 ```
 
 ### Whisper ASR (Optional)
@@ -409,42 +464,46 @@ from distiller_cm5_sdk.hardware.sam import LED
 
 class HardwareManager:
     """Coordinate multiple hardware components."""
-    
+
     def __init__(self):
         self.audio = None
         self.camera = None
         self.display = None
         self.led = None
-    
+
     def initialize(self):
         """Initialize available hardware."""
         try:
             self.display = Display()
             self.camera = Camera()
             self.audio = Audio()
-            self.led = LED()
+            self.led = LED(use_sudo=True)  # May need sudo for sysfs access
             return True
         except Exception as e:
             print(f"Hardware init failed: {e}")
             return False
-    
+
     def capture_and_display(self):
         """Capture image and show on display."""
         if self.camera and self.display:
-            image = self.camera.capture_image()
-            self.camera.save_image(image, "/tmp/capture.png")
+            # Capture and save image
+            image = self.camera.capture_image("/tmp/capture.png")
+            # Display on e-ink using auto-conversion
             self.display.display_png_auto("/tmp/capture.png", DisplayMode.FULL)
             if self.led:
-                self.led.set_color(0, 255, 0)  # Green success
-    
+                # Set first LED to green for success
+                self.led.set_rgb_color(led_id=0, red=0, green=255, blue=0)
+
     def cleanup(self):
         """Clean up resources."""
         if self.display:
             self.display.clear()
         if self.led:
-            self.led.turn_off()
+            self.led.turn_off_all()
         if self.camera:
-            self.camera.release()
+            self.camera.close()
+        if self.audio:
+            self.audio.close()
 
 # Usage
 manager = HardwareManager()
@@ -456,12 +515,14 @@ if manager.initialize():
 ## Build & Deployment
 
 ### Model Downloads
+
 ```bash
 ./build.sh              # Standard models (~200MB)
 ./build.sh --whisper    # Include Whisper (~500MB+)
 ```
 
 ### Package Build
+
 ```bash
 ./build-deb.sh         # Build .deb package
 ./build-deb.sh clean   # Clean rebuild
@@ -469,6 +530,7 @@ if manager.initialize():
 ```
 
 ### Installation
+
 ```bash
 sudo dpkg -i dist/distiller-cm5-sdk_*_arm64.deb
 sudo apt-get install -f  # Fix dependencies
@@ -479,6 +541,7 @@ sudo apt-get install -f  # Fix dependencies
 ### Common Issues
 
 **1. Import Errors**
+
 ```bash
 # Fix Python path
 export PYTHONPATH="/opt/distiller-cm5-sdk:$PYTHONPATH"
@@ -486,6 +549,7 @@ source /opt/distiller-cm5-sdk/activate.sh
 ```
 
 **2. Audio Issues**
+
 ```bash
 # Check devices
 aplay -l
@@ -499,6 +563,7 @@ sudo usermod -a -G audio $USER
 ```
 
 **3. Camera Not Found**
+
 ```bash
 # Check camera
 ls -la /dev/video*
@@ -509,6 +574,7 @@ sudo usermod -a -G video $USER
 ```
 
 **4. E-ink Display Issues**
+
 ```bash
 # Check SPI
 ls -la /dev/spi*
@@ -518,10 +584,11 @@ lsmod | grep spi
 python -c "from distiller_cm5_sdk.hardware.eink import get_default_firmware; print(get_default_firmware())"
 
 # Set firmware
-export DISTILLER_EINK_FIRMWARE=EPD240x416
+export DISTILLER_EINK_FIRMWARE=EPD128x250
 ```
 
 **5. Library Loading Errors**
+
 ```bash
 # Update library cache
 sudo ldconfig
@@ -531,6 +598,7 @@ ldd /opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so
 ```
 
 **6. Permission Denied**
+
 ```bash
 # Add user to required groups
 sudo usermod -a -G audio,video,spi,gpio,i2c $USER
@@ -544,14 +612,7 @@ sudo usermod -a -G audio,video,spi,gpio,i2c $USER
 dpkg -L distiller-cm5-sdk
 
 # Verify imports
-python -c "
-from distiller_cm5_sdk.hardware.audio import Audio
-from distiller_cm5_sdk.hardware.camera import Camera
-from distiller_cm5_sdk.hardware.eink import Display
-from distiller_cm5_sdk.parakeet import Parakeet
-from distiller_cm5_sdk.piper import Piper
-print('All imports successful!')
-"
+python -c "from distiller_cm5_sdk.hardware.audio import Audio; from distiller_cm5_sdk.hardware.camera import Camera; from distiller_cm5_sdk.hardware.eink import Display; from distiller_cm5_sdk.parakeet import Parakeet; from distiller_cm5_sdk.piper import Piper; print('All imports successful!')"
 
 # Test hardware
 python -m distiller_cm5_sdk.hardware.audio._audio_test
@@ -562,12 +623,14 @@ python -m distiller_cm5_sdk.hardware.eink._display_test
 ## System Requirements
 
 ### Hardware
+
 - **Platform**: Raspberry Pi CM5 or compatible ARM64 system
 - **RAM**: 2GB minimum, 4GB recommended
 - **Storage**: 2GB for full installation with models
 - **Peripherals**: E-ink display (SPI), Camera (V4L2), Audio (ALSA)
 
 ### Software
+
 - **OS**: ARM64 Linux (Debian/Ubuntu based)
 - **Python**: 3.11 or higher
 - **Libraries**: ALSA, V4L2, SPI support
@@ -575,7 +638,7 @@ python -m distiller_cm5_sdk.hardware.eink._display_test
 
 ## Version Information
 
-- **SDK Version**: 0.1.0
+- **SDK Version**: 2.0.0
 - **Python**: 3.11+
 - **Package Manager**: uv (latest)
 - **Architecture**: ARM64
@@ -588,13 +651,13 @@ python -m distiller_cm5_sdk.hardware.eink._display_test
 3. Make changes and test thoroughly
 4. Commit: `git commit -am 'Add feature'`
 5. Push: `git push origin feature-name`
-6. Create Pull Request
+6. Create pull request
 
 ## Support
 
 - **Documentation**: See module READMEs in `src/distiller_cm5_sdk/`
-- **Issues**: https://github.com/Pamir-AI/distiller-cm5-sdk/issues
-- **Wiki**: https://github.com/Pamir-AI/distiller-cm5-sdk/wiki
+- **Issues**: [GitHub Issues](https://github.com/Pamir-AI/distiller-cm5-sdk/issues)
+- **Wiki**: [GitHub Wiki](https://github.com/Pamir-AI/distiller-cm5-sdk/wiki)
 
 ## License
 

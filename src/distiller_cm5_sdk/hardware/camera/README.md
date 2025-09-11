@@ -1,21 +1,29 @@
 # Camera Module for CM5 SDK
 
 ## Overview
-The `camera.py` module provides a comprehensive interface for interacting with Raspberry Pi cameras in the CM5 SDK. It uses the modern rpicam-apps stack introduced in Raspberry Pi OS Bookworm, providing reliable camera operations on Raspberry Pi hardware.
+
+The `camera.py` module provides a comprehensive interface for interacting with Raspberry Pi cameras
+in the CM5 SDK. It uses the modern rpicam-apps stack introduced in Raspberry Pi OS Bookworm,
+providing reliable camera operations on Raspberry Pi hardware.
 
 ## Architecture
-The module is built around the `Camera` class, which uses rpicam-apps (modern CLI tools for Raspberry Pi OS Bookworm+) for all camera operations.
+
+The module is built around the `Camera` class, which uses rpicam-apps (modern CLI tools for
+Raspberry Pi OS Bookworm+) for all camera operations.
 
 ## Key Components
 
 ### CameraError Class
+
 - Custom exception class for camera-related errors
 - Used to provide descriptive error messages specific to camera operations
 
 ### Camera Class
+
 Primary class that provides all camera functionality:
 
 #### Initialization Parameters
+
 - `resolution`: Tuple of width and height (default: 640x480)
 - `framerate`: Frames per second for video capture (default: 30)
 - `rotation`: Camera rotation in degrees (0, 90, 180, or 270) (default: 0)
@@ -23,6 +31,7 @@ Primary class that provides all camera functionality:
 - `auto_check_config`: Whether to automatically check system configuration (default: True)
 
 #### Internal Attributes
+
 - `_camera`: OpenCV VideoCapture object (for settings adjustment)
 - `_is_streaming`: Boolean tracking if stream is active
 - `_stream_thread`: Thread object for asynchronous streaming
@@ -33,6 +42,7 @@ Primary class that provides all camera functionality:
 #### Methods
 
 ##### Configuration and Setup
+
 - `check_system_config()`: Verifies camera configuration in system
   - Checks for rpicam-still availability
   - Verifies camera dtoverlay configuration in config.txt
@@ -43,6 +53,7 @@ Primary class that provides all camera functionality:
   - Verifies camera can capture images
 
 ##### Core Functionality
+
 - `start_stream(callback=None)`: Starts streaming video
   - Creates a background thread capturing frames continuously
   - Optionally accepts a callback function executed for each frame
@@ -63,6 +74,7 @@ Primary class that provides all camera functionality:
   - Returns captured image as numpy.ndarray
 
 ##### Camera Settings
+
 - `adjust_setting(setting, value)`: Adjusts camera settings
   - Limited control through OpenCV (may not affect rpicam capture)
   - Returns True if successful, raises CameraError otherwise
@@ -83,12 +95,15 @@ Primary class that provides all camera functionality:
 ## Implementation Details
 
 ### rpicam-apps Backend
+
 The module uses rpicam-apps (modern CLI tools) for all camera operations:
+
 - Uses rpicam-still (replacement for libcamera-still)
 - Subprocess-based capture with temporary files
 - Reliable and well-tested on Raspberry Pi OS Bookworm+
 
 ### Threading Model
+
 The streaming functionality uses Python's threading to provide non-blocking camera access:
 
 1. `start_stream()` creates a daemon thread
@@ -97,13 +112,17 @@ The streaming functionality uses Python's threading to provide non-blocking came
 4. Stream can be cleanly terminated with `stop_stream()`
 
 ### Image Processing
+
 Image format conversion happens after capture:
+
 - BGR is the default format (native to OpenCV)
 - RGB conversion uses cv2.COLOR_BGR2RGB
 - Grayscale conversion uses cv2.COLOR_BGR2GRAY
 
 ### Error Handling
+
 The module uses custom CameraError exceptions with descriptive messages for:
+
 - Configuration errors
 - Initialization failures
 - Capture failures
@@ -112,6 +131,7 @@ The module uses custom CameraError exceptions with descriptive messages for:
 ## Usage Examples
 
 ### Basic Usage
+
 ```python
 from distiller_cm5_sdk.hardware.camera import Camera
 
@@ -126,6 +146,7 @@ camera.close()
 ```
 
 ### Custom Configuration
+
 ```python
 from distiller_cm5_sdk.hardware.camera import Camera
 
@@ -145,6 +166,7 @@ camera.close()
 ```
 
 ### Streaming with Callback
+
 ```python
 from distiller_cm5_sdk.hardware.camera import Camera
 import cv2
@@ -170,6 +192,7 @@ camera.close()
 ```
 
 ### Adjusting Camera Settings
+
 ```python
 from distiller_cm5_sdk.hardware.camera import Camera
 
@@ -193,18 +216,22 @@ camera.close()
 ## System Requirements
 
 ### Hardware
+
 - Raspberry Pi computer (tested on CM5)
 - Compatible camera module (e.g., Camera Module V2/V3, High Quality Camera, AI Camera)
 - Proper camera connection to CSI port
 
 ### Software
+
 - Raspberry Pi OS Bookworm or later (recommended)
 - rpicam-apps package (installed by default on Bookworm)
-- OpenCV Python library (opencv-python)
-- Properly configured /boot/firmware/config.txt with camera dtoverlay
+- OpenCV Python library (opencv-Python)
+- Properly configured `/boot/firmware/config.txt` with camera dtoverlay
 
 ### Camera Configuration
-The camera requires proper configuration in the Raspberry Pi's config.txt, which may include:
+
+The camera requires proper configuration in the Raspberry Pi's `config.txt`, which may include:
+
 - `dtoverlay=ov5647` (Camera Module V1)
 - `dtoverlay=imx219` (Camera Module V2)
 - `dtoverlay=imx477` (High Quality Camera)
@@ -222,19 +249,23 @@ If you're migrating from the older libcamera-apps:
 ## Limitations and Known Issues
 
 ### Rotations with Transpose
+
 Some rotation values (90, 270) may require transpose operations which may show errors.
 
 ### Camera Settings
+
 - rpicam backend has limited setting control through OpenCV
 - Not all settings may be available or effective depending on camera model
 - For best camera control, configure settings at initialization time
 
 ### Performance Considerations
+
 - Streaming through rpicam-still involves subprocess execution and file I/O
 - Higher resolutions will impact performance
 - Consider frame rate and resolution trade-offs for real-time applications
 
 ## Future Improvements
+
 Potential future enhancements for the camera module:
 
 1. Hardware-accelerated image processing
@@ -248,31 +279,38 @@ Potential future enhancements for the camera module:
 ## Implementation Notes for AI
 
 ### Design Patterns
+
 - Facade Pattern: Camera class provides simplified interface to complex functionality
 - Observer Pattern: Streaming callback mechanism
 
 ### Thread Safety
+
 - Thread locks protect access to shared resources (frames)
 - Thread events control thread lifecycle
 - Daemon threads ensure clean application exit
 
 ### Resource Management
+
 The module ensures proper resource cleanup through:
+
 - Thread termination in `stop_stream()`
 - Camera release in `close()`
 - Temporary file cleanup for rpicam operations
 
 ### Error Handling Strategy
+
 - Custom exception hierarchy for domain-specific errors
 - Descriptive error messages to aid debugging
 - Conservative approach with explicit verification of operations
 - Graceful degradation when features unavailable
 
 ### Code Structure
+
 - Modular design with clear separation of concerns:
   - Configuration and validation
   - Hardware interaction
   - Image processing
   - Threading and synchronization
 
-This module provides reliable camera operations using the modern rpicam-apps stack, ensuring compatibility across Raspberry Pi systems running Bookworm or later.
+This module provides reliable camera operations using the modern rpicam-apps stack, ensuring
+compatibility across Raspberry Pi systems running Bookworm or later.

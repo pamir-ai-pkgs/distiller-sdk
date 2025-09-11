@@ -1,15 +1,20 @@
-# E-ink Display Module - distiller_cm5_sdk.hardware.eink
+# E-ink Display Module
 
-E-ink display control module for the Distiller CM5 SDK. Provides high-level Python interface for multiple e-ink display types with intelligent image conversion capabilities.
+E-ink display control module for the Distiller CM5 SDK. Provides high-level Python interface for
+multiple e-ink display types with intelligent image conversion capabilities.
 
 ## Features
 
-- **Multi-Display Support**: Supports EPD128x250 (250×128 pixels) and EPD240x416 (240×416 pixels) displays
+- **Multi-Display Support**: Supports EPD128x250 (250×128 pixels) and EPD240x416 (240×416 pixels)
+  displays
 - **Multi-Format Image Support**: Display PNG, JPEG, GIF, BMP, TIFF, WebP and more formats
 - **Intelligent Auto-Conversion**: Display any image regardless of size or format
-- **Smart Scaling**: Multiple scaling algorithms (letterbox, crop, stretch) with aspect ratio handling
-- **Advanced Dithering**: Floyd-Steinberg, ordered, and threshold dithering for optimal 1-bit conversion
-- **Image Transformations**: Rotation (0°, 90°, 180°, 270°), horizontal flip, vertical flip, color inversion
+- **Smart Scaling**: Multiple scaling algorithms (letterbox, crop, stretch) with aspect ratio
+  handling
+- **Advanced Dithering**: Floyd-Steinberg, ordered, and threshold dithering for optimal 1-bit
+  conversion
+- **Image Transformations**: Rotation (0°, 90°, 180°, 270°), horizontal flip, vertical flip, color
+  inversion
 - **Display Class**: Object-oriented interface for display control
 - **Raw Data Display**: Display raw 1-bit image data with transformation support
 - **Display Modes**: Full refresh (high quality) and partial refresh (fast updates)
@@ -40,11 +45,11 @@ from distiller_cm5_sdk.hardware.eink import Display, DisplayMode
 # Display a PNG image (exact display size required)
 with Display() as display:
     display.display_image("my_image.png", DisplayMode.FULL)
-    
+
 # Display any PNG with auto-conversion
 with Display() as display:
     display.display_png_auto("any_image.png", DisplayMode.FULL)
-    
+
 # Clear the display
 with Display() as display:
     display.clear()
@@ -73,22 +78,22 @@ from distiller_cm5_sdk.hardware.eink import Display, DisplayMode, DisplayError
 try:
     # Initialize display
     display = Display()
-    
+
     # Display PNG with full refresh
     display.display_image("image.png", DisplayMode.FULL)
-    
+
     # Display raw 1-bit data with partial refresh
     raw_data = bytes([0xFF] * 4000)  # 4000 bytes for 128x250 pixels
     display.display_image(raw_data, DisplayMode.PARTIAL)
-    
+
     # Get display info
     width, height = display.get_dimensions()
     print(f"Display: {width}x{height}")
-    
+
     # Clear and sleep
     display.clear()
     display.sleep()
-    
+
 except DisplayError as e:
     print(f"Display error: {e}")
 finally:
@@ -97,7 +102,8 @@ finally:
 
 ## Auto-Conversion System
 
-The intelligent auto-conversion system allows you to display **any PNG image** regardless of size, format, or color depth. The system automatically:
+The intelligent auto-conversion system allows you to display **any PNG image** regardless of size,
+format, or color depth. The system automatically:
 
 - **Detects your display type** (EPD128x250 or EPD240x416)
 - **Scales images intelligently** using multiple algorithms
@@ -138,7 +144,7 @@ display_png_auto("banner_1920x400.png", scaling=ScalingMethod.CROP_CENTER)
 display_png_auto("image.png", dithering=DitheringMethod.SIMPLE)
 
 # Combine scaling and dithering options
-display_png_auto("portrait.png", 
+display_png_auto("portrait.png",
                 scaling=ScalingMethod.LETTERBOX,
                 dithering=DitheringMethod.FLOYD_STEINBERG)
 ```
@@ -146,13 +152,16 @@ display_png_auto("portrait.png",
 ## Display Specifications
 
 ### Supported Display Types
+
 - **EPD128x250**: 250 × 128 pixels actual dimensions (firmware name follows internal convention)
 - **EPD240x416**: 240 × 416 pixels
 - **Auto-Detection**: Firmware automatically detected at runtime
 
-**Note**: The EPD128x250 naming follows the firmware's internal convention but represents a 250×128 (width×height) display.
+**Note**: The EPD128x250 naming follows the firmware's internal convention but represents a 250×128
+(width×height) display.
 
 ### Display Properties
+
 - **Color Depth**: 1-bit monochrome (black/white)
 - **Refresh Modes**: Full (slow, high quality) and Partial (fast updates)
 - **Auto-Conversion**: Supports PNG images of any size and format
@@ -160,11 +169,13 @@ display_png_auto("portrait.png",
 ### Image Requirements
 
 #### Auto-Conversion (Recommended)
+
 - **Any PNG size**: From 64×64 to 4000×4000+ pixels
 - **Any color format**: RGB, RGBA, grayscale, palette, 1-bit
 - **Automatic processing**: No manual resizing or conversion needed
 
 #### Manual/Legacy Mode
+
 - **Exact Size**: Must match display dimensions (128×250 or 240×416)
 - **Color**: Grayscale or RGB (converted to 1-bit)
 - **Threshold**: Pixels > 128 brightness = white, ≤ 128 = black
@@ -174,16 +185,20 @@ display_png_auto("portrait.png",
 ### Display Class
 
 #### Constructor
+
 ```python
 Display(library_path=None, auto_init=True)
 ```
+
 - `library_path`: Optional path to shared library
 - `auto_init`: Auto-initialize hardware (default: True)
 
 #### Methods
 
 ##### display_image(image, mode=DisplayMode.FULL, rotate=0, flip_horizontal=False, flip_vertical=False, invert_colors=False, src_width=None, src_height=None)
+
 Display an image on the screen with optional transformations.
+
 - `image`: Image file path (str) or raw 1-bit data (bytes)
 - `mode`: DisplayMode.FULL or DisplayMode.PARTIAL
 - `rotate`: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
@@ -194,20 +209,26 @@ Display an image on the screen with optional transformations.
 - `src_height`: Source height in pixels (required for raw data transformations)
 
 ##### display_image_file(filename, mode=DisplayMode.FULL)
+
 Display any supported image file format on the e-ink screen.
+
 - `filename`: Path to image file (PNG, JPEG, GIF, BMP, TIFF, WebP, etc.)
 - `mode`: Display refresh mode (FULL or PARTIAL)
 - Note: Image must match display dimensions exactly (no automatic scaling)
 
 ##### display_image_auto(filename, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG)
+
 Display any image with automatic scaling and dithering.
+
 - `filename`: Path to image file (any supported format, any size)
 - `mode`: Display refresh mode
 - `scaling`: How to scale the image to fit display
 - `dithering`: Dithering method for 1-bit conversion
 
 ##### display_png_auto(image_path, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, rotate=0, flip_horizontal=False, flip_vertical=False) -> bool
+
 Display any PNG image with automatic conversion and transformations.
+
 - `image_path`: Path to PNG file (any size, any format)
 - `mode`: Display refresh mode
 - `scaling`: How to scale the image to fit display
@@ -218,19 +239,79 @@ Display any PNG image with automatic conversion and transformations.
 - Returns: True if successful
 
 ##### clear()
+
 Clear the display (set to white).
 
 ##### get_dimensions() -> Tuple[int, int]
+
 Returns display dimensions as (width, height).
 
 ##### convert_png_to_raw(filename) -> bytes
+
 Convert PNG file to raw 1-bit data.
 
 ##### sleep()
+
 Put display to sleep for power saving.
 
 ##### close()
+
 Cleanup display resources.
+
+##### render_text(text, font_size=20, font_path=None, x=10, y=10, wrap_text=False, max_width=None, line_height=1.2, mode=DisplayMode.FULL)
+
+Render text directly to the display.
+
+- `text`: Text to display
+- `font_size`: Font size in pixels
+- `font_path`: Path to TTF font file (uses default if None)
+- `x`, `y`: Text position
+- `wrap_text`: Enable text wrapping
+- `max_width`: Maximum width for wrapping
+- `line_height`: Line spacing multiplier
+- `mode`: Display refresh mode
+
+##### overlay_text(image_path, text, font_size=20, font_path=None, x=10, y=10, wrap_text=False, max_width=None, line_height=1.2, mode=DisplayMode.FULL)
+
+Display an image with text overlay.
+
+- `image_path`: Path to background image
+- `text`: Text to overlay
+- Other parameters same as render_text()
+
+##### draw_rect(x, y, width, height, fill=True, color=0, mode=DisplayMode.PARTIAL)
+
+Draw a rectangle on the display.
+
+- `x`, `y`: Top-left corner position
+- `width`, `height`: Rectangle dimensions
+- `fill`: Fill rectangle (True) or outline only (False)
+- `color`: 0 for black, 1 for white
+- `mode`: Display refresh mode
+
+##### set_firmware(firmware_type)
+
+Set the display firmware type.
+
+- `firmware_type`: "EPD128x250" or "EPD240x416"
+
+##### get_firmware() -> str
+
+Get the current firmware type. Returns: Current firmware type string
+
+##### get_dimensions() -> Tuple[int, int]
+
+Get display dimensions. Returns: Tuple of (width, height) in pixels
+
+##### is_initialized() -> bool
+
+Check if display is initialized. Returns: True if initialized, False otherwise
+
+##### convert_png_to_raw(filename) -> bytes
+
+Convert a PNG file to raw 1-bit data.
+
+- `filename`: Path to PNG file Returns: Raw 1-bit packed data
 
 ### Display Modes
 
@@ -244,7 +325,9 @@ DisplayMode.PARTIAL   # Partial refresh - fast updates
 ### Convenience Functions
 
 #### display_png(filename, mode=DisplayMode.FULL, rotate=0, auto_convert=False, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, flip_horizontal=False, flip_vertical=False)
+
 Quick PNG display with automatic resource management.
+
 - `filename`: Path to PNG file
 - `mode`: Display refresh mode
 - `rotate`: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
@@ -255,34 +338,89 @@ Quick PNG display with automatic resource management.
 - `flip_vertical`: Mirror the image vertically (only with auto_convert)
 
 #### display_png_auto(filename, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG)
+
 Quick auto-conversion PNG display with automatic resource management.
+
 - `filename`: Path to PNG file (any size, any format)
 - `mode`: Display refresh mode
 - `scaling`: How to scale the image to fit display
 - `dithering`: Dithering method for 1-bit conversion
 
 #### clear_display()
+
 Quick display clear with automatic resource management.
 
 #### get_display_info() -> dict
+
 Returns display specifications dictionary.
 
 ### Exceptions
 
 #### DisplayError
+
 Raised for display-related errors:
+
 - Library loading failures
 - Hardware initialization failures
 - Invalid image formats or sizes
 - Display operation failures
 
 ### Raw Data Requirements
+
 - **Size**: Exactly (width × height) ÷ 8 bytes
 - **Format**: 1-bit packed data (8 pixels per byte)
 - **Layout**: Row-major order, left-to-right, top-to-bottom
-- **Transformations**: When using transformations (rotate, flip) with raw data, you must provide `src_width` and `src_height` parameters
+- **Transformations**: When using transformations (rotate, flip) with raw data, you must provide
+  `src_width` and `src_height` parameters
 
 ## Examples
+
+### Text and Drawing Features
+
+```python
+from distiller_cm5_sdk.hardware.eink import Display, DisplayMode
+
+with Display() as display:
+    # Display text directly
+    display.render_text(
+        "Hello CM5!",
+        font_size=24,
+        x=20, y=50,
+        wrap_text=True,
+        max_width=200
+    )
+
+    # Overlay text on an image
+    display.overlay_text(
+        "background.png",
+        "Status: Online",
+        font_size=16,
+        x=10, y=10
+    )
+
+    # Draw shapes
+    display.draw_rect(10, 10, 50, 30, fill=True, color=0)  # Black filled rectangle
+    display.draw_rect(70, 10, 50, 30, fill=False, color=0)  # Black outline
+```
+
+### Firmware Configuration
+
+```python
+from distiller_cm5_sdk.hardware.eink import Display
+
+with Display() as display:
+    # Check current firmware
+    current = display.get_firmware()
+    print(f"Current firmware: {current}")
+
+    # Switch firmware type (requires reinitialization)
+    display.set_firmware("EPD240x416")
+    display.initialize()
+
+    # Get new dimensions
+    width, height = display.get_dimensions()
+    print(f"New dimensions: {width}x{height}")
+```
 
 ### Auto-Conversion Examples (Recommended)
 
@@ -303,6 +441,7 @@ display_png("any_image.png", auto_convert=True)
 ```
 
 ### Simple PNG Display (Legacy)
+
 ```python
 from distiller_cm5_sdk.hardware.eink import display_png
 
@@ -311,6 +450,7 @@ display_png("logo_128x250.png")
 ```
 
 ### Raw Data Generation
+
 ```python
 import numpy as np
 from distiller_cm5_sdk.hardware.eink import Display
@@ -328,6 +468,7 @@ with Display() as display:
 ```
 
 ### Error Handling
+
 ```python
 from distiller_cm5_sdk.hardware.eink import Display, DisplayError
 
@@ -341,11 +482,13 @@ except DisplayError as e:
 ## Hardware Details
 
 The display module wraps a C library implementation that interfaces directly with:
+
 - SPI communication for display data
 - GPIO pins for control signals
 - Hardware-specific display controller
 
 The C library is automatically loaded from common locations:
+
 - `./lib/libdistiller_display_sdk_shared.so`
 - `./build/libdistiller_display_sdk_shared.so`
 - System library paths
@@ -353,7 +496,9 @@ The C library is automatically loaded from common locations:
 ## Testing
 
 ### Auto-Conversion Test Suite
+
 Test the new auto-conversion functionality:
+
 ```bash
 # Test auto-conversion with various image formats and sizes
 python src/distiller_cm5_sdk/hardware/eink/test_auto_display.py
@@ -363,7 +508,9 @@ python test_auto_conversion.py
 ```
 
 ### Legacy Test Suite
+
 Run the original test suite:
+
 ```python
 from distiller_cm5_sdk.hardware.eink._display_test import run_display_tests
 run_display_tests()
