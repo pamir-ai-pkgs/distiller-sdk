@@ -43,7 +43,7 @@ python -c "import distiller_cm5_sdk; print('SDK imported successfully!')"
 │   └── whisper/         # Whisper ASR (optional)
 ├── models/              # AI model files
 ├── lib/                 # Native libraries
-├── venv/                # Virtual environment (uv-managed)
+├── .venv/                # Virtual environment (uv-managed)
 └── activate.sh          # Environment activation
 ```
 
@@ -55,7 +55,7 @@ For dependent projects and services, integrate the SDK by setting up the environ
 # Method 1: Environment Variables
 export PYTHONPATH="/opt/distiller-cm5-sdk:$PYTHONPATH"
 export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
-source /opt/distiller-cm5-sdk/venv/bin/activate
+source /opt/distiller-cm5-sdk/.venv/bin/activate
 
 # Method 2: In Python
 import sys
