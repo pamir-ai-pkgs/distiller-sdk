@@ -51,11 +51,16 @@ nbproject/
 
 # Extras
 final_review_gate.py
-CLAUDE.md
 
 # Debian packaging files
 debian/.debhelper/
 debian/debhelper-build-stamp
-debian/distiller-cm5-sdk.substvars
-debian/distiller-cm5-sdk/
+debian/*.substvars
 debian/files
+
+# Debian package build directories
+debian/distiller-sdk/
+
+# Generated debian control files
+debian/control.cm5
+debian/control.radxa

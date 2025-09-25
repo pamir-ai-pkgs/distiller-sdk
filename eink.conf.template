@@ -1,0 +1,68 @@
+# Distiller CM5 SDK E-ink Display Configuration
+# This file is REQUIRED for e-ink display operation
+#
+# Installation:
+#   sudo cp /opt/distiller-cm5-sdk/eink.conf.template /opt/distiller-cm5-sdk/eink.conf
+#   sudo nano /opt/distiller-cm5-sdk/eink.conf
+#
+# Pre-configured templates are available in /opt/distiller-cm5-sdk/configs/
+
+[display]
+# Display firmware type
+# Options: EPD128x250, EPD240x416
+firmware = EPD128x250
+
+[hardware]
+# Hardware platform
+# Options: cm5, radxa-zero3, custom
+# Auto-detected from /proc/device-tree/compatible during installation
+platform = cm5
+
+# SPI device path
+# CM5: /dev/spidev0.0
+# Radxa Zero 3: /dev/spidev3.0
+spi_device = /dev/spidev0.0
+
+# GPIO chip device
+# CM5: /dev/gpiochip0
+# Radxa Zero 3: /dev/gpiochip3
+gpio_chip = /dev/gpiochip0
+
+[gpio_pins]
+# GPIO pin offsets within the chip
+# These are the pin numbers as seen by the GPIO chip, not physical pin numbers
+#
+# For Radxa Zero 3 on /dev/gpiochip3:
+#   GPIO3_A[0-7] = pins 0-7
+#   GPIO3_B[0-7] = pins 8-15
+#   GPIO3_C[0-7] = pins 16-23
+#   GPIO3_D[0-7] = pins 24-31
+
+# Data/Command pin
+# CM5: 7
+# Radxa Zero 3 (GPIO3_B0): 8
+dc_pin = 7
+
+# Reset pin
+# CM5: 13
+# Radxa Zero 3 (GPIO3_A2): 2
+rst_pin = 13
+
+# Busy pin
+# CM5: 9
+# Radxa Zero 3 (GPIO3_A1): 1
+busy_pin = 9
+
+# Configuration priority (highest to lowest):
+# 1. This file (/opt/distiller-cm5-sdk/eink.conf)
+# 2. Built-in defaults (CM5 platform)
+#
+# To enable SPI on Radxa Zero 3:
+#   sudo armbian-config
+#   Navigate to: System → Hardware → spi3-m1-cs0-spidev
+#   Enable and reboot
+#
+# To enable SPI on Raspberry Pi CM5:
+#   sudo raspi-config
+#   Navigate to: Interface Options → SPI
+#   Enable and reboot

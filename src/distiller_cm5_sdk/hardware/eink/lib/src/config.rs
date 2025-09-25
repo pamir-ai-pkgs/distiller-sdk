@@ -1,6 +1,8 @@
 //! Configuration management for e-ink display firmware selection and settings.
 
 use std::{
+    fs,
+    path::Path,
     str::FromStr,
     sync::{Mutex, OnceLock},
 };
@@ -75,17 +77,51 @@ impl FromStr for FirmwareType {
     }
 }
 
+/// Hardware configuration for GPIO and SPI
+#[derive(Debug, Clone)]
+pub struct HardwareConfig {
+    /// Platform identifier (cm5, radxa-zero3, etc)
+    pub platform: String,
+    /// SPI device path
+    pub spi_device: String,
+    /// GPIO chip device path
+    pub gpio_chip: String,
+    /// Data/Command GPIO pin offset
+    pub dc_pin: u32,
+    /// Reset GPIO pin offset
+    pub rst_pin: u32,
+    /// Busy GPIO pin offset
+    pub busy_pin: u32,
+}
+
+impl Default for HardwareConfig {
+    fn default() -> Self {
+        // CM5 defaults for backward compatibility
+        Self {
+            platform: "cm5".to_string(),
+            spi_device: "/dev/spidev0.0".to_string(),
+            gpio_chip: "/dev/gpiochip0".to_string(),
+            dc_pin: 7,
+            rst_pin: 13,
+            busy_pin: 9,
+        }
+    }
+}
+
 /// Global configuration for the display system
 #[derive(Debug, Clone)]
 pub struct DisplayConfig {
     /// Default firmware type for the display
     pub default_firmware: FirmwareType,
+    /// Hardware configuration
+    pub hardware: HardwareConfig,
 }
 
 impl Default for DisplayConfig {
     fn default() -> Self {
         Self {
             default_firmware: FirmwareType::EPD128x250, // Keep existing default
+            hardware: HardwareConfig::default(),
         }
     }
 }
@@ -172,14 +208,91 @@ pub fn init_from_env() -> Result<(), DisplayError> {
     Ok(())
 }
 
-/// Configuration from file (if it exists)
+/// Parse INI-style configuration file
+///
+/// # Errors
+///
+/// Returns `DisplayError::Config` if parsing fails
+pub fn parse_ini_config(content: &str) -> Result<DisplayConfig, DisplayError> {
+    let mut config = DisplayConfig::default();
+    let mut current_section = "";
+
+    for line in content.lines() {
+        let line = line.trim();
+
+        // Skip comments and empty lines
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // Section header
+        if line.starts_with('[') && line.ends_with(']') {
+            current_section = &line[1..line.len() - 1];
+            continue;
+        }
+
+        // Key-value pairs
+        if let Some(eq_pos) = line.find('=') {
+            let key = line[..eq_pos].trim();
+            let value = line[eq_pos + 1..].trim();
+
+            match current_section {
+                "display" => {
+                    if key == "firmware" {
+                        config.default_firmware = FirmwareType::parse(value)?;
+                    }
+                },
+                "hardware" => match key {
+                    "platform" => config.hardware.platform = value.to_string(),
+                    "spi_device" => config.hardware.spi_device = value.to_string(),
+                    "gpio_chip" => config.hardware.gpio_chip = value.to_string(),
+                    _ => {},
+                },
+                "gpio_pins" => match key {
+                    "dc_pin" => {
+                        config.hardware.dc_pin = value
+                            .parse()
+                            .map_err(|_| DisplayError::Config(format!("Invalid dc_pin: {value}")))?
+                    },
+                    "rst_pin" => {
+                        config.hardware.rst_pin = value.parse().map_err(|_| {
+                            DisplayError::Config(format!("Invalid rst_pin: {value}"))
+                        })?
+                    },
+                    "busy_pin" => {
+                        config.hardware.busy_pin = value.parse().map_err(|_| {
+                            DisplayError::Config(format!("Invalid busy_pin: {value}"))
+                        })?
+                    },
+                    _ => {},
+                },
+                _ => {},
+            }
+        }
+    }
+
+    Ok(config)
+}
+
+/// Configuration from file (if it exists) - legacy support
 ///
 /// # Errors
 ///
 /// Returns `DisplayError::Config` if the firmware type is invalid or lock
 /// cannot be acquired
 pub fn init_from_file(config_path: &str) -> Result<(), DisplayError> {
-    if let Ok(content) = std::fs::read_to_string(config_path) {
+    if let Ok(content) = fs::read_to_string(config_path) {
+        // Try new INI format first
+        if let Ok(parsed_config) = parse_ini_config(&content) {
+            let config = init_config();
+            let mut config_guard = config
+                .lock()
+                .map_err(|e| DisplayError::Config(format!("Failed to acquire config lock: {e}")))?;
+            *config_guard = parsed_config;
+            return Ok(());
+        }
+
+        // Fall back to old format for backward compatibility
         for line in content.lines() {
             let line = line.trim();
             if line.starts_with("firmware=") || line.starts_with("FIRMWARE=") {
@@ -201,33 +314,61 @@ pub fn init_from_file(config_path: &str) -> Result<(), DisplayError> {
 ///
 /// Returns `DisplayError::Config` if initialization fails
 pub fn initialize_config() -> Result<(), DisplayError> {
-    // Initialize with defaults first
-    init_config();
+    let config_path = "/opt/distiller-cm5-sdk/eink.conf";
 
-    // Try to load from config file if it exists
-    let mut config_paths = vec![
-        "/opt/distiller-cm5-sdk/eink.conf".to_string(),
-        "./eink.conf".to_string(),
-    ];
-
-    // Add home directory config path if HOME is set
-    if let Ok(home) = std::env::var("HOME") {
-        config_paths.push(format!("{home}/.distiller/eink.conf"));
+    // Config file is now mandatory
+    if !Path::new(config_path).exists() {
+        return Err(DisplayError::Config(format!(
+            "Configuration file not found: {config_path}. Please configure your hardware platform."
+        )));
     }
 
-    for path in &config_paths {
-        if let Err(e) = init_from_file(path) {
-            log::debug!("Could not load config from {path}: {e}");
-        }
+    let content = fs::read_to_string(config_path)
+        .map_err(|e| DisplayError::Config(format!("Cannot read config: {e}")))?;
+
+    let config = parse_ini_config(&content)?;
+
+    // Validate hardware paths exist
+    if !Path::new(&config.hardware.spi_device).exists() {
+        log::warn!(
+            "SPI device {} not found. Please enable SPI for your platform.",
+            config.hardware.spi_device
+        );
+    }
+    if !Path::new(&config.hardware.gpio_chip).exists() {
+        return Err(DisplayError::Config(format!(
+            "GPIO chip {} not found",
+            config.hardware.gpio_chip
+        )));
     }
 
-    // Environment variables override file settings
-    init_from_env()?;
+    // Store configuration
+    let global = init_config();
+    let mut guard = global
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Config lock failed: {e}")))?;
+    *guard = config.clone();
 
-    let firmware_type = get_default_firmware()?;
-    log::info!("Display configuration initialized with firmware: {firmware_type}");
+    log::info!(
+        "Display configured for platform: {} with firmware: {}",
+        config.hardware.platform,
+        config.default_firmware
+    );
 
     Ok(())
+}
+
+/// Get the hardware configuration
+///
+/// # Errors
+///
+/// Returns `DisplayError::Config` if the configuration lock cannot be acquired
+pub fn get_hardware_config() -> Result<HardwareConfig, DisplayError> {
+    let config = init_config();
+    let guard = config
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Config lock failed: {e}")))?;
+    Ok(guard.hardware.clone())
 }
 
 #[cfg(test)]

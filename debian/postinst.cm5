@@ -29,49 +29,9 @@ detect_install_user() {
     echo "$INSTALL_USER"
 }
 
-# Function to detect hardware platform
-detect_platform() {
-    local platform=""
-
-    # Allow override via environment variable
-    if [ -n "$DISTILLER_PLATFORM" ]; then
-        echo "Platform override: $DISTILLER_PLATFORM" >&2
-        platform="$DISTILLER_PLATFORM"
-    # Auto-detect from device tree
-    elif [ -f /proc/device-tree/compatible ]; then
-        local compat=$(tr '\0' '\n' < /proc/device-tree/compatible)
-        if echo "$compat" | grep -q "radxa,zero3"; then
-            platform="radxa"
-            echo "Detected platform: Radxa Zero 3/3W" >&2
-        elif echo "$compat" | grep -q "raspberrypi,5\|bcm2712"; then
-            platform="cm5"
-            echo "Detected platform: Raspberry Pi CM5" >&2
-        elif echo "$compat" | grep -q "rockchip,rk3566"; then
-            # Fallback for Radxa devices that don't have the exact string
-            platform="radxa"
-            echo "Detected platform: Rockchip RK3566 (Radxa compatible)" >&2
-        else
-            echo "Unknown platform in device tree: $compat" >&2
-        fi
-    fi
-
-    # Default to CM5 if we can't detect
-    if [ -z "$platform" ]; then
-        echo "WARNING: Could not detect platform, defaulting to CM5" >&2
-        echo "You can override with: DISTILLER_PLATFORM=radxa dpkg-reconfigure distiller-sdk" >&2
-        platform="cm5"
-    fi
-
-    # Only output the platform name (not diagnostic messages)
-    echo "$platform"
-}
-
 # Setup the Python environment using uv
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ]; then
-	echo "Setting up Distiller SDK..."
-
-	# Detect platform
-	PLATFORM=$(detect_platform)
+	echo "Setting up Distiller CM5 SDK for Raspberry Pi CM5..."
 
 	# Detect the actual user
 	INSTALL_USER=$(detect_install_user)
@@ -131,23 +91,8 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 	chown -R $INSTALL_USER:$INSTALL_GROUP /opt/distiller-cm5-sdk
 
 	# Install platform-specific eink configuration
-	if [ "$PLATFORM" = "radxa" ]; then
-		echo "Installing Radxa Zero 3 eink configuration..."
-		CONFIG_FILE="/opt/distiller-cm5-sdk/configs/radxa-zero3.conf"
-		PLATFORM_DESC="Radxa Zero 3/3W (RK3566)"
-		SPI_DEVICE="/dev/spidev3.0"
-		GPIO_CHIP="/dev/gpiochip3"
-		GPIO_PINS="DC=8 (GPIO3_B0), RST=2 (GPIO3_A2), BUSY=1 (GPIO3_A1)"
-	else
-		echo "Installing CM5 eink configuration..."
-		CONFIG_FILE="/opt/distiller-cm5-sdk/configs/cm5.conf"
-		PLATFORM_DESC="Raspberry Pi CM5"
-		SPI_DEVICE="/dev/spidev0.0"
-		GPIO_CHIP="/dev/gpiochip0"
-		GPIO_PINS="DC=7, RST=13, BUSY=9"
-	fi
-
-	cp "$CONFIG_FILE" /opt/distiller-cm5-sdk/eink.conf
+	echo "Installing CM5 eink configuration..."
+	cp /opt/distiller-cm5-sdk/configs/cm5.conf /opt/distiller-cm5-sdk/eink.conf
 	chown $INSTALL_USER:$INSTALL_GROUP /opt/distiller-cm5-sdk/eink.conf
 
 	# Create virtual environment using uv as install user
@@ -211,7 +156,7 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 source /opt/distiller-cm5-sdk/.venv/bin/activate
 export PYTHONPATH="/opt/distiller-cm5-sdk/src:$PYTHONPATH"
 export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
-echo "Distiller SDK environment activated"
+echo "Distiller CM5 SDK environment activated"
 echo "Python packages available: distiller_cm5_sdk"
 echo "Parakeet models: /opt/distiller-cm5-sdk/src/distiller_cm5_sdk/parakeet/models/"
 echo "Piper models: /opt/distiller-cm5-sdk/src/distiller_cm5_sdk/piper/models/"
@@ -227,22 +172,21 @@ EOF
 
 	chmod +x /opt/distiller-cm5-sdk/activate.sh
 
-	# Create a README file with platform-specific information
-	cat >/opt/distiller-cm5-sdk/README <<EOF
-Distiller SDK - Debian Package Installation
-============================================
+	# Create a README file
+	cat >/opt/distiller-cm5-sdk/README <<'EOF'
+Distiller CM5 SDK - Debian Package Installation (Raspberry Pi CM5)
+==================================================================
 
-This package installs the Distiller SDK to /opt/distiller-cm5-sdk.
+This package installs the Distiller CM5 SDK to /opt/distiller-cm5-sdk,
+pre-configured for Raspberry Pi CM5 hardware.
 
 The SDK uses uv for Python package management.
 
-Detected Hardware Platform: $PLATFORM_DESC
 Hardware Configuration:
-- SPI Device: $SPI_DEVICE
-- GPIO Chip: $GPIO_CHIP
-- GPIO Pins: $GPIO_PINS
-
-Configuration file: /opt/distiller-cm5-sdk/eink.conf
+- Platform: Raspberry Pi CM5
+- SPI Device: /dev/spidev0.0
+- GPIO Chip: /dev/gpiochip0
+- GPIO Pins: DC=7, RST=13, BUSY=9
 
 Usage:
 1. Activate the environment: source /opt/distiller-cm5-sdk/activate.sh
@@ -260,14 +204,10 @@ Package management:
 - To remove packages: cd /opt/distiller-cm5-sdk && uv remove <package>
 - To sync packages: cd /opt/distiller-cm5-sdk && uv sync
 
-To reconfigure for a different platform:
-  DISTILLER_PLATFORM=radxa dpkg-reconfigure distiller-sdk
-  DISTILLER_PLATFORM=cm5 dpkg-reconfigure distiller-sdk
-
-For more information, see: /usr/share/doc/distiller-sdk/README.Debian
+For more information, see: /usr/share/doc/distiller-cm5-sdk/README.Debian
 EOF
 
-	# Ensure proper permissions with install user ownership
+	# Ensure proper permissions with install user ownership (redundant but ensures consistency)
 	chown -R $INSTALL_USER:$INSTALL_GROUP /opt/distiller-cm5-sdk
 	chmod -R 755 /opt/distiller-cm5-sdk
 	chmod 644 /opt/distiller-cm5-sdk/README
@@ -279,42 +219,14 @@ EOF
 	chmod 775 /opt/distiller-cm5-sdk
 	chmod 775 /opt/distiller-cm5-sdk/.venv
 
-	# Platform-specific device checks and warnings
-	if [ "$PLATFORM" = "radxa" ]; then
-		# Check if SPI3 device exists
-		if [ ! -e "/dev/spidev3.0" ]; then
-			echo ""
-			echo "⚠ WARNING: /dev/spidev3.0 not found!"
-			echo "  To enable SPI3-M1, run:"
-			echo "    sudo armbian-config"
-			echo "    Navigate to: System → Hardware → spi3-m1-cs0-spidev"
-			echo "    Enable and reboot"
-			echo ""
-		else
-			echo "✓ SPI3 device found: /dev/spidev3.0"
-		fi
-
-		if [ ! -e "/dev/gpiochip3" ]; then
-			echo "⚠ WARNING: /dev/gpiochip3 not found!"
-		else
-			echo "✓ GPIO chip 3 found: /dev/gpiochip3"
-		fi
+	# Check if SPI device exists
+	if [ ! -e "/dev/spidev0.0" ]; then
+		echo ""
+		echo "⚠ WARNING: /dev/spidev0.0 not found!"
+		echo "  Please enable SPI in raspi-config or /boot/config.txt"
+		echo ""
 	else
-		# Check if SPI device exists for CM5
-		if [ ! -e "/dev/spidev0.0" ]; then
-			echo ""
-			echo "⚠ WARNING: /dev/spidev0.0 not found!"
-			echo "  Please enable SPI in raspi-config or /boot/config.txt"
-			echo ""
-		else
-			echo "✓ SPI device found: /dev/spidev0.0"
-		fi
-
-		if [ ! -e "/dev/gpiochip0" ]; then
-			echo "⚠ WARNING: /dev/gpiochip0 not found!"
-		else
-			echo "✓ GPIO chip 0 found: /dev/gpiochip0"
-		fi
+		echo "✓ SPI device found: /dev/spidev0.0"
 	fi
 
 	# Update shared library cache
@@ -322,10 +234,10 @@ EOF
 
 	echo ""
 	echo "============================================="
-	echo "Distiller SDK installed successfully!"
+	echo "Distiller CM5 SDK installed successfully!"
 	echo "============================================="
 	echo ""
-	echo "Platform: $PLATFORM_DESC"
+	echo "Platform: Raspberry Pi CM5"
 	echo "Config: /opt/distiller-cm5-sdk/eink.conf"
 	echo ""
 	echo "To activate the environment, run:"

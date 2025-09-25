@@ -11,7 +11,7 @@ Standards-Version: 4.6.2
 Homepage: https://github.com/Pamir-AI/distiller-cm5-sdk
 Rules-Requires-Root: no
 
-Package: distiller-cm5-sdk
+Package: distiller-sdk
 Architecture: arm64
 Depends: ${misc:Depends},
          python3 (>= 3.11),
@@ -25,9 +25,20 @@ Depends: ${misc:Depends},
          portaudio19-dev,
          libasound2-dev,
          build-essential,
-         pkgconf,
-         rpicam-apps | libcamera-apps
-Description: Distiller CM5 SDK - Self-contained Python SDK for hardware control
- The Distiller CM5 SDK provides a self-contained Python environment with 
+         pkgconf
+Recommends: rpicam-apps | libcamera-apps
+Provides: distiller-cm5-sdk, distiller-radxa-sdk
+Replaces: distiller-cm5-sdk (<< 2.1.0), distiller-radxa-sdk (<< 2.1.0)
+Breaks: distiller-cm5-sdk (<< 2.1.0), distiller-radxa-sdk (<< 2.1.0)
+Description: Distiller SDK - Universal ARM64 SDK for hardware control
+ The Distiller SDK provides a self-contained Python environment with
  modules, model files, and native libraries for audio, camera, e-ink display,
- and TTS/ASR.
+ and TTS/ASR capabilities.
+ .
+ This universal package automatically detects and configures for:
+  - Raspberry Pi CM5
+  - Radxa Zero 3/3W (RK3566)
+ .
+ Platform detection is performed at installation time using device tree
+ information. The correct GPIO pins and SPI device are configured automatically.
+ Manual override is supported via the DISTILLER_PLATFORM environment variable.

@@ -1,19 +1,11 @@
 //! Hardware abstraction layer for e-ink display control via SPI and GPIO.
 
-use std::{num::NonZeroU32, thread, time::Duration};
+use std::{thread, time::Duration};
 
 use gpiod::{Chip, Input, Lines, Options, Output};
 use spidev::{SpiModeFlags, Spidev, SpidevOptions};
 
-use crate::error::DisplayError;
-
-// GPIO pin definitions - these could be made configurable per variant
-/// Data/Command control pin
-pub const DC_PIN: NonZeroU32 = NonZeroU32::new(7).unwrap();
-/// Reset pin
-pub const RST_PIN: NonZeroU32 = NonZeroU32::new(13).unwrap();
-/// Busy status pin  
-pub const BUSY_PIN: NonZeroU32 = NonZeroU32::new(9).unwrap();
+use crate::{config::get_hardware_config, error::DisplayError};
 
 /// GPIO Controller trait for different hardware variants
 pub trait GpioController {
@@ -54,30 +46,61 @@ pub struct DefaultGpioController {
 
 impl GpioController for DefaultGpioController {
     fn new() -> Result<Self, DisplayError> {
-        let chip = Chip::new("/dev/gpiochip0")
-            .map_err(|e| DisplayError::Gpio(format!("Failed to open GPIO chip: {e}")))?;
+        let hw_config = get_hardware_config().map_err(|e| {
+            log::error!("Failed to get hardware config: {e}");
+            e
+        })?;
+
+        let chip = Chip::new(&hw_config.gpio_chip).map_err(|e| {
+            let err_msg = format!("Failed to open GPIO chip {}: {}", hw_config.gpio_chip, e);
+            log::error!("{err_msg}");
+            DisplayError::Gpio(err_msg)
+        })?;
 
         // Configure DC pin as output (initially low)
-        let dc_opts = Options::output([DC_PIN.get()])
+        let dc_opts = Options::output([hw_config.dc_pin])
             .values([false])
             .consumer("distiller-display-dc");
-        let dc_lines = chip
-            .request_lines(dc_opts)
-            .map_err(|e| DisplayError::Gpio(format!("Failed to request DC line: {e}")))?;
+        let dc_lines = chip.request_lines(dc_opts).map_err(|e| {
+            let err_msg = format!(
+                "Failed to request DC pin {} on {}: {}",
+                hw_config.dc_pin, hw_config.gpio_chip, e
+            );
+            log::error!("{err_msg}");
+            DisplayError::Gpio(err_msg)
+        })?;
 
         // Configure RST pin as output (initially high)
-        let rst_opts = Options::output([RST_PIN.get()])
+        let rst_opts = Options::output([hw_config.rst_pin])
             .values([true])
             .consumer("distiller-display-rst");
-        let rst_lines = chip
-            .request_lines(rst_opts)
-            .map_err(|e| DisplayError::Gpio(format!("Failed to request RST line: {e}")))?;
+        let rst_lines = chip.request_lines(rst_opts).map_err(|e| {
+            let err_msg = format!(
+                "Failed to request RST pin {} on {}: {}",
+                hw_config.rst_pin, hw_config.gpio_chip, e
+            );
+            log::error!("{err_msg}");
+            DisplayError::Gpio(err_msg)
+        })?;
 
         // Configure BUSY pin as input
-        let busy_opts = Options::input([BUSY_PIN.get()]).consumer("distiller-display-busy");
-        let busy_lines = chip
-            .request_lines(busy_opts)
-            .map_err(|e| DisplayError::Gpio(format!("Failed to request BUSY line: {e}")))?;
+        let busy_opts = Options::input([hw_config.busy_pin]).consumer("distiller-display-busy");
+        let busy_lines = chip.request_lines(busy_opts).map_err(|e| {
+            let err_msg = format!(
+                "Failed to request BUSY pin {} on {}: {}",
+                hw_config.busy_pin, hw_config.gpio_chip, e
+            );
+            log::error!("{err_msg}");
+            DisplayError::Gpio(err_msg)
+        })?;
+
+        log::info!(
+            "GPIO initialized on {} with pins DC={}, RST={}, BUSY={}",
+            hw_config.gpio_chip,
+            hw_config.dc_pin,
+            hw_config.rst_pin,
+            hw_config.busy_pin
+        );
 
         Ok(Self {
             dc: dc_lines,
@@ -132,8 +155,16 @@ pub struct DefaultSpiController {
 
 impl SpiController for DefaultSpiController {
     fn new() -> Result<Self, DisplayError> {
-        let mut spi = Spidev::open("/dev/spidev0.0")
-            .map_err(|e| DisplayError::Spi(format!("Failed to open SPI device: {e}")))?;
+        let hw_config = get_hardware_config().map_err(|e| {
+            log::error!("Failed to get hardware config: {e}");
+            e
+        })?;
+
+        let mut spi = Spidev::open(&hw_config.spi_device).map_err(|e| {
+            let err_msg = format!("Failed to open SPI device {}: {}", hw_config.spi_device, e);
+            log::error!("{err_msg}");
+            DisplayError::Spi(err_msg)
+        })?;
 
         let options = SpidevOptions::new()
             .bits_per_word(8)
@@ -141,8 +172,13 @@ impl SpiController for DefaultSpiController {
             .mode(SpiModeFlags::SPI_MODE_0)
             .build();
 
-        spi.configure(&options)
-            .map_err(|e| DisplayError::Spi(format!("Failed to configure SPI: {e}")))?;
+        spi.configure(&options).map_err(|e| {
+            let err_msg = format!("Failed to configure SPI {}: {}", hw_config.spi_device, e);
+            log::error!("{err_msg}");
+            DisplayError::Spi(err_msg)
+        })?;
+
+        log::info!("SPI initialized on {}", hw_config.spi_device);
 
         Ok(Self { spi })
     }

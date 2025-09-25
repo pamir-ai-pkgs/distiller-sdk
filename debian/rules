@@ -17,17 +17,14 @@ override_dh_auto_build:
 override_dh_auto_install:
 	# Process files installed by debian/install
 	dh_auto_install
-	
-	# Remove embedded Rust sources/build artifacts that are not needed at run-time
-	rm -rf $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/src/distiller_cm5_sdk/hardware/eink/lib
-	
-	# Create a symlink to the shared library in system lib for compatibility
+
+	# Post-install cleanup and library linking
+	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-cm5-sdk/src/distiller_cm5_sdk/hardware/eink/lib
+	mkdir -p $(CURDIR)/debian/distiller-sdk/usr/lib
 	ln -sf /opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so \
-		$(CURDIR)/debian/distiller-cm5-sdk/usr/lib/libdistiller_display_sdk_shared.so
-	
-	# Copy requirements.txt as backup (for compatibility) if it exists
+		$(CURDIR)/debian/distiller-sdk/usr/lib/libdistiller_display_sdk_shared.so
 	if [ -f requirements.txt ]; then \
-		cp requirements.txt $(CURDIR)/debian/distiller-cm5-sdk/opt/distiller-cm5-sdk/; \
+		cp requirements.txt $(CURDIR)/debian/distiller-sdk/opt/distiller-cm5-sdk/; \
 	fi
 
 override_dh_python3:
