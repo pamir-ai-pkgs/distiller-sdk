@@ -1,5 +1,5 @@
 #!/bin/bash
-# Debian package preinst script for Distiller CM5 SDK
+# Debian package preinst script for distiller-sdk
 # Modern Debian packaging practices
 
 set -e
@@ -22,24 +22,12 @@ check_uv() {
 	# Check common installation paths
 	local uv_found=false
 
-	# Try command in current environment
 	if command -v uv >/dev/null 2>&1; then
 		uv_found=true
-	# Check system-wide location
 	elif [ -f "/usr/local/bin/uv" ] && [ -x "/usr/local/bin/uv" ]; then
 		uv_found=true
-	# Check actual user's home directory if using sudo
-	elif [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-		if [ -f "/home/$SUDO_USER/.local/bin/uv" ] && [ -x "/home/$SUDO_USER/.local/bin/uv" ]; then
-			uv_found=true
-		# Try to find uv in the actual user's PATH
-		elif su - "$SUDO_USER" -c "command -v uv" >/dev/null 2>&1; then
-			uv_found=true
-		fi
-	# Check current user's home
 	elif [ -f "$HOME/.local/bin/uv" ] && [ -x "$HOME/.local/bin/uv" ]; then
 		uv_found=true
-	# Check root's home as fallback
 	elif [ -f "/root/.local/bin/uv" ] && [ -x "/root/.local/bin/uv" ]; then
 		uv_found=true
 	fi
@@ -60,7 +48,24 @@ EOF
 	fi
 }
 
-# No longer checking for a specific user - will use the current user during installation
+# Check for distiller user
+check_distiller_user() {
+	if ! getent passwd distiller >/dev/null 2>&1; then
+		cat >&2 <<EOF
+ERROR: The 'distiller' user does not exist.
+
+Please create the distiller user and group first:
+  sudo groupadd --system distiller
+  sudo useradd --system --gid distiller --home /home/distiller --shell /bin/bash distiller
+
+For hardware access, you may also want to add the user to these groups:
+  sudo usermod -a -G audio,video,spi,dialout,gpio,i2c,input,leds distiller
+
+After creating the user, try installing the package again.
+EOF
+		exit 1
+	fi
+}
 
 # Main logic
 case "$1" in
@@ -70,6 +75,9 @@ install | upgrade)
 
 	# Check for uv package manager
 	check_uv
+
+	# Check for distiller user
+	check_distiller_user
 	;;
 
 abort-upgrade)
@@ -77,7 +85,7 @@ abort-upgrade)
 	;;
 
 *)
-	echo "preinst called with unknown argument: $1" >&2
+	echo "ERROR: preinst called with unknown argument: $1" >&2
 	exit 1
 	;;
 esac

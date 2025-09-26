@@ -23,9 +23,6 @@ override_dh_auto_install:
 	mkdir -p $(CURDIR)/debian/distiller-sdk/usr/lib
 	ln -sf /opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so \
 		$(CURDIR)/debian/distiller-sdk/usr/lib/libdistiller_display_sdk_shared.so
-	if [ -f requirements.txt ]; then \
-		cp requirements.txt $(CURDIR)/debian/distiller-sdk/opt/distiller-cm5-sdk/; \
-	fi
 
 override_dh_python3:
 	# Skip dh_python3 since we're using uv for Python environment management

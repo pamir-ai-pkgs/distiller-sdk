@@ -27,9 +27,9 @@ Depends: ${misc:Depends},
          build-essential,
          pkgconf
 Recommends: rpicam-apps | libcamera-apps
-Provides: distiller-cm5-sdk, distiller-radxa-sdk
-Replaces: distiller-cm5-sdk (<< 2.1.0), distiller-radxa-sdk (<< 2.1.0)
-Breaks: distiller-cm5-sdk (<< 2.1.0), distiller-radxa-sdk (<< 2.1.0)
+Provides: distiller-cm5-sdk
+Replaces: distiller-cm5-sdk (<< 2.1.0)
+Breaks: distiller-cm5-sdk (<< 2.1.0)
 Description: Distiller SDK - Universal ARM64 SDK for hardware control
  The Distiller SDK provides a self-contained Python environment with
  modules, model files, and native libraries for audio, camera, e-ink display,
