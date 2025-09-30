@@ -351,19 +351,43 @@ build_package() {
 	# Check if we're cross-compiling
 	local current_arch=$(dpkg --print-architecture)
 	local build_flags="-us -uc -b"
+	local build_env=""
 
 	if [ "$current_arch" != "$TARGET_ARCHITECTURE" ]; then
 		log_warning "Cross-compiling from $current_arch to $TARGET_ARCHITECTURE"
+
+		# Check for cross-compiler if targeting ARM64
+		if [ "$TARGET_ARCHITECTURE" = "arm64" ] || [ "$TARGET_ARCHITECTURE" = "aarch64" ]; then
+			if ! command -v aarch64-linux-gnu-gcc >/dev/null 2>&1; then
+				log_error "Cross-compiler not found: aarch64-linux-gnu-gcc"
+				log_info "Install with: sudo apt-get install gcc-aarch64-linux-gnu"
+				return 1
+			fi
+			log_info "Using cross-compiler: aarch64-linux-gnu-gcc"
+			build_env="CC=aarch64-linux-gnu-gcc"
+		fi
+
 		log_info "Note: For production packages, building on target architecture is recommended"
-		build_flags="$build_flags -d --host-arch=$TARGET_ARCHITECTURE"
+		build_flags="$build_flags -a$TARGET_ARCHITECTURE"
+	else
+		log_info "Building natively for $current_arch"
 	fi
 
-	# Use dpkg-buildpackage with appropriate flags
-	if dpkg-buildpackage $build_flags; then
-		log_success "Package built successfully"
+	# Use dpkg-buildpackage with appropriate flags and environment
+	if [ -n "$build_env" ]; then
+		if env $build_env dpkg-buildpackage $build_flags; then
+			log_success "Package built successfully"
+		else
+			log_error "Package build failed"
+			return 1
+		fi
 	else
-		log_error "Package build failed"
-		return 1
+		if dpkg-buildpackage $build_flags; then
+			log_success "Package built successfully"
+		else
+			log_error "Package build failed"
+			return 1
+		fi
 	fi
 
 	# Move built packages to dist directory
