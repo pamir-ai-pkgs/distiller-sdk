@@ -7,5 +7,8 @@ README.md opt/distiller-cm5-sdk/
 eink.conf.template opt/distiller-cm5-sdk/
 configs opt/distiller-cm5-sdk/
 
+# Install platform detection helper script
+platform-detect.sh opt/distiller-cm5-sdk/
+
 # Install the ARM64 shared library
 src/distiller_cm5_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so opt/distiller-cm5-sdk/lib/

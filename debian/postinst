@@ -4,32 +4,14 @@ set -e
 # Export PATH with all possible uv locations
 export PATH="/root/.local/bin:/root/.cargo/bin:$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-# Function to detect hardware platform
-detect_platform() {
-	local platform=""
-	# Allow override via environment variable
-	if [ -n "$DISTILLER_PLATFORM" ]; then
-		echo "INFO: Platform override: $DISTILLER_PLATFORM" >&2
-		platform="$DISTILLER_PLATFORM"
-	elif [ -f /proc/device-tree/compatible ]; then
-		local compat
-		compat=$(tr '\0' '\n' </proc/device-tree/compatible)
-		if echo "$compat" | grep -q -e "radxa,zero3" -e "rockchip,rk3566"; then
-			platform="radxa"
-			echo "INFO: Detected platform: Rockchip RK3566 (Radxa compatible)" >&2
-		elif echo "$compat" | grep -q -e "raspberrypi,5" -e "bcm2712"; then
-			platform="cm5"
-			echo "INFO: Detected platform: Raspberry Pi CM5" >&2
-		fi
-	fi
-
-	if [ -z "$platform" ]; then
-		echo "ERROR: Could not detect platform" >&2
-		exit 1
-	fi
-
-	echo "$platform"
-}
+# Source platform detection helper script
+PLATFORM_DETECT_SCRIPT="/opt/distiller-cm5-sdk/platform-detect.sh"
+if [ -f "$PLATFORM_DETECT_SCRIPT" ]; then
+	source "$PLATFORM_DETECT_SCRIPT"
+else
+	echo "ERROR: Platform detection script not found: $PLATFORM_DETECT_SCRIPT" >&2
+	exit 1
+fi
 
 # Main installation logic
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ]; then
@@ -38,20 +20,18 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 	# Detect platform for hardware configuration
 	PLATFORM=$(detect_platform)
 
-	# Install platform-specific eink configuration
-	if [ "$PLATFORM" = "radxa" ]; then
-		CONFIG_FILE="/opt/distiller-cm5-sdk/configs/radxa-zero3.conf"
-		PLATFORM_DESC="Radxa Zero 3/3W (RK3566)"
-		SPI_DEVICE="/dev/spidev3.0"
-		GPIO_CHIP="/dev/gpiochip3"
-		GPIO_PINS="DC=8 (GPIO3_B0), RST=2 (GPIO3_A2), BUSY=1 (GPIO3_A1)"
-	else
-		CONFIG_FILE="/opt/distiller-cm5-sdk/configs/cm5.conf"
-		PLATFORM_DESC="Raspberry Pi CM5"
-		SPI_DEVICE="/dev/spidev0.0"
-		GPIO_CHIP="/dev/gpiochip0"
-		GPIO_PINS="DC=7, RST=13, BUSY=9"
+	if [ "$PLATFORM" = "unknown" ]; then
+		echo "ERROR: Could not detect platform" >&2
+		exit 1
 	fi
+
+	echo "INFO: Detected platform: $(get_platform_description "$PLATFORM")" >&2
+
+	# Get platform-specific configuration using helper functions
+	CONFIG_FILE=$(get_config_file "$PLATFORM")
+	PLATFORM_DESC=$(get_platform_description "$PLATFORM")
+	SPI_DEVICE=$(get_spi_device "$PLATFORM")
+	GPIO_CHIP=$(get_gpio_chip "$PLATFORM")
 
 	cp "$CONFIG_FILE" /opt/distiller-cm5-sdk/eink.conf
 
@@ -111,17 +91,17 @@ EOF
 
 	# Platform-specific device checks
 	if [ "$PLATFORM" = "radxa" ]; then
-		[ -e "/dev/spidev3.0" ] || {
+		[ -e "$SPI_DEVICE" ] || {
 			echo "WARNING: /dev/spidev3.0 not found!"
 			echo "Enable overlay: spi3-m1-cs0-spidev"
 		}
-		[ -e "/dev/gpiochip3" ] || echo "WARNING: /dev/gpiochip3 not found!"
+		[ -e "$GPIO_CHIP" ] || echo "WARNING: $GPIO_CHIP not found!"
 	else
-		[ -e "/dev/spidev0.0" ] || {
-			echo "WARNING: /dev/spidev0.0 not found!"
+		[ -e "$SPI_DEVICE" ] || {
+			echo "WARNING: $SPI_DEVICE not found!"
 			echo "Please enable SPI in raspi-config or /boot/config.txt"
 		}
-		[ -e "/dev/gpiochip0" ] || echo "WARNING: /dev/gpiochip0 not found!"
+		[ -e "$GPIO_CHIP" ] || echo "WARNING: $GPIO_CHIP not found!"
 	fi
 
 	# Update shared library cache
