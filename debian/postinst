@@ -5,21 +5,22 @@ set -e
 export PATH="/root/.local/bin:/root/.cargo/bin:$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 # Source platform detection helper script
-PLATFORM_DETECT_SCRIPT="/opt/distiller-cm5-sdk/platform-detect.sh"
-if [ -f "$PLATFORM_DETECT_SCRIPT" ]; then
-	source "$PLATFORM_DETECT_SCRIPT"
-else
+PLATFORM_DETECT_SCRIPT="/opt/distiller-sdk/platform-detect.sh"
+[ -f "$PLATFORM_DETECT_SCRIPT" ] || {
 	echo "ERROR: Platform detection script not found: $PLATFORM_DETECT_SCRIPT" >&2
 	exit 1
-fi
+}
+source "$PLATFORM_DETECT_SCRIPT"
 
 # Main installation logic
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ]; then
+	# Remove old distiller-cm5-sdk installation completely
+	[ -d "/opt/distiller-cm5-sdk" ] && rm -rf /opt/distiller-cm5-sdk
+
 	echo "INFO: Setting up Distiller SDK..."
 
 	# Detect platform for hardware configuration
 	PLATFORM=$(detect_platform)
-
 	if [ "$PLATFORM" = "unknown" ]; then
 		echo "ERROR: Could not detect platform" >&2
 		exit 1
@@ -33,11 +34,9 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 	SPI_DEVICE=$(get_spi_device "$PLATFORM")
 	GPIO_CHIP=$(get_gpio_chip "$PLATFORM")
 
-	cp "$CONFIG_FILE" /opt/distiller-cm5-sdk/eink.conf
+	cp "$CONFIG_FILE" /opt/distiller-sdk/eink.conf
 
-	cd /opt/distiller-cm5-sdk
-
-	echo "INFO: Setting up virtual environment with uv..."
+	cd /opt/distiller-sdk
 
 	[ -d ".venv" ] && rm -rf ".venv"
 	if ! uv venv --system-site-packages 2>/dev/null; then
@@ -51,13 +50,13 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 	# Install dependencies
 	uv sync
 
-	VENV_PATH="/opt/distiller-cm5-sdk/.venv"
+	VENV_PATH="/opt/distiller-sdk/.venv"
 
 	# Set appropriate permissions
-	chmod -R a+r /opt/distiller-cm5-sdk
-	find /opt/distiller-cm5-sdk -type d -exec chmod 755 {} \; \
+	chmod -R a+r /opt/distiller-sdk
+	find /opt/distiller-sdk -type d -exec chmod 755 {} \; \
 		-o -type f -name "*.py" -exec chmod 644 {} \;
-	find /opt/distiller-cm5-sdk/.venv/bin -type f -exec chmod 755 {} \;
+	find /opt/distiller-sdk/.venv/bin -type f -exec chmod 755 {} \;
 
 	# Verify installation
 	VENV_PYTHON="$VENV_PATH/bin/python"
@@ -73,21 +72,21 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 	fi
 
 	echo "INFO: Testing SDK imports..."
-	if ! $VENV_PYTHON -c "import distiller_cm5_sdk; print('INFO: SDK imported successfully')" 2>/dev/null; then
-		echo "ERROR: distiller_cm5_sdk import failed"
+	if ! $VENV_PYTHON -c "import distiller_sdk; print('INFO: SDK imported successfully')" 2>/dev/null; then
+		echo "ERROR: distiller_sdk import failed"
 		exit 1
 	fi
 
 	# Create activation script
-	cat >/opt/distiller-cm5-sdk/activate.sh <<'EOF'
+	cat >/opt/distiller-sdk/activate.sh <<'EOF'
 #!/bin/bash
-# Activate the distiller-cm5-sdk virtual environment
-source /opt/distiller-cm5-sdk/.venv/bin/activate
-export PYTHONPATH="/opt/distiller-cm5-sdk/src:$PYTHONPATH"
-export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
+# Activate the distiller-sdk virtual environment
+source /opt/distiller-sdk/.venv/bin/activate
+export PYTHONPATH="/opt/distiller-sdk/src:$PYTHONPATH"
+export LD_LIBRARY_PATH="/opt/distiller-sdk/lib:$LD_LIBRARY_PATH"
 echo "Distiller SDK environment activated"
 EOF
-	chmod 755 /opt/distiller-cm5-sdk/activate.sh
+	chmod 755 /opt/distiller-sdk/activate.sh
 
 	# Platform-specific device checks
 	if [ "$PLATFORM" = "radxa" ]; then
@@ -113,9 +112,9 @@ EOF
 	echo "============================================="
 	echo ""
 	echo "Platform: $PLATFORM_DESC"
-	echo "Config: /opt/distiller-cm5-sdk/eink.conf"
+	echo "Config: /opt/distiller-sdk/eink.conf"
 	echo ""
 	echo "To activate the environment, run:"
-	echo "  source /opt/distiller-cm5-sdk/activate.sh"
+	echo "  source /opt/distiller-sdk/activate.sh"
 	echo ""
 fi

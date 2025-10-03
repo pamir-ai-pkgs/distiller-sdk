@@ -15,5 +15,5 @@ __all__ = ['LED', 'LEDError', 'create_led_with_sudo']
 __version__ = '2.0.0'
 
 # Module metadata
-__author__ = 'Distiller CM5 SDK Team'
+__author__ = 'Distiller SDK Team'
 __description__ = 'SAM hardware control module with sysfs-based RGB LED support'

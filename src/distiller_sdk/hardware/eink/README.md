@@ -1,6 +1,6 @@
 # E-ink Display Module
 
-E-ink display control module for the Distiller CM5 SDK. Provides high-level Python interface for
+E-ink display control module for the Distiller SDK. Provides high-level Python interface for
 multiple e-ink display types with intelligent image conversion capabilities.
 
 ## Features
@@ -26,7 +26,7 @@ multiple e-ink display types with intelligent image conversion capabilities.
 ### Auto-Conversion (Recommended)
 
 ```python
-from distiller_cm5_sdk.hardware.eink import display_png_auto, ScalingMethod
+from distiller_sdk.hardware.eink import display_png_auto, ScalingMethod
 
 # Display ANY PNG image - automatically converted to fit your display
 display_png_auto("large_photo.jpg")  # Works with any size!
@@ -40,7 +40,7 @@ display_png("any_image.png", auto_convert=True)
 ### Basic Usage
 
 ```python
-from distiller_cm5_sdk.hardware.eink import Display, DisplayMode
+from distiller_sdk.hardware.eink import Display, DisplayMode
 
 # Display a PNG image (exact display size required)
 with Display() as display:
@@ -58,7 +58,7 @@ with Display() as display:
 ### Convenience Functions
 
 ```python
-from distiller_cm5_sdk.hardware.eink import display_png, clear_display
+from distiller_sdk.hardware.eink import display_png, clear_display
 
 # Quick PNG display (exact size required)
 display_png("my_image.png")
@@ -73,7 +73,7 @@ clear_display()
 ### Display Class Usage
 
 ```python
-from distiller_cm5_sdk.hardware.eink import Display, DisplayMode, DisplayError
+from distiller_sdk.hardware.eink import Display, DisplayMode, DisplayError
 
 try:
     # Initialize display
@@ -113,7 +113,7 @@ format, or color depth. The system automatically:
 ### Scaling Methods
 
 ```python
-from distiller_cm5_sdk.hardware.eink import ScalingMethod
+from distiller_sdk.hardware.eink import ScalingMethod
 
 ScalingMethod.LETTERBOX     # Maintain aspect ratio, add black borders (default)
 ScalingMethod.CROP_CENTER   # Scale to fill display completely, center crop
@@ -123,7 +123,7 @@ ScalingMethod.STRETCH       # Stretch to fill display (may distort image)
 ### Dithering Methods
 
 ```python
-from distiller_cm5_sdk.hardware.eink import DitheringMethod
+from distiller_sdk.hardware.eink import DitheringMethod
 
 DitheringMethod.FLOYD_STEINBERG  # High quality dithering (default)
 DitheringMethod.SIMPLE           # Fast threshold conversion
@@ -132,7 +132,7 @@ DitheringMethod.SIMPLE           # Fast threshold conversion
 ### Auto-Conversion Examples
 
 ```python
-from distiller_cm5_sdk.hardware.eink import display_png_auto, ScalingMethod, DitheringMethod
+from distiller_sdk.hardware.eink import display_png_auto, ScalingMethod, DitheringMethod
 
 # Display a large photo with letterboxing (maintains aspect ratio)
 display_png_auto("vacation_photo_4000x3000.png")
@@ -316,7 +316,7 @@ Convert a PNG file to raw 1-bit data.
 ### Display Modes
 
 ```python
-from distiller_cm5_sdk.hardware.eink import DisplayMode
+from distiller_sdk.hardware.eink import DisplayMode
 
 DisplayMode.FULL      # Full refresh - slow, high quality
 DisplayMode.PARTIAL   # Partial refresh - fast updates
@@ -378,7 +378,7 @@ Raised for display-related errors:
 ### Text and Drawing Features
 
 ```python
-from distiller_cm5_sdk.hardware.eink import Display, DisplayMode
+from distiller_sdk.hardware.eink import Display, DisplayMode
 
 with Display() as display:
     # Display text directly
@@ -406,7 +406,7 @@ with Display() as display:
 ### Firmware Configuration
 
 ```python
-from distiller_cm5_sdk.hardware.eink import Display
+from distiller_sdk.hardware.eink import Display
 
 with Display() as display:
     # Check current firmware
@@ -425,7 +425,7 @@ with Display() as display:
 ### Auto-Conversion Examples (Recommended)
 
 ```python
-from distiller_cm5_sdk.hardware.eink import display_png_auto, ScalingMethod, DitheringMethod
+from distiller_sdk.hardware.eink import display_png_auto, ScalingMethod, DitheringMethod
 
 # Display any PNG image - fully automatic
 display_png_auto("my_photo.png")
@@ -443,7 +443,7 @@ display_png("any_image.png", auto_convert=True)
 ### Simple PNG Display (Legacy)
 
 ```python
-from distiller_cm5_sdk.hardware.eink import display_png
+from distiller_sdk.hardware.eink import display_png
 
 # Display image with exact display dimensions
 display_png("logo_128x250.png")
@@ -453,7 +453,7 @@ display_png("logo_128x250.png")
 
 ```python
 import numpy as np
-from distiller_cm5_sdk.hardware.eink import Display
+from distiller_sdk.hardware.eink import Display
 
 # Create a test pattern
 width, height = 128, 250
@@ -470,7 +470,7 @@ with Display() as display:
 ### Error Handling
 
 ```python
-from distiller_cm5_sdk.hardware.eink import Display, DisplayError
+from distiller_sdk.hardware.eink import Display, DisplayError
 
 try:
     with Display() as display:
@@ -501,7 +501,7 @@ Test the new auto-conversion functionality:
 
 ```bash
 # Test auto-conversion with various image formats and sizes
-python src/distiller_cm5_sdk/hardware/eink/test_auto_display.py
+python src/distiller_sdk/hardware/eink/test_auto_display.py
 
 # Comprehensive auto-conversion test
 python test_auto_conversion.py
@@ -512,7 +512,7 @@ python test_auto_conversion.py
 Run the original test suite:
 
 ```python
-from distiller_cm5_sdk.hardware.eink._display_test import run_display_tests
+from distiller_sdk.hardware.eink._display_test import run_display_tests
 run_display_tests()
 ```
 

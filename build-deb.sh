@@ -134,14 +134,12 @@ clean_build() {
 	fi
 
 	# Also clean old package names for backward compatibility
-	for old_name in distiller-cm5-sdk distiller-radxa-sdk; do
-		[ -d "${DEBIAN_DIR}/${old_name}" ] && rm -rf "${DEBIAN_DIR}/${old_name}"
-		rm -f ../"${old_name}"_*.deb
-		rm -f ../"${old_name}"_*.dsc
-		rm -f ../"${old_name}"_*.tar.*
-		rm -f ../"${old_name}"_*.changes
-		rm -f ../"${old_name}"_*.buildinfo
-	done
+	[ -d "${DEBIAN_DIR}/distiller-sdk" ] && rm -rf "${DEBIAN_DIR}/distiller-sdk"
+	rm -f ../"distiller-sdk"_*.deb
+	rm -f ../"distiller-sdk"_*.dsc
+	rm -f ../"distiller-sdk"_*.tar.*
+	rm -f ../"distiller-sdk"_*.changes
+	rm -f ../"distiller-sdk"_*.buildinfo
 
 	# Clean common debian build files
 	[ -f "${DEBIAN_DIR}/files" ] && rm -f "${DEBIAN_DIR}/files"
@@ -175,8 +173,8 @@ clean_build() {
 
 # Check if Rust library needs rebuilding
 check_rust_rebuild_needed() {
-	local rust_lib="src/distiller_cm5_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so"
-	local rust_src_dir="src/distiller_cm5_sdk/hardware/eink/lib/src"
+	local rust_lib="src/distiller_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so"
+	local rust_src_dir="src/distiller_sdk/hardware/eink/lib/src"
 
 	# If library doesn't exist, rebuild is needed
 	if [ ! -f "$rust_lib" ]; then
@@ -194,8 +192,8 @@ check_rust_rebuild_needed() {
 		fi
 
 		# Also check Cargo.toml and Cargo.lock
-		local cargo_toml="src/distiller_cm5_sdk/hardware/eink/lib/Cargo.toml"
-		local cargo_lock="src/distiller_cm5_sdk/hardware/eink/lib/Cargo.lock"
+		local cargo_toml="src/distiller_sdk/hardware/eink/lib/Cargo.toml"
+		local cargo_lock="src/distiller_sdk/hardware/eink/lib/Cargo.lock"
 
 		if [ -f "$cargo_toml" ] && [ "$cargo_toml" -nt "$rust_lib" ]; then
 			log_info "Cargo.toml has changed, rebuild needed"
@@ -220,10 +218,10 @@ check_rust_rebuild_needed() {
 prepare_python_uv() {
 	log_info "Preparing Python project with uv..."
 
-	# Special handling for distiller-cm5-sdk
+	# Special handling for distiller-sdk
 	local package_name=$(get_package_name)
-	if [ "$package_name" = "distiller-cm5-sdk" ]; then
-		log_info "Detected distiller-cm5-sdk - checking if build is needed..."
+	if [ "$package_name" = "distiller-sdk" ]; then
+		log_info "Detected distiller-sdk - checking if build is needed..."
 
 		# Check if build.sh exists
 		if [ -f "./build.sh" ]; then
@@ -244,7 +242,7 @@ prepare_python_uv() {
 				log_success "build.sh completed successfully"
 
 				# Verify Rust library was built
-				if [ -f "src/distiller_cm5_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so" ]; then
+				if [ -f "src/distiller_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so" ]; then
 					log_success "Rust library found and ready for packaging"
 				else
 					log_error "Rust library not found after build.sh"
@@ -255,7 +253,7 @@ prepare_python_uv() {
 				return 1
 			fi
 		else
-			log_error "build.sh not found for distiller-cm5-sdk"
+			log_error "build.sh not found for distiller-sdk"
 			return 1
 		fi
 	fi
@@ -343,7 +341,7 @@ build_package() {
 	# Update changelog if needed
 	if [ ! -f "${DEBIAN_DIR}/changelog" ]; then
 		log_info "Creating initial changelog..."
-		dch --create --package "distiller-cm5-sdk" --newversion "1.0.0" --distribution stable "Initial release"
+		dch --create --package "$package_name" --newversion "1.0.0" --distribution stable "Initial release"
 	fi
 
 	log_info "Building universal Debian package..."

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Platform detection helper script for Distiller CM5 SDK
+# Platform detection helper script for Distiller SDK
 # Supports Raspberry Pi CM5 (BCM2712), Rockchip RK3566 (Radxa Zero 3/3W), and Armbian platforms
 #
 # Environment variable override:
@@ -122,13 +122,13 @@ get_config_file() {
 
 	case "$platform" in
 	armbian | radxa)
-		echo "/opt/distiller-cm5-sdk/configs/radxa-zero3.conf"
+		echo "/opt/distiller-sdk/configs/radxa-zero3.conf"
 		;;
 	cm5)
-		echo "/opt/distiller-cm5-sdk/configs/cm5.conf"
+		echo "/opt/distiller-sdk/configs/cm5.conf"
 		;;
 	*)
-		echo "/opt/distiller-cm5-sdk/configs/cm5.conf"
+		echo "/opt/distiller-sdk/configs/cm5.conf"
 		;;
 	esac
 }

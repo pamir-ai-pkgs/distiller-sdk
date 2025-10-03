@@ -1,11 +1,11 @@
-# Distiller CM5 SDK E-ink Display Configuration
+# Distiller SDK E-ink Display Configuration
 # This file is REQUIRED for e-ink display operation
 #
 # Installation:
-#   sudo cp /opt/distiller-cm5-sdk/eink.conf.template /opt/distiller-cm5-sdk/eink.conf
-#   sudo nano /opt/distiller-cm5-sdk/eink.conf
+#   sudo cp /opt/distiller-sdk/eink.conf.template /opt/distiller-sdk/eink.conf
+#   sudo nano /opt/distiller-sdk/eink.conf
 #
-# Pre-configured templates are available in /opt/distiller-cm5-sdk/configs/
+# Pre-configured templates are available in /opt/distiller-sdk/configs/
 
 [display]
 # Display firmware type
@@ -54,7 +54,7 @@ rst_pin = 13
 busy_pin = 9
 
 # Configuration priority (highest to lowest):
-# 1. This file (/opt/distiller-cm5-sdk/eink.conf)
+# 1. This file (/opt/distiller-sdk/eink.conf)
 # 2. Built-in defaults (CM5 platform)
 #
 # To enable SPI on Radxa Zero 3:

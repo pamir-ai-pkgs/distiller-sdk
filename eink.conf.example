@@ -18,5 +18,5 @@ firmware=EPD128x250
 
 # Configuration priority (highest to lowest):
 # 1. Environment variable: DISTILLER_EINK_FIRMWARE
-# 2. Config files: /opt/distiller-cm5-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf  
+# 2. Config files: /opt/distiller-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf  
 # 3. Default: EPD128x250

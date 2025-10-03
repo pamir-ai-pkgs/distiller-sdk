@@ -24,11 +24,11 @@ Piper is a fast, local TTS engine that:
 
 ## Installation
 
-The Piper module is included in the Distiller CM5 SDK. Ensure the SDK is properly installed:
+The Piper module is included in the Distiller SDK. Ensure the SDK is properly installed:
 
 ```bash
-sudo dpkg -i distiller-cm5-sdk_*_arm64.deb
-source /opt/distiller-cm5-sdk/activate.sh
+sudo dpkg -i distiller-sdk_*_arm64.deb
+source /opt/distiller-sdk/activate.sh
 ```
 
 Required files downloaded during SDK build:
@@ -42,7 +42,7 @@ Required files downloaded during SDK build:
 ### Basic Text-to-Speech
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 
 # Initialize Piper
 piper = Piper()
@@ -54,7 +54,7 @@ piper.speak_stream("Hello, this is a test of the Piper TTS system.", volume=50)
 ### Generate WAV File
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 
 piper = Piper()
 
@@ -67,7 +67,7 @@ print(f"Audio saved to: {output_path}")
 ### List Available Voices
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 
 piper = Piper()
 
@@ -196,7 +196,7 @@ While the SDK includes a default voice, you can add additional Piper-compatible 
 
 ```python
 import os
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 
 # Download a new voice model (example)
 # wget https://github.com/rhasspy/piper/releases/download/v1.0.0/voice-en_US-ryan-high.tar.gz
@@ -212,7 +212,7 @@ piper = Piper(model_path=custom_model_path)
 ### Batch Processing Multiple Texts
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 import time
 
 piper = Piper()
@@ -232,7 +232,7 @@ for i, text in enumerate(texts, 1):
 ### Dynamic Volume Control
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 
 piper = Piper()
 
@@ -246,7 +246,7 @@ for volume in range(20, 81, 10):
 ### Text Processing and Speech
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 import re
 
 piper = Piper()
@@ -291,7 +291,7 @@ piper.speak_stream(clean_text)
 ### Save Multiple Formats
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 import subprocess
 import os
 
@@ -329,8 +329,8 @@ print(f"  OGG: {ogg_path}")
 ### With Parakeet ASR for Voice Assistant
 
 ```python
-from distiller_cm5_sdk.piper import Piper
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.piper import Piper
+from distiller_sdk.parakeet import Parakeet
 
 # Initialize both engines
 piper = Piper()
@@ -362,8 +362,8 @@ voice_assistant()
 ### With E-ink Display for Visual Feedback
 
 ```python
-from distiller_cm5_sdk.piper import Piper
-from distiller_cm5_sdk.hardware.eink import Display
+from distiller_sdk.piper import Piper
+from distiller_sdk.hardware.eink import Display
 
 piper = Piper()
 display = Display()
@@ -388,8 +388,8 @@ speak_with_display("Hello! This text appears on the display while being spoken."
 ### Notification System
 
 ```python
-from distiller_cm5_sdk.piper import Piper
-from distiller_cm5_sdk.hardware.sam import LED
+from distiller_sdk.piper import Piper
+from distiller_sdk.hardware.sam import LED
 import time
 
 piper = Piper()
@@ -442,19 +442,19 @@ If you get "piper does not exist" error:
 1. Verify Piper binary exists:
 
 ```bash
-ls -la /opt/distiller-cm5-sdk/models/piper/piper/piper
+ls -la /opt/distiller-sdk/models/piper/piper/piper
 ```
 
 2. Check executable permissions:
 
 ```bash
-chmod +x /opt/distiller-cm5-sdk/models/piper/piper/piper
+chmod +x /opt/distiller-sdk/models/piper/piper/piper
 ```
 
 3. Test Piper directly:
 
 ```bash
-echo "test" | /opt/distiller-cm5-sdk/models/piper/piper/piper --model /opt/distiller-cm5-sdk/models/piper/en_US-amy-medium.onnx --output_file test.wav
+echo "test" | /opt/distiller-sdk/models/piper/piper/piper --model /opt/distiller-sdk/models/piper/en_US-amy-medium.onnx --output_file test.wav
 ```
 
 ### No Audio Output
@@ -464,7 +464,7 @@ If speech synthesis works but no audio is heard:
 1. Check speaker volume:
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 print(f"Current volume: {Audio.get_speaker_volume_static()}")
 Audio.set_speaker_volume_static(70)
 ```
@@ -488,13 +488,13 @@ If model files are missing or corrupted:
 1. Check model files:
 
 ```bash
-ls -la /opt/distiller-cm5-sdk/models/piper/*.onnx*
+ls -la /opt/distiller-sdk/models/piper/*.onnx*
 ```
 
 2. Re-download models:
 
 ```bash
-cd /opt/distiller-cm5-sdk
+cd /opt/distiller-sdk
 ./build.sh
 ```
 
@@ -560,4 +560,4 @@ The Piper module uses:
 - ONNX Runtime (MIT License)
 - Voice models from the Piper project
 
-Part of the Distiller CM5 SDK for Raspberry Pi CM5 platform.
+Part of the Distiller SDK for Raspberry Pi CM5 platform.

@@ -1,13 +1,13 @@
 # API Reference
 
-Complete API documentation for the Distiller CM5 SDK modules.
+Complete API documentation for the Distiller SDK modules.
 
 ## Hardware APIs
 
 ### Audio Class
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 
 class Audio:
     def __init__(self):
@@ -57,7 +57,7 @@ class Audio:
 ### Display Class
 
 ```python
-from distiller_cm5_sdk.hardware.eink import Display, DisplayMode
+from distiller_sdk.hardware.eink import Display, DisplayMode
 
 class Display:
     ARRAY_SIZE: int  # Total bytes for display buffer
@@ -117,7 +117,7 @@ class Display:
 ### Camera Class
 
 ```python
-from distiller_cm5_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.camera import Camera
 
 class Camera:
     def __init__(self):
@@ -151,7 +151,7 @@ class Camera:
 ### LED Class
 
 ```python
-from distiller_cm5_sdk.hardware.sam import LED
+from distiller_sdk.hardware.sam import LED
 
 class LED:
     def __init__(self, use_sudo: bool = False):
@@ -192,7 +192,7 @@ class LED:
 ### Parakeet Class
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.parakeet import Parakeet
 
 class Parakeet:
     def __init__(self, vad_threshold: float = 0.5,
@@ -222,7 +222,7 @@ class Parakeet:
 ### Piper Class
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 
 class Piper:
     def __init__(self):
@@ -242,7 +242,7 @@ class Piper:
 ### Whisper Class
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 
 class Whisper:
     def __init__(self, model_size: str = "base"):
@@ -339,7 +339,7 @@ SynthesisError     # TTS failed
 Example error handling:
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 
 try:
     audio = Audio()

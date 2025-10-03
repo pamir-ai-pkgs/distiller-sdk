@@ -9,8 +9,8 @@ import wave
 import threading
 import time
 
-from distiller_cm5_sdk.hardware.audio.audio import Audio
-from distiller_cm5_sdk import get_model_path
+from distiller_sdk.hardware.audio.audio import Audio
+from distiller_sdk import get_model_path
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')

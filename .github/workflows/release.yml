@@ -58,7 +58,7 @@ jobs:
           echo "clean_version=${CLEAN_VERSION}" >> $GITHUB_OUTPUT
           echo "semantic_version=${SEMANTIC_VERSION}" >> $GITHUB_OUTPUT
           echo "debian_revision=${DEBIAN_REVISION}" >> $GITHUB_OUTPUT
-          echo "package_name=distiller-cm5-sdk_${SEMANTIC_VERSION}-${DEBIAN_REVISION}_arm64.deb" >> $GITHUB_OUTPUT
+          echo "package_name=distiller-sdk_${SEMANTIC_VERSION}-${DEBIAN_REVISION}_arm64.deb" >> $GITHUB_OUTPUT
           
           echo "Building version: ${VERSION}"
           echo "Clean version: ${CLEAN_VERSION}"
@@ -157,7 +157,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: distiller-cm5-sdk-${{ steps.version.outputs.clean_version }}-arm64
+          name: distiller-sdk-${{ steps.version.outputs.clean_version }}-arm64
           path: |
             dist/*.deb
             dist/*.changes
@@ -172,7 +172,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.version }}
           name: Release ${{ steps.version.outputs.version }}
           body: |
-            # Distiller CM5 SDK Release ${{ steps.version.outputs.version }}
+            # Distiller SDK Release ${{ steps.version.outputs.version }}
             
             ## Package Information
             - **Version**: ${{ steps.version.outputs.clean_version }}
@@ -197,17 +197,17 @@ jobs:
             sudo apt-get install -f
             
             # Activate the SDK environment
-            source /opt/distiller-cm5-sdk/activate.sh
-            
+            source /opt/distiller-sdk/activate.sh
+
             # Verify installation
-            python -c "import distiller_cm5_sdk; print('SDK imported successfully!')"
+            python -c "import distiller_sdk; print('SDK imported successfully!')"
             ```
-            
+
             ## Usage
             ```python
-            from distiller_cm5_sdk.hardware.audio import Audio
-            from distiller_cm5_sdk.parakeet import Parakeet
-            from distiller_cm5_sdk.piper import Piper
+            from distiller_sdk.hardware.audio import Audio
+            from distiller_sdk.parakeet import Parakeet
+            from distiller_sdk.piper import Piper
             
             # Initialize audio levels
             Audio.set_mic_gain_static(85)
@@ -245,5 +245,5 @@ jobs:
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "sudo dpkg -i ${{ steps.version.outputs.package_name }}" >> $GITHUB_STEP_SUMMARY
           echo "sudo apt-get install -f" >> $GITHUB_STEP_SUMMARY
-          echo "source /opt/distiller-cm5-sdk/activate.sh" >> $GITHUB_STEP_SUMMARY
+          echo "source /opt/distiller-sdk/activate.sh" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

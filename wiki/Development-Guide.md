@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide covers contributing to and developing with the Distiller CM5 SDK.
+This guide covers contributing to and developing with the Distiller SDK.
 
 ## Development Environment Setup
 
@@ -17,18 +17,18 @@ sudo apt-get install -y \
     libcamera-dev
 
 # Clone repository
-git clone https://github.com/Pamir-AI/distiller-cm5-sdk.git
-cd distiller-cm5-sdk
+git clone https://github.com/Pamir-AI/distiller-sdk.git
+cd distiller-sdk
 ```
 
 ### Environment Activation
 
 ```bash
 # Always activate the SDK environment first
-source /opt/distiller-cm5-sdk/activate.sh
+source /opt/distiller-sdk/activate.sh
 
 # OR if developing locally
-cd distiller-cm5-sdk
+cd distiller-sdk
 python -m venv venv
 source venv/bin/activate
 pip install -e .
@@ -41,7 +41,7 @@ The SDK uses `uv` for modern Python package management.
 ### Adding Dependencies
 
 ```bash
-cd /opt/distiller-cm5-sdk
+cd /opt/distiller-sdk
 source activate.sh
 
 # Add a new package
@@ -80,8 +80,8 @@ uv sync
 ## Code Structure
 
 ```
-distiller-cm5-sdk/
-├── src/distiller_cm5_sdk/
+distiller-sdk/
+├── src/distiller_sdk/
 │   ├── hardware/           # Hardware interfaces
 │   │   ├── audio/         # Audio recording/playback
 │   │   ├── camera/        # Camera control
@@ -102,15 +102,15 @@ distiller-cm5-sdk/
 ### 1. Create Module Structure
 
 ```bash
-mkdir -p src/distiller_cm5_sdk/hardware/new_device
-touch src/distiller_cm5_sdk/hardware/new_device/__init__.py
-touch src/distiller_cm5_sdk/hardware/new_device/_new_device_test.py
+mkdir -p src/distiller_sdk/hardware/new_device
+touch src/distiller_sdk/hardware/new_device/__init__.py
+touch src/distiller_sdk/hardware/new_device/_new_device_test.py
 ```
 
 ### 2. Implement Hardware Interface
 
 ```python
-# src/distiller_cm5_sdk/hardware/new_device/__init__.py
+# src/distiller_sdk/hardware/new_device/__init__.py
 
 class NewDevice:
     """Hardware interface for new device."""
@@ -143,7 +143,7 @@ class NewDevice:
 ### 3. Add Test File
 
 ```python
-# src/distiller_cm5_sdk/hardware/new_device/_new_device_test.py
+# src/distiller_sdk/hardware/new_device/_new_device_test.py
 
 def test_basic():
     """Test basic functionality."""
@@ -161,7 +161,7 @@ if __name__ == "__main__":
 ### 4. Update Hardware Imports
 
 ```python
-# src/distiller_cm5_sdk/hardware/__init__.py
+# src/distiller_sdk/hardware/__init__.py
 from .new_device import NewDevice
 
 __all__ = [..., "NewDevice"]
@@ -172,7 +172,7 @@ __all__ = [..., "NewDevice"]
 ### E-ink Display Library
 
 ```bash
-cd src/distiller_cm5_sdk/hardware/eink/lib
+cd src/distiller_sdk/hardware/eink/lib
 
 # Clean build
 make clean
@@ -217,9 +217,9 @@ clean:
 
 ```bash
 # Individual module tests
-python -m distiller_cm5_sdk.hardware.audio._audio_test
-python -m distiller_cm5_sdk.hardware.camera._camera_unit_test
-python -m distiller_cm5_sdk.hardware.eink._display_test
+python -m distiller_sdk.hardware.audio._audio_test
+python -m distiller_sdk.hardware.camera._camera_unit_test
+python -m distiller_sdk.hardware.eink._display_test
 
 # Run all tests (if using pytest)
 pytest tests/
@@ -231,7 +231,7 @@ pytest tests/
 # tests/test_hardware.py
 import pytest
 import os
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 
 def test_audio_initialization():
     """Test audio system initialization."""
@@ -254,7 +254,7 @@ def test_recording():
 ### Linting with Ruff
 
 ```bash
-cd /opt/distiller-cm5-sdk
+cd /opt/distiller-sdk
 
 # Check code
 ruff check src/
@@ -315,17 +315,17 @@ ignore = ["E501"]  # Line too long
 ./build-deb.sh whisper
 
 # Test package
-sudo dpkg -i dist/distiller-cm5-sdk_*.deb
+sudo dpkg -i dist/distiller-sdk_*.deb
 ```
 
 ### Package Contents
 
 ```bash
 # View package contents
-dpkg -c dist/distiller-cm5-sdk_*.deb
+dpkg -c dist/distiller-sdk_*.deb
 
 # Extract without installing
-dpkg -x dist/distiller-cm5-sdk_*.deb /tmp/extract
+dpkg -x dist/distiller-sdk_*.deb /tmp/extract
 ```
 
 ## Debugging
@@ -340,7 +340,7 @@ logging.basicConfig(
 )
 
 # SDK will now show debug messages
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 audio = Audio()
 ```
 
@@ -349,7 +349,7 @@ audio = Audio()
 ```bash
 # Debug native library
 gdb python
-(gdb) run -c "from distiller_cm5_sdk.hardware.eink import Display; d = Display()"
+(gdb) run -c "from distiller_sdk.hardware.eink import Display; d = Display()"
 (gdb) break function_name
 (gdb) continue
 ```
@@ -361,7 +361,7 @@ import tracemalloc
 tracemalloc.start()
 
 # Your code here
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.parakeet import Parakeet
 asr = Parakeet()
 
 # Get memory usage
@@ -377,9 +377,9 @@ tracemalloc.stop()
 
 ```bash
 # Fork on GitHub, then:
-git clone https://github.com/YOUR_USERNAME/distiller-cm5-sdk.git
-cd distiller-cm5-sdk
-git remote add upstream https://github.com/Pamir-AI/distiller-cm5-sdk.git
+git clone https://github.com/YOUR_USERNAME/distiller-sdk.git
+cd distiller-sdk
+git remote add upstream https://github.com/Pamir-AI/distiller-sdk.git
 ```
 
 ### 2. Create Feature Branch
@@ -463,8 +463,8 @@ gh release create v2.0.1 dist/*.deb
 
 ## Getting Help
 
-- [GitHub Issues](https://github.com/Pamir-AI/distiller-cm5-sdk/issues)
-- [Wiki](https://github.com/Pamir-AI/distiller-cm5-sdk/wiki)
+- [GitHub Issues](https://github.com/Pamir-AI/distiller-sdk/issues)
+- [Wiki](https://github.com/Pamir-AI/distiller-sdk/wiki)
 - Review existing code for patterns
 - Test on actual CM5 hardware
 

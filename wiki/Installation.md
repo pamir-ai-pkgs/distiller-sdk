@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide covers the installation of the Distiller CM5 SDK on ARM64 Linux systems.
+This guide covers the installation of the Distiller SDK on ARM64 Linux systems.
 
 ## Prerequisites
 
@@ -44,21 +44,21 @@ sudo apt-get install -y \
 1. **Download the latest release**:
 
 ```bash
-wget https://github.com/Pamir-AI/distiller-cm5-sdk/releases/latest/download/distiller-cm5-sdk_2.0.0_arm64.deb
+wget https://github.com/Pamir-AI/distiller-sdk/releases/latest/download/distiller-sdk_2.0.0_arm64.deb
 ```
 
 2. **Install the package**:
 
 ```bash
-sudo dpkg -i distiller-cm5-sdk_2.0.0_arm64.deb
+sudo dpkg -i distiller-sdk_2.0.0_arm64.deb
 sudo apt-get install -f  # Install any missing dependencies
 ```
 
 3. **Verify installation**:
 
 ```bash
-source /opt/distiller-cm5-sdk/activate.sh
-python -c "import distiller_cm5_sdk; print('SDK installed successfully!')"
+source /opt/distiller-sdk/activate.sh
+python -c "import distiller_sdk; print('SDK installed successfully!')"
 ```
 
 ### Method 2: Build from Source
@@ -66,8 +66,8 @@ python -c "import distiller_cm5_sdk; print('SDK installed successfully!')"
 1. **Clone the repository**:
 
 ```bash
-git clone https://github.com/Pamir-AI/distiller-cm5-sdk.git
-cd distiller-cm5-sdk
+git clone https://github.com/Pamir-AI/distiller-sdk.git
+cd distiller-sdk
 ```
 
 2. **Make build scripts executable**:
@@ -102,7 +102,7 @@ chmod +x build.sh build-deb.sh
 5. **Install the package**:
 
 ```bash
-sudo dpkg -i dist/distiller-cm5-sdk_*_arm64.deb
+sudo dpkg -i dist/distiller-sdk_*_arm64.deb
 sudo apt-get install -f
 ```
 
@@ -113,13 +113,13 @@ sudo apt-get install -f
 Always activate the SDK environment before use:
 
 ```bash
-source /opt/distiller-cm5-sdk/activate.sh
+source /opt/distiller-sdk/activate.sh
 ```
 
 Add to your shell profile for automatic activation:
 
 ```bash
-echo "source /opt/distiller-cm5-sdk/activate.sh" >> ~/.bashrc
+echo "source /opt/distiller-sdk/activate.sh" >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -148,19 +148,19 @@ Test each hardware component:
 **Audio**:
 
 ```bash
-python -m distiller_cm5_sdk.hardware.audio._audio_test
+python -m distiller_sdk.hardware.audio._audio_test
 ```
 
 **Camera**:
 
 ```bash
-python -m distiller_cm5_sdk.hardware.camera._camera_unit_test
+python -m distiller_sdk.hardware.camera._camera_unit_test
 ```
 
 **E-ink Display**:
 
 ```bash
-python -m distiller_cm5_sdk.hardware.eink._display_test
+python -m distiller_sdk.hardware.eink._display_test
 ```
 
 ### 4. Test AI Models
@@ -168,7 +168,7 @@ python -m distiller_cm5_sdk.hardware.eink._display_test
 **Parakeet ASR**:
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.parakeet import Parakeet
 asr = Parakeet()
 print("Parakeet loaded successfully!")
 ```
@@ -176,7 +176,7 @@ print("Parakeet loaded successfully!")
 **Piper TTS**:
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 tts = Piper()
 tts.speak_stream("Hello, world!")
 ```
@@ -189,11 +189,11 @@ Add to your Python script:
 
 ```python
 import sys
-sys.path.insert(0, '/opt/distiller-cm5-sdk')
+sys.path.insert(0, '/opt/distiller-sdk')
 
 # Now import SDK modules
-from distiller_cm5_sdk.hardware.audio import Audio
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.parakeet import Parakeet
 ```
 
 ### For System Services
@@ -208,9 +208,9 @@ After=network.target
 [Service]
 Type=simple
 User=your-username
-Environment="PYTHONPATH=/opt/distiller-cm5-sdk"
-Environment="LD_LIBRARY_PATH=/opt/distiller-cm5-sdk/lib"
-ExecStart=/opt/distiller-cm5-sdk/venv/bin/python /path/to/your/script.py
+Environment="PYTHONPATH=/opt/distiller-sdk"
+Environment="LD_LIBRARY_PATH=/opt/distiller-sdk/lib"
+ExecStart=/opt/distiller-sdk/venv/bin/python /path/to/your/script.py
 Restart=on-failure
 
 [Install]
@@ -231,11 +231,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy SDK
-COPY --from=host /opt/distiller-cm5-sdk /opt/distiller-cm5-sdk
+COPY --from=host /opt/distiller-sdk /opt/distiller-sdk
 
 # Set environment
-ENV PYTHONPATH="/opt/distiller-cm5-sdk:$PYTHONPATH"
-ENV LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
+ENV PYTHONPATH="/opt/distiller-sdk:$PYTHONPATH"
+ENV LD_LIBRARY_PATH="/opt/distiller-sdk/lib:$LD_LIBRARY_PATH"
 
 # Your application
 WORKDIR /app
@@ -251,7 +251,7 @@ The SDK uses `uv` for package management. After installation:
 ### Add a New Package
 
 ```bash
-cd /opt/distiller-cm5-sdk
+cd /opt/distiller-sdk
 source activate.sh
 uv add requests  # Example package
 ```
@@ -279,9 +279,9 @@ uv remove package-name
 To remove the SDK:
 
 ```bash
-sudo apt-get remove distiller-cm5-sdk
-sudo apt-get purge distiller-cm5-sdk  # Also remove config files
-sudo rm -rf /opt/distiller-cm5-sdk    # Remove all files
+sudo apt-get remove distiller-sdk
+sudo apt-get purge distiller-sdk  # Also remove config files
+sudo rm -rf /opt/distiller-sdk    # Remove all files
 ```
 
 ## Upgrading
@@ -291,13 +291,13 @@ To upgrade to a newer version:
 1. **Uninstall the old version**:
 
 ```bash
-sudo apt-get remove distiller-cm5-sdk
+sudo apt-get remove distiller-sdk
 ```
 
 2. **Install the new version**:
 
 ```bash
-sudo dpkg -i distiller-cm5-sdk_NEW_VERSION_arm64.deb
+sudo dpkg -i distiller-sdk_NEW_VERSION_arm64.deb
 sudo apt-get install -f
 ```
 

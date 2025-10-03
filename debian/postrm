@@ -9,19 +9,18 @@ remove | upgrade | deconfigure)
 	echo "INFO: Cleaning up distiller-sdk..."
 
 	# Remove virtual environment
-	[ -d "/opt/distiller-cm5-sdk/.venv" ] &&
-		rm -rf /opt/distiller-cm5-sdk/.venv
+	[ -d "/opt/distiller-sdk/.venv" ] && rm -rf /opt/distiller-sdk/.venv
 
 	# Remove generated files
-	rm -f /opt/distiller-cm5-sdk/uv.lock 2>/dev/null || true
-	rm -f /opt/distiller-cm5-sdk/.python-version 2>/dev/null || true
-	rm -f /opt/distiller-cm5-sdk/activate.sh 2>/dev/null || true
-	rm -f /opt/distiller-cm5-sdk/eink.conf 2>/dev/null || true
+	rm -f /opt/distiller-sdk/uv.lock 2>/dev/null || true
+	rm -f /opt/distiller-sdk/.python-version 2>/dev/null || true
+	rm -f /opt/distiller-sdk/activate.sh 2>/dev/null || true
+	rm -f /opt/distiller-sdk/eink.conf 2>/dev/null || true
 
 	# Remove any Python cache files
-	find /opt/distiller-cm5-sdk -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find /opt/distiller-cm5-sdk -type f -name "*.pyc" -delete 2>/dev/null || true
-	find /opt/distiller-cm5-sdk -type f -name "*.pyo" -delete 2>/dev/null || true
+	find /opt/distiller-sdk -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find /opt/distiller-sdk -type f -name "*.pyc" -delete 2>/dev/null || true
+	find /opt/distiller-sdk -type f -name "*.pyo" -delete 2>/dev/null || true
 
 	# Remove symlink to shared library
 	[ -L "/usr/lib/libdistiller_display_sdk_shared.so" ] &&
@@ -37,8 +36,8 @@ purge)
 	echo "INFO: Purging distiller-sdk completely..."
 
 	# Remove the entire installation directory
-	[ -d "/opt/distiller-cm5-sdk" ] &&
-		rm -rf /opt/distiller-cm5-sdk
+	[ -d "/opt/distiller-cm5-sdk" ] && rm -rf /opt/distiller-cm5-sdk
+	[ -d "/opt/distiller-sdk" ] && rm -rf /opt/distiller-sdk
 
 	# Clean up temporary files
 	rm -f /tmp/distiller-* /var/run/distiller-* /var/lock/distiller-* 2>/dev/null || true

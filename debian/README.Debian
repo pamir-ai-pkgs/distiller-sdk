@@ -1,7 +1,7 @@
-distiller-cm5-sdk for Debian
-============================
+distiller-sdk for Debian
+========================
 
-This package installs the Distiller CM5 SDK to /opt/distiller-cm5-sdk as a
+This package installs the Distiller SDK to /opt/distiller-sdk as a
 self-contained Python environment.
 
 Installation
@@ -11,24 +11,24 @@ After installing the package:
 
 1. Activate the SDK environment:
    ```bash
-   source /opt/distiller-cm5-sdk/activate.sh
+   source /opt/distiller-sdk/activate.sh
    ```
 
 2. Use the Python interpreter with the SDK:
    ```bash
-   /opt/distiller-cm5-sdk/python your_script.py
+   /opt/distiller-sdk/python your_script.py
    ```
 
 3. Or activate the environment and use Python normally:
    ```bash
-   source /opt/distiller-cm5-sdk/activate.sh
-   python3 -c "from distiller_cm5_sdk import whisper; print('SDK loaded successfully')"
+   source /opt/distiller-sdk/activate.sh
+   python3 -c "from distiller_sdk import whisper; print('SDK loaded successfully')"
    ```
 
 Directory Structure
 ------------------
 
-/opt/distiller-cm5-sdk/
+/opt/distiller-sdk/
 ├── venv/                    # Python virtual environment
 ├── lib/                     # Native shared libraries
 ├── models/                  # AI model files
@@ -37,34 +37,34 @@ Directory Structure
 │   └── whisper/            # Whisper models
 ├── activate.sh             # Environment activation script
 ├── python                  # Python launcher with SDK environment
-└── distiller_cm5_sdk-*.whl # Python wheel package
+└── distiller_sdk-*.whl # Python wheel package
 
 Usage Examples
 -------------
 
 ```python
 # Activate environment first
-source /opt/distiller-cm5-sdk/activate.sh
+source /opt/distiller-sdk/activate.sh
 
 # Use Whisper for speech recognition
-from distiller_cm5_sdk import whisper
+from distiller_sdk import whisper
 whisper_instance = whisper.Whisper()
 for text in whisper_instance.transcribe("speech.wav"):
     print(text)
 
 # Use Parakeet for ASR + VAD
-from distiller_cm5_sdk import parakeet
+from distiller_sdk import parakeet
 parakeet_instance = parakeet.Parakeet(vad_silence_duration=0.5)
 for text in parakeet_instance.auto_record_and_transcribe():
     print(f"Transcribed: {text}")
 
 # Use Piper for text-to-speech
-from distiller_cm5_sdk import piper
+from distiller_sdk import piper
 piper_instance = piper.Piper()
 piper_instance.speak_stream("Hello, world!", volume=30)
 
 # Use e-ink display
-from distiller_cm5_sdk.hardware.eink import EinkDriver
+from distiller_sdk.hardware.eink import EinkDriver
 display = EinkDriver()
 display.initialize()
 # ... use display functions

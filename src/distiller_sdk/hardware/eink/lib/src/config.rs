@@ -314,7 +314,7 @@ pub fn init_from_file(config_path: &str) -> Result<(), DisplayError> {
 ///
 /// Returns `DisplayError::Config` if initialization fails
 pub fn initialize_config() -> Result<(), DisplayError> {
-    let config_path = "/opt/distiller-cm5-sdk/eink.conf";
+    let config_path = "/opt/distiller-sdk/eink.conf";
 
     // Config file is now mandatory
     if !Path::new(config_path).exists() {

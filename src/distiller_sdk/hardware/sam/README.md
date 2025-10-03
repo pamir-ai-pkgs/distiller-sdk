@@ -30,13 +30,13 @@ The LED sysfs interface requires root privileges for write operations. You have 
 The LED module is part of the CM5 Linux SDK and can be imported from:
 
 ```python
-from distiller_cm5_sdk.hardware.sam.led import LED, LEDError, create_led_with_sudo
+from distiller_sdk.hardware.sam.led import LED, LEDError, create_led_with_sudo
 ```
 
 ## Quick Start
 
 ```python
-from distiller_cm5_sdk.hardware.sam.led import LED
+from distiller_sdk.hardware.sam.led import LED
 
 # Initialize LED module with sudo mode (recommended)
 led = LED(use_sudo=True)
@@ -68,7 +68,7 @@ led = LED(use_sudo=False)  # No need for internal sudo
 ### Quick Setup Function
 
 ```python
-from distiller_cm5_sdk.hardware.sam.led import create_led_with_sudo
+from distiller_sdk.hardware.sam.led import create_led_with_sudo
 
 # Convenient function that creates LED with sudo enabled
 led = create_led_with_sudo()
@@ -338,7 +338,7 @@ result = led.set_led_color(255, 128, 0, brightness=0.7, led_id=0)
 The LED module uses custom `LEDError` exceptions for all LED-related errors:
 
 ```python
-from distiller_cm5_sdk.hardware.sam.led import LED, LEDError
+from distiller_sdk.hardware.sam.led import LED, LEDError
 
 try:
     led = LED()
@@ -404,7 +404,7 @@ led.set_trigger(2, "none")            # LED 2: No trigger
 
 ```python
 import time
-from distiller_cm5_sdk.hardware.sam.led import LED, LEDError
+from distiller_sdk.hardware.sam.led import LED, LEDError
 
 try:
     # Initialize LED module with sudo mode

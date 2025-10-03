@@ -133,7 +133,7 @@ The module uses custom CameraError exceptions with descriptive messages for:
 ### Basic Usage
 
 ```python
-from distiller_cm5_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.camera import Camera
 
 # Initialize with default settings
 camera = Camera()
@@ -148,7 +148,7 @@ camera.close()
 ### Custom Configuration
 
 ```python
-from distiller_cm5_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.camera import Camera
 
 # Initialize with custom settings
 camera = Camera(
@@ -168,7 +168,7 @@ camera.close()
 ### Streaming with Callback
 
 ```python
-from distiller_cm5_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.camera import Camera
 import cv2
 import time
 
@@ -194,7 +194,7 @@ camera.close()
 ### Adjusting Camera Settings
 
 ```python
-from distiller_cm5_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.camera import Camera
 
 camera = Camera()
 

@@ -1,6 +1,6 @@
-# Distiller CM5 SDK Wiki
+# Distiller SDK Wiki
 
-Welcome to the Distiller CM5 SDK documentation! This SDK provides comprehensive hardware control and
+Welcome to the Distiller SDK documentation! This SDK provides comprehensive hardware control and
 AI capabilities for the CM5 ARM64 platform.
 
 ## Quick Links
@@ -14,7 +14,7 @@ AI capabilities for the CM5 ARM64 platform.
 
 ## SDK Overview
 
-The Distiller CM5 SDK is a Python package that provides:
+The Distiller SDK is a Python package that provides:
 
 ### Hardware Control
 
@@ -31,7 +31,7 @@ The Distiller CM5 SDK is a Python package that provides:
 
 ## Key Features
 
-- **System-wide Installation** - Installed at `/opt/distiller-cm5-sdk/`
+- **System-wide Installation** - Installed at `/opt/distiller-sdk/`
 - **uv Package Management** - Modern Python dependency management
 - **Native Libraries** - Optimized C libraries for hardware control
 - **Comprehensive API** - Pythonic interfaces for all hardware
@@ -48,10 +48,10 @@ The Distiller CM5 SDK is a Python package that provides:
 ## Quick Start Example
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
-from distiller_cm5_sdk.hardware.eink import Display
-from distiller_cm5_sdk.parakeet import Parakeet
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.eink import Display
+from distiller_sdk.parakeet import Parakeet
+from distiller_sdk.piper import Piper
 
 # Initialize hardware
 audio = Audio()
@@ -84,9 +84,9 @@ This wiki is organized into the following sections:
 
 ## Getting Help
 
-- **Issues**: [GitHub Issues](https://github.com/Pamir-AI/distiller-cm5-sdk/issues)
-- **Source Code**: [GitHub Repository](https://github.com/Pamir-AI/distiller-cm5-sdk)
-- **License**: See [LICENSE](https://github.com/Pamir-AI/distiller-cm5-sdk/blob/main/LICENSE)
+- **Issues**: [GitHub Issues](https://github.com/Pamir-AI/distiller-sdk/issues)
+- **Source Code**: [GitHub Repository](https://github.com/Pamir-AI/distiller-sdk)
+- **License**: See [LICENSE](https://github.com/Pamir-AI/distiller-sdk/blob/main/LICENSE)
 
 ## Version
 

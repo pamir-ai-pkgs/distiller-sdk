@@ -1,5 +1,5 @@
 def main():
-    print("Hello from distiller-cm5-sdk!")
+    print("Hello from distiller-sdk!")
 
 
 if __name__ == "__main__":

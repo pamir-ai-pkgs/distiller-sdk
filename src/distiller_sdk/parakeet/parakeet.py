@@ -11,8 +11,8 @@ import numpy as np
 import soundfile as sf
 import sounddevice as sd
 
-from distiller_cm5_sdk.hardware.audio.audio import Audio
-from distiller_cm5_sdk import get_model_path
+from distiller_sdk.hardware.audio.audio import Audio
+from distiller_sdk import get_model_path
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')

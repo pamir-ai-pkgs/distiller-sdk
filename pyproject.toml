@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 requires = [ "setuptools>=61", "wheel" ]
 
 [project]
-name = "distiller-cm5-sdk"
 version = "0.1.0"
+name = "distiller-sdk"
 readme = "README.md"
 authors = [
   { name = "PamirAI Inc", email = "founders@pamir.ai" },
@@ -34,7 +34,7 @@ dependencies = [
 where = [ "src" ]
 
 [tool.setuptools.package-data]
-"distiller_cm5_sdk" = [
+"distiller_sdk" = [
   "hardware/eink/lib/*.so",
   "hardware/eink/lib/*.h",
   "parakeet/models/**/*",

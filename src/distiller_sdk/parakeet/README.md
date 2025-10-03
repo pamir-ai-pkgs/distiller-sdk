@@ -25,11 +25,11 @@ Parakeet is a lightweight ASR engine that uses:
 
 ## Installation
 
-The Parakeet module is included in the Distiller CM5 SDK. Ensure the SDK is properly installed:
+The Parakeet module is included in the Distiller SDK. Ensure the SDK is properly installed:
 
 ```bash
-sudo dpkg -i distiller-cm5-sdk_*_arm64.deb
-source /opt/distiller-cm5-sdk/activate.sh
+sudo dpkg -i distiller-sdk_*_arm64.deb
+source /opt/distiller-sdk/activate.sh
 ```
 
 Required model files are downloaded during SDK build:
@@ -45,7 +45,7 @@ Required model files are downloaded during SDK build:
 ### Basic Transcription from File
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.parakeet import Parakeet
 
 # Initialize Parakeet
 parakeet = Parakeet()
@@ -61,7 +61,7 @@ parakeet.cleanup()
 ### Push-to-Talk Recording
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.parakeet import Parakeet
 
 parakeet = Parakeet()
 
@@ -85,7 +85,7 @@ parakeet.cleanup()
 ### Automatic Speech Recognition with VAD
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.parakeet import Parakeet
 
 # Initialize with custom VAD silence duration
 parakeet = Parakeet(vad_silence_duration=1.0)
@@ -282,7 +282,7 @@ parakeet = Parakeet(vad_silence_duration=2.0)
 
 ```python
 import os
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.parakeet import Parakeet
 
 parakeet = Parakeet()
 
@@ -305,7 +305,7 @@ for file, text in transcriptions.items():
 ### Real-time Streaming with Callback
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.parakeet import Parakeet
 
 def on_speech_detected(text):
     """Callback function for processing transcribed text"""
@@ -358,13 +358,13 @@ If model files are missing:
 1. Verify model files exist:
 
 ```bash
-ls -la /opt/distiller-cm5-sdk/models/parakeet/
+ls -la /opt/distiller-sdk/models/parakeet/
 ```
 
 2. Re-download models if needed:
 
 ```bash
-cd /opt/distiller-cm5-sdk
+cd /opt/distiller-sdk
 ./build.sh
 ```
 
@@ -375,7 +375,7 @@ If voice activity detection isn't working:
 1. Check VAD model exists:
 
 ```bash
-ls -la /opt/distiller-cm5-sdk/models/parakeet/silero_vad.onnx
+ls -la /opt/distiller-sdk/models/parakeet/silero_vad.onnx
 ```
 
 2. Adjust VAD sensitivity:
@@ -419,8 +419,8 @@ for text in parakeet.record_and_transcribe_ptt():
 ### With Piper TTS for Voice Assistant
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.parakeet import Parakeet
+from distiller_sdk.piper import Piper
 
 parakeet = Parakeet()
 piper = Piper()
@@ -436,8 +436,8 @@ for text in parakeet.auto_record_and_transcribe():
 ### With Hardware LED Feedback
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
-from distiller_cm5_sdk.hardware.sam import LED
+from distiller_sdk.parakeet import Parakeet
+from distiller_sdk.hardware.sam import LED
 
 parakeet = Parakeet()
 led = LED()
@@ -462,4 +462,4 @@ The Parakeet module uses:
 - Silero VAD (MIT License)
 - Sherpa-ONNX (Apache 2.0 License)
 
-Part of the Distiller CM5 SDK for Raspberry Pi CM5 platform.
+Part of the Distiller SDK for Raspberry Pi CM5 platform.

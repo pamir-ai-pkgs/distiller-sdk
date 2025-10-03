@@ -11,7 +11,7 @@ def get_model_path(module_name):
         str: Path to the models directory
     """
     # First check if we're in a Debian package installation
-    debian_path = f"/opt/distiller-cm5-sdk/src/distiller_cm5_sdk/{module_name}/models"
+    debian_path = f"/opt/distiller-sdk/src/distiller_sdk/{module_name}/models"
     if os.path.exists(debian_path):
         return debian_path
     
@@ -26,7 +26,7 @@ def get_library_path():
         str: Path to the library directory
     """
     # First check if we're in a Debian package installation
-    debian_path = "/opt/distiller-cm5-sdk/lib"
+    debian_path = "/opt/distiller-sdk/lib"
     if os.path.exists(debian_path):
         return debian_path
     

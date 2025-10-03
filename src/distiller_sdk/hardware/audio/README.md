@@ -28,11 +28,11 @@ as when integrating with other modules like Parakeet ASR or Piper TTS.
 
 ## Installation
 
-The audio module is part of the Distiller CM5 SDK. Ensure the SDK is properly installed:
+The audio module is part of the Distiller SDK. Ensure the SDK is properly installed:
 
 ```bash
-sudo dpkg -i distiller-cm5-sdk_*_arm64.deb
-source /opt/distiller-cm5-sdk/activate.sh
+sudo dpkg -i distiller-sdk_*_arm64.deb
+source /opt/distiller-sdk/activate.sh
 ```
 
 Required system packages:
@@ -46,7 +46,7 @@ sudo apt-get install alsa-utils portaudio19-dev
 ### Basic Audio Operations
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 
 # Initialize audio
 audio = Audio()
@@ -68,7 +68,7 @@ audio.close()
 ### Using Static Methods (No Instance Required)
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 
 # Set audio levels without creating an instance
 Audio.set_mic_gain_static(85)
@@ -294,7 +294,7 @@ Set microphone gain without creating an Audio instance.
 **Example:**
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 Audio.set_mic_gain_static(85)
 ```
 
@@ -309,7 +309,7 @@ Get microphone gain without creating an Audio instance.
 **Example:**
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 gain = Audio.get_mic_gain_static()
 ```
 
@@ -357,7 +357,7 @@ Set speaker volume without creating an Audio instance.
 **Example:**
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 Audio.set_speaker_volume_static(50)
 ```
 
@@ -372,7 +372,7 @@ Get speaker volume without creating an Audio instance.
 **Example:**
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 volume = Audio.get_speaker_volume_static()
 ```
 
@@ -523,7 +523,7 @@ thread, stop_event = processor.start_monitoring(duration=10)
 ### Volume Normalization
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 
 class VolumeController:
     """Automatic volume control based on environment"""
@@ -590,8 +590,8 @@ convert_audio_format("high_quality.wav", "speech_ready.wav", 16000, 1)
 ### With ASR Modules
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.parakeet import Parakeet
 
 # Set optimal audio levels for speech recognition
 Audio.set_mic_gain_static(85)
@@ -612,8 +612,8 @@ parakeet.cleanup()
 ### With TTS Module
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.piper import Piper
 
 # Set speaker volume for TTS
 Audio.set_speaker_volume_static(60)
@@ -628,7 +628,7 @@ piper.speak_stream("Hello from the audio system!", volume=50)
 ### Audio Monitoring System
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 import threading
 import time
 
@@ -718,7 +718,7 @@ If volume control methods don't work:
 1. Check if hardware controls exist:
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 
 if Audio.has_audio_controls():
     print("Hardware controls available")
@@ -752,7 +752,7 @@ aplay test.wav
 2. Check microphone gain:
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 print(f"Current mic gain: {Audio.get_mic_gain_static()}%")
 Audio.set_mic_gain_static(85)  # Increase gain
 ```
@@ -776,7 +776,7 @@ speaker-test -t sine -f 440 -l 1
 2. Check volume level:
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 Audio.set_speaker_volume_static(70)
 ```
 
@@ -836,5 +836,5 @@ audio = Audio(sample_rate=48000)  # Good for music
 
 ## License and Credits
 
-The Audio module is part of the Distiller CM5 SDK for Raspberry Pi CM5 platform. Uses ALSA for
+The Audio module is part of the Distiller SDK for Raspberry Pi CM5 platform. Uses ALSA for
 low-level audio operations.

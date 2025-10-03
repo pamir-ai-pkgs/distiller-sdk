@@ -1,6 +1,6 @@
 # AI Modules
 
-The Distiller CM5 SDK includes pre-trained AI models for automatic speech recognition (ASR) and
+The Distiller SDK includes pre-trained AI models for automatic speech recognition (ASR) and
 text-to-speech (TTS) synthesis. These models are optimized for edge deployment on ARM64 platforms.
 
 ## Parakeet ASR
@@ -19,7 +19,7 @@ Parakeet provides real-time automatic speech recognition with integrated Voice A
 ### Basic Usage
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.parakeet import Parakeet
 
 # Initialize
 asr = Parakeet()
@@ -78,8 +78,8 @@ asr = Parakeet(
 ### Integration Example
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
-from distiller_cm5_sdk.hardware.eink import Display
+from distiller_sdk.parakeet import Parakeet
+from distiller_sdk.hardware.eink import Display
 
 asr = Parakeet()
 display = Display()
@@ -114,7 +114,7 @@ Piper provides high-quality text-to-speech synthesis with streaming audio output
 ### Basic Usage
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 
 # Initialize
 tts = Piper()
@@ -139,7 +139,7 @@ wav_path = tts.get_wav_file_path(text)
 print(f"WAV file saved to: {wav_path}")
 
 # Play the generated file
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 audio = Audio()
 audio.play(wav_path)
 ```
@@ -160,8 +160,8 @@ for voice in voices:
 ### Integration with ASR
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.parakeet import Parakeet
+from distiller_sdk.piper import Piper
 
 asr = Parakeet()
 tts = Piper()
@@ -206,7 +206,7 @@ Note: Whisper models are not included by default due to their size.
 ### Basic Usage
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 
 # Initialize with model size
 whisper = Whisper(model_size="base")  # tiny, base, small, medium
@@ -239,8 +239,8 @@ print(f"Translation: {result}")
 ### Real-Time Processing
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.whisper import Whisper
 
 audio = Audio()
 whisper = Whisper(model_size="base")
@@ -256,10 +256,10 @@ print(f"You said: {text}")
 Create sophisticated voice interaction systems:
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
-from distiller_cm5_sdk.piper import Piper
-from distiller_cm5_sdk.hardware.eink import Display, DisplayMode
-from distiller_cm5_sdk.hardware.sam import LED
+from distiller_sdk.parakeet import Parakeet
+from distiller_sdk.piper import Piper
+from distiller_sdk.hardware.eink import Display, DisplayMode
+from distiller_sdk.hardware.sam import LED
 import time
 
 class VoiceAssistant:
@@ -367,8 +367,8 @@ assistant.run()
 Models are located in:
 
 ```
-/opt/distiller-cm5-sdk/
-├── src/distiller_cm5_sdk/
+/opt/distiller-sdk/
+├── src/distiller_sdk/
 │   ├── parakeet/models/
 │   │   ├── silero_vad.onnx
 │   │   ├── encoder-epoch-99-avg-1.onnx
@@ -390,7 +390,7 @@ Models are located in:
 
 ```python
 # Check microphone
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 audio = Audio()
 audio.record("test.wav", duration=3)
 # Play back to verify recording
@@ -428,7 +428,7 @@ tts.speak_stream("Test", volume=30)  # Lower volume
 ```bash
 # Ensure models are downloaded
 ./build.sh --whisper
-ls -la /opt/distiller-cm5-sdk/src/distiller_cm5_sdk/whisper/models/
+ls -la /opt/distiller-sdk/src/distiller_sdk/whisper/models/
 ```
 
 **Out of memory**:

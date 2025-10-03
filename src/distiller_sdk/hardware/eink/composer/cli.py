@@ -10,8 +10,8 @@ from .composer import EinkComposer
 
 # Try to import hardware display support
 try:
-    sys.path.insert(0, "/opt/distiller-cm5-sdk/src")
-    from distiller_cm5_sdk.hardware.eink import Display, DisplayMode, ScalingMethod, DitheringMethod
+    sys.path.insert(0, "/opt/distiller-sdk/src")
+    from distiller_sdk.hardware.eink import Display, DisplayMode, ScalingMethod, DitheringMethod
 
     HARDWARE_AVAILABLE = True
 except ImportError:
@@ -538,7 +538,7 @@ def main():
     elif args.command == "display":
         if not HARDWARE_AVAILABLE:
             print("Error: Hardware display not available. SDK not found.", file=sys.stderr)
-            print("Run: source /opt/distiller-cm5-sdk/activate.sh", file=sys.stderr)
+            print("Run: source /opt/distiller-sdk/activate.sh", file=sys.stderr)
             sys.exit(1)
 
         session.ensure_composer()
@@ -613,7 +613,7 @@ def main():
 
             elif args.hw_command == "info":
                 try:
-                    from distiller_cm5_sdk.hardware.eink import get_default_firmware, FirmwareType
+                    from distiller_sdk.hardware.eink import get_default_firmware, FirmwareType
 
                     firmware = get_default_firmware()
                     if firmware == FirmwareType.EPD240x416:

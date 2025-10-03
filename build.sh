@@ -2,7 +2,7 @@
 
 # Script Name: build.sh
 # Description: Downloads required model files and builds Rust library for the Python SDK.
-# Usage: Run this script inside the distiller-cm5-sdk directory.
+# Usage: Run this script inside the distiller-sdk directory.
 #        Options:
 #        --whisper       Include Whisper model download
 #        --skip-rust     Skip Rust library build (if already built)
@@ -42,7 +42,7 @@ download_if_not_exists() {
 
 # Whisper model files (only if --whisper passed)
 download_whisper_models() {
-	WHISPER_DIR="src/distiller_cm5_sdk/whisper/models/faster-distil-whisper-small.en"
+	WHISPER_DIR="src/distiller_sdk/whisper/models/faster-distil-whisper-small.en"
 	make_dir_if_not_exists "$WHISPER_DIR"
 
 	download_if_not_exists "https://huggingface.co/Systran/faster-distil-whisper-small.en/resolve/main/model.bin?download=true" "$WHISPER_DIR/model.bin"
@@ -61,7 +61,7 @@ else
 fi
 
 # Parakeet model files
-PARAKEET_DIR="src/distiller_cm5_sdk/parakeet/models"
+PARAKEET_DIR="src/distiller_sdk/parakeet/models"
 make_dir_if_not_exists "$PARAKEET_DIR"
 
 download_if_not_exists "https://huggingface.co/tommy1900/Parakeet-onnx/resolve/main/encoder.onnx" "$PARAKEET_DIR/encoder.onnx"
@@ -71,8 +71,8 @@ download_if_not_exists "https://huggingface.co/tommy1900/Parakeet-onnx/resolve/m
 download_if_not_exists "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx" "$PARAKEET_DIR/silero_vad.onnx"
 
 # Piper files
-PIPER_MODEL_DIR="src/distiller_cm5_sdk/piper/models"
-PIPER_TAR="src/distiller_cm5_sdk/piper/piper_arm64.tar.gz"
+PIPER_MODEL_DIR="src/distiller_sdk/piper/models"
+PIPER_TAR="src/distiller_sdk/piper/piper_arm64.tar.gz"
 make_dir_if_not_exists "$PIPER_MODEL_DIR"
 
 # Check for Piper executable files in models directory
@@ -120,14 +120,14 @@ echo "[INFO] Model download completed successfully."
 if [ "$SKIP_RUST" = true ]; then
 	echo "[INFO] Skipping Rust library build (--skip-rust flag provided)"
 	# Still check if the library exists
-	if [ -f "src/distiller_cm5_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so" ]; then
+	if [ -f "src/distiller_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so" ]; then
 		echo "[INFO] Rust library already exists"
 	else
 		echo "[WARNING] Rust library not found - e-ink display support may not be available"
 	fi
 else
 	echo "[INFO] Checking Rust library for e-ink display..."
-	RUST_LIB_DIR="src/distiller_cm5_sdk/hardware/eink/lib"
+	RUST_LIB_DIR="src/distiller_sdk/hardware/eink/lib"
 	RUST_LIB_FILE="$RUST_LIB_DIR/libdistiller_display_sdk_shared.so"
 	
 	if [ -d "$RUST_LIB_DIR" ]; then

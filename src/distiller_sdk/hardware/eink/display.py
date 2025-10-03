@@ -85,7 +85,7 @@ class Display:
 
     Configuration:
     - Set via environment variable: DISTILLER_EINK_FIRMWARE
-    - Config files: /opt/distiller-cm5-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf
+    - Config files: /opt/distiller-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf
     """
 
     # Display constants (firmware-specific, updated after initialization)
@@ -133,7 +133,7 @@ class Display:
         # Common search paths
         search_paths = [
             # Debian package location
-            "/opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so",
+            "/opt/distiller-sdk/lib/libdistiller_display_sdk_shared.so",
             # Relative to this module
             os.path.join(current_dir, "lib", "libdistiller_display_sdk_shared.so"),
             # Build directory
@@ -1276,7 +1276,7 @@ def initialize_display_config() -> None:
 
     This loads configuration from:
     - Environment variable: DISTILLER_EINK_FIRMWARE
-    - Config files: /opt/distiller-cm5-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf
+    - Config files: /opt/distiller-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf
     - Falls back to EPD128x250 default
 
     Raises:
@@ -1289,7 +1289,7 @@ def initialize_display_config() -> None:
         initialize_display_config()
 
         # Or via config file
-        # echo "firmware=EPD240x416" > /opt/distiller-cm5-sdk/eink.conf
+        # echo "firmware=EPD240x416" > /opt/distiller-sdk/eink.conf
         initialize_display_config()
     """
     display = Display(auto_init=False)

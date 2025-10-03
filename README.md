@@ -1,4 +1,4 @@
-# Distiller CM5 SDK
+# Distiller SDK
 
 Python SDK for the Distiller CM5 platform, providing hardware control, audio processing, computer
 vision, and AI capabilities using **uv** package management.
@@ -15,8 +15,8 @@ vision, and AI capabilities using **uv** package management.
 
 ```bash
 # Clone and build
-git clone https://github.com/Pamir-AI/distiller-cm5-sdk.git
-cd distiller-cm5-sdk
+git clone https://github.com/pamir-ai-pkgs/distiller-sdk.git
+cd distiller-sdk
 chmod +x build.sh build-deb.sh
 
 # Download models and build package
@@ -24,19 +24,19 @@ chmod +x build.sh build-deb.sh
 ./build-deb.sh               # Build Debian package
 
 # Install
-sudo dpkg -i dist/distiller-cm5-sdk_*_arm64.deb
+sudo dpkg -i dist/distiller-sdk_*_arm64.deb
 sudo apt-get install -f       # Install missing dependencies
 
 # Verify
-source /opt/distiller-cm5-sdk/activate.sh
-python -c "import distiller_cm5_sdk; print('SDK imported successfully!')"
+source /opt/distiller-sdk/activate.sh
+python -c "import distiller_sdk; print('SDK imported successfully!')"
 ```
 
 ## Package Structure
 
 ```text
-/opt/distiller-cm5-sdk/
-├── distiller_cm5_sdk/    # Python SDK modules
+/opt/distiller-sdk/
+├── distiller_sdk/    # Python SDK modules
 │   ├── hardware/         # Hardware control
 │   ├── parakeet/        # ASR + VAD
 │   ├── piper/           # TTS engine
@@ -53,13 +53,13 @@ For dependent projects and services, integrate the SDK by setting up the environ
 
 ```bash
 # Method 1: Environment Variables
-export PYTHONPATH="/opt/distiller-cm5-sdk:$PYTHONPATH"
-export LD_LIBRARY_PATH="/opt/distiller-cm5-sdk/lib:$LD_LIBRARY_PATH"
-source /opt/distiller-cm5-sdk/.venv/bin/activate
+export PYTHONPATH="/opt/distiller-sdk:$PYTHONPATH"
+export LD_LIBRARY_PATH="/opt/distiller-sdk/lib:$LD_LIBRARY_PATH"
+source /opt/distiller-sdk/.venv/bin/activate
 
 # Method 2: In Python
 import sys
-sys.path.insert(0, '/opt/distiller-cm5-sdk')
+sys.path.insert(0, '/opt/distiller-sdk')
 ```
 
 ## Development
@@ -67,7 +67,7 @@ sys.path.insert(0, '/opt/distiller-cm5-sdk')
 ### Package Management with uv
 
 ```bash
-cd /opt/distiller-cm5-sdk
+cd /opt/distiller-sdk
 source activate.sh
 
 # Package operations
@@ -95,7 +95,7 @@ uv tree                  # Show dependencies
 ### Audio System
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 
 # Initialize
 audio = Audio()
@@ -153,7 +153,7 @@ image processing capabilities.
 #### Configuration
 
 ```python
-from distiller_cm5_sdk.hardware.eink import (
+from distiller_sdk.hardware.eink import (
     Display, DisplayMode, FirmwareType,
     ScalingMethod, DitheringMethod, TransformType,
     set_default_firmware, get_default_firmware
@@ -166,7 +166,7 @@ current_fw = get_default_firmware()
 
 # Configuration priority:
 # 1. Environment: DISTILLER_EINK_FIRMWARE=EPD240x416
-# 2. Config files: /opt/distiller-cm5-sdk/eink.conf
+# 2. Config files: /opt/distiller-sdk/eink.conf
 # 3. Default: EPD128x250
 ```
 
@@ -288,7 +288,7 @@ display.display_image(with_rect, mode=DisplayMode.FULL)
 #### Bitpacking Transformations (Standalone Functions)
 
 ```python
-from distiller_cm5_sdk.hardware.eink import (
+from distiller_sdk.hardware.eink import (
     rotate_bitpacked, rotate_bitpacked_ccw_90, rotate_bitpacked_cw_90,
     rotate_bitpacked_180, flip_bitpacked_horizontal, flip_bitpacked_vertical,
     invert_bitpacked_colors
@@ -320,7 +320,7 @@ result = flip_bitpacked_vertical(
 ### Camera
 
 ```python
-from distiller_cm5_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.camera import Camera
 
 camera = Camera()
 
@@ -353,7 +353,7 @@ camera.close()
 ### LED Control
 
 ```python
-from distiller_cm5_sdk.hardware.sam import LED
+from distiller_sdk.hardware.sam import LED
 import time
 
 led = LED(use_sudo=True)  # May need sudo for sysfs access
@@ -384,7 +384,7 @@ available = led.get_available_leds()  # Returns list of LED IDs
 ### Parakeet ASR (with VAD)
 
 ```python
-from distiller_cm5_sdk.parakeet import Parakeet
+from distiller_sdk.parakeet import Parakeet
 
 # Initialize
 asr = Parakeet()
@@ -413,7 +413,7 @@ asr.cleanup()
 ### Piper TTS
 
 ```python
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.piper import Piper
 
 # Initialize
 tts = Piper()
@@ -438,7 +438,7 @@ for voice in voices:
 ### Whisper ASR (Optional)
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 
 # Initialize (requires models)
 whisper = Whisper(model_size="base")
@@ -457,10 +457,10 @@ result = whisper.transcribe_file(
 ### Hardware Manager Pattern
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
-from distiller_cm5_sdk.hardware.camera import Camera
-from distiller_cm5_sdk.hardware.eink import Display, DisplayMode
-from distiller_cm5_sdk.hardware.sam import LED
+from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.eink import Display, DisplayMode
+from distiller_sdk.hardware.sam import LED
 
 class HardwareManager:
     """Coordinate multiple hardware components."""
@@ -532,7 +532,7 @@ if manager.initialize():
 ### Installation
 
 ```bash
-sudo dpkg -i dist/distiller-cm5-sdk_*_arm64.deb
+sudo dpkg -i dist/distiller-sdk_*_arm64.deb
 sudo apt-get install -f  # Fix dependencies
 ```
 
@@ -544,8 +544,8 @@ sudo apt-get install -f  # Fix dependencies
 
 ```bash
 # Fix Python path
-export PYTHONPATH="/opt/distiller-cm5-sdk:$PYTHONPATH"
-source /opt/distiller-cm5-sdk/activate.sh
+export PYTHONPATH="/opt/distiller-sdk:$PYTHONPATH"
+source /opt/distiller-sdk/activate.sh
 ```
 
 **2. Audio Issues**
@@ -581,7 +581,7 @@ ls -la /dev/spi*
 lsmod | grep spi
 
 # Test configuration
-python -c "from distiller_cm5_sdk.hardware.eink import get_default_firmware; print(get_default_firmware())"
+python -c "from distiller_sdk.hardware.eink import get_default_firmware; print(get_default_firmware())"
 
 # Set firmware
 export DISTILLER_EINK_FIRMWARE=EPD128x250
@@ -594,7 +594,7 @@ export DISTILLER_EINK_FIRMWARE=EPD128x250
 sudo ldconfig
 
 # Check library
-ldd /opt/distiller-cm5-sdk/lib/libdistiller_display_sdk_shared.so
+ldd /opt/distiller-sdk/lib/libdistiller_display_sdk_shared.so
 ```
 
 **6. Permission Denied**
@@ -609,15 +609,15 @@ sudo usermod -a -G audio,video,spi,gpio,i2c $USER
 
 ```bash
 # Check SDK installation
-dpkg -L distiller-cm5-sdk
+dpkg -L distiller-sdk
 
 # Verify imports
-python -c "from distiller_cm5_sdk.hardware.audio import Audio; from distiller_cm5_sdk.hardware.camera import Camera; from distiller_cm5_sdk.hardware.eink import Display; from distiller_cm5_sdk.parakeet import Parakeet; from distiller_cm5_sdk.piper import Piper; print('All imports successful!')"
+python -c "from distiller_sdk.hardware.audio import Audio; from distiller_sdk.hardware.camera import Camera; from distiller_sdk.hardware.eink import Display; from distiller_sdk.parakeet import Parakeet; from distiller_sdk.piper import Piper; print('All imports successful!')"
 
 # Test hardware
-python -m distiller_cm5_sdk.hardware.audio._audio_test
-python -m distiller_cm5_sdk.hardware.camera._camera_unit_test
-python -m distiller_cm5_sdk.hardware.eink._display_test
+python -m distiller_sdk.hardware.audio._audio_test
+python -m distiller_sdk.hardware.camera._camera_unit_test
+python -m distiller_sdk.hardware.eink._display_test
 ```
 
 ## System Requirements
@@ -655,9 +655,9 @@ python -m distiller_cm5_sdk.hardware.eink._display_test
 
 ## Support
 
-- **Documentation**: See module READMEs in `src/distiller_cm5_sdk/`
-- **Issues**: [GitHub Issues](https://github.com/Pamir-AI/distiller-cm5-sdk/issues)
-- **Wiki**: [GitHub Wiki](https://github.com/Pamir-AI/distiller-cm5-sdk/wiki)
+- **Documentation**: See module READMEs in `src/distiller_sdk/`
+- **Issues**: [GitHub Issues](https://github.com/pamir-ai-pkgs/distiller-sdk/issues)
+- **Wiki**: [GitHub Wiki](https://github.com/pamir-ai-pkgs/distiller-sdk/wiki)
 
 ## License
 

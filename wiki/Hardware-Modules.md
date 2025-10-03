@@ -1,6 +1,6 @@
 # Hardware Modules
 
-The Distiller CM5 SDK provides comprehensive Python interfaces for controlling hardware components
+The Distiller SDK provides comprehensive Python interfaces for controlling hardware components
 on the CM5 platform. All hardware modules follow consistent patterns with context manager support
 and proper resource cleanup.
 
@@ -19,7 +19,7 @@ The audio module provides ALSA-based recording and playback with hardware volume
 ### Basic Usage
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 
 # Initialize
 audio = Audio()
@@ -83,7 +83,7 @@ processing.
 ### Display Configuration
 
 ```python
-from distiller_cm5_sdk.hardware.eink import (
+from distiller_sdk.hardware.eink import (
     Display, DisplayMode, FirmwareType,
     ScalingMethod, DitheringMethod,
     set_default_firmware
@@ -152,7 +152,7 @@ with Display() as display:
 ### Raw Data Transformations
 
 ```python
-from distiller_cm5_sdk.hardware.eink import (
+from distiller_sdk.hardware.eink import (
     rotate_bitpacked, flip_bitpacked_horizontal,
     invert_bitpacked_colors
 )
@@ -179,7 +179,7 @@ The camera module uses rpicam-apps for image and video capture.
 ### Basic Usage
 
 ```python
-from distiller_cm5_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.camera import Camera
 
 camera = Camera()
 
@@ -247,7 +247,7 @@ The LED module controls RGB LEDs via the sysfs interface.
 ### Basic Usage
 
 ```python
-from distiller_cm5_sdk.hardware.sam import LED
+from distiller_sdk.hardware.sam import LED
 
 led = LED(use_sudo=True)  # May need sudo for sysfs
 
@@ -306,10 +306,10 @@ print(f"Available LEDs: {leds}")
 Coordinate multiple hardware components efficiently:
 
 ```python
-from distiller_cm5_sdk.hardware.audio import Audio
-from distiller_cm5_sdk.hardware.camera import Camera
-from distiller_cm5_sdk.hardware.eink import Display, DisplayMode
-from distiller_cm5_sdk.hardware.sam import LED
+from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.eink import Display, DisplayMode
+from distiller_sdk.hardware.sam import LED
 
 class HardwareManager:
     def __init__(self):
@@ -390,13 +390,13 @@ Test individual hardware components:
 
 ```bash
 # Audio test
-python -m distiller_cm5_sdk.hardware.audio._audio_test
+python -m distiller_sdk.hardware.audio._audio_test
 
 # Camera test
-python -m distiller_cm5_sdk.hardware.camera._camera_unit_test
+python -m distiller_sdk.hardware.camera._camera_unit_test
 
 # E-ink display test
-python -m distiller_cm5_sdk.hardware.eink._display_test
+python -m distiller_sdk.hardware.eink._display_test
 ```
 
 ## Important Notes

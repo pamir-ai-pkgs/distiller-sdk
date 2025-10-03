@@ -24,17 +24,17 @@ Whisper is an advanced ASR engine that:
 
 ## Installation
 
-The Whisper module is included in the Distiller CM5 SDK. Ensure the SDK is properly installed:
+The Whisper module is included in the Distiller SDK. Ensure the SDK is properly installed:
 
 ```bash
-sudo dpkg -i distiller-cm5-sdk_*_arm64.deb
-source /opt/distiller-cm5-sdk/activate.sh
+sudo dpkg -i distiller-sdk_*_arm64.deb
+source /opt/distiller-sdk/activate.sh
 ```
 
 Download Whisper models (optional, not included by default):
 
 ```bash
-cd /opt/distiller-cm5-sdk
+cd /opt/distiller-sdk
 ./build.sh --whisper
 ```
 
@@ -49,7 +49,7 @@ Model options:
 ### Basic Transcription from File
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 
 # Initialize Whisper with default model
 whisper = Whisper()
@@ -65,7 +65,7 @@ whisper.cleanup()
 ### Push-to-Talk Recording
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 
 whisper = Whisper()
 
@@ -79,7 +79,7 @@ whisper.cleanup()
 ### Custom Configuration
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 
 # Configure model and audio settings
 whisper = Whisper(
@@ -256,7 +256,7 @@ whisper.cleanup()
 ### Multilingual Transcription
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 
 # Initialize with multilingual model
 whisper = Whisper(
@@ -280,7 +280,7 @@ whisper.cleanup()
 ### Transcription with Timestamps
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 
 # The model provides timestamps for each segment
 whisper = Whisper()
@@ -297,7 +297,7 @@ for text in whisper.transcribe("long_audio.wav"):
 ### Batch Processing with Progress
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 import os
 from pathlib import Path
 
@@ -331,7 +331,7 @@ print(f"Completed {total_files} transcriptions")
 ### Real-time Transcription Loop
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 import time
 
 whisper = Whisper(
@@ -372,7 +372,7 @@ continuous_transcription(duration_per_chunk=3)
 ### Custom Audio Device Selection
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 import pyaudio
 
 # List available audio devices
@@ -398,7 +398,7 @@ whisper = Whisper(
 ### Optimize for Speed vs Accuracy
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 
 # Fast configuration (lower accuracy)
 fast_whisper = Whisper(
@@ -442,8 +442,8 @@ print(f"Accurate mode: {accurate_time:.2f}s")
 ### Voice Command System
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
-from distiller_cm5_sdk.piper import Piper
+from distiller_sdk.whisper import Whisper
+from distiller_sdk.piper import Piper
 import re
 
 whisper = Whisper()
@@ -495,7 +495,7 @@ finally:
 ### Transcription with Confidence Filtering
 
 ```python
-from distiller_cm5_sdk.whisper import Whisper
+from distiller_sdk.whisper import Whisper
 
 whisper = Whisper()
 
@@ -535,20 +535,20 @@ If you get "Model not found" error:
 1. Check if models are downloaded:
 
 ```bash
-ls -la /opt/distiller-cm5-sdk/models/whisper/
+ls -la /opt/distiller-sdk/models/whisper/
 ```
 
 2. Download Whisper models:
 
 ```bash
-cd /opt/distiller-cm5-sdk
+cd /opt/distiller-sdk
 ./build.sh --whisper
 ```
 
 3. Verify model structure:
 
 ```bash
-ls -la /opt/distiller-cm5-sdk/models/whisper/faster-distil-whisper-small.en/
+ls -la /opt/distiller-sdk/models/whisper/faster-distil-whisper-small.en/
 # Should contain: model.bin, config.json, tokenizer.json, etc.
 ```
 
@@ -595,7 +595,7 @@ whisper = Whisper(
 
 ```python
 # Check if microphone gain is appropriate
-from distiller_cm5_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio
 Audio.set_mic_gain_static(85)
 ```
 
@@ -689,4 +689,4 @@ The Whisper module uses:
 - Faster Whisper implementation (MIT License)
 - CTranslate2 for optimization (MIT License)
 
-Part of the Distiller CM5 SDK for Raspberry Pi CM5 platform.
+Part of the Distiller SDK for Raspberry Pi CM5 platform.

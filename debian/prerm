@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-# Pre-removal script for distiller-cm5-sdk
+# Pre-removal script for distiller-sdk
 if [ "$1" = "remove" ] || [ "$1" = "upgrade" ] || [ "$1" = "deconfigure" ]; then
-	echo "Preparing to remove distiller-cm5-sdk..."
+	echo "Preparing to remove distiller-sdk..."
 
 	# Stop any running Python processes from the SDK's virtual environment
-	if [ -d "/opt/distiller-cm5-sdk/.venv" ]; then
-		VENV_PYTHON="/opt/distiller-cm5-sdk/.venv/bin/python"
+	if [ -d "/opt/distiller-sdk/.venv" ]; then
+		VENV_PYTHON="/opt/distiller-sdk/.venv/bin/python"
 		if [ -f "$VENV_PYTHON" ]; then
 			PIDS=$(lsof -t "$VENV_PYTHON" 2>/dev/null || true)
 			if [ -n "$PIDS" ]; then

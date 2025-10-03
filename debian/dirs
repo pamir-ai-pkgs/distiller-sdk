@@ -1,5 +1,5 @@
-opt/distiller-cm5-sdk
-opt/distiller-cm5-sdk/lib
-opt/distiller-cm5-sdk/models
-opt/distiller-cm5-sdk/bin
-usr/lib 
+opt/distiller-sdk
+opt/distiller-sdk/lib
+opt/distiller-sdk/models
+opt/distiller-sdk/bin
+usr/lib

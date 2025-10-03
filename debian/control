@@ -1,4 +1,4 @@
-Source: distiller-cm5-sdk
+Source: distiller-sdk
 Section: python
 Priority: optional
 Maintainer: PamirAI Incorporated <support@pamir.ai>
@@ -8,7 +8,7 @@ Build-Depends: debhelper-compat (= 13),
                curl,
                ca-certificates
 Standards-Version: 4.6.2
-Homepage: https://github.com/Pamir-AI/distiller-cm5-sdk
+Homepage: https://github.com/pamir-ai-pkgs/distiller-sdk
 Rules-Requires-Root: no
 
 Package: distiller-sdk
@@ -41,4 +41,3 @@ Description: Distiller SDK - Universal ARM64 SDK for hardware control
  .
  Platform detection is performed at installation time using device tree
  information. The correct GPIO pins and SPI device are configured automatically.
- Manual override is supported via the DISTILLER_PLATFORM environment variable.

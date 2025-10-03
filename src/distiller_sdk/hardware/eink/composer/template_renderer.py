@@ -258,7 +258,7 @@ class TemplateRenderer:
         composer = None
 
         try:
-            from distiller_cm5_sdk.hardware.eink import Display, DisplayMode
+            from distiller_sdk.hardware.eink import Display, DisplayMode
 
             composer = self.render(ip_address, tunnel_url)
 
