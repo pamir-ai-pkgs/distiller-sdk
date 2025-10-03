@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 requires = [ "setuptools>=61", "wheel" ]
 
 [project]
-version = "0.1.0"
 name = "distiller-sdk"
+version = "3.0.0"
 readme = "README.md"
 authors = [
   { name = "PamirAI Inc", email = "founders@pamir.ai" },

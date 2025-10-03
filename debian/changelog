@@ -1,3 +1,32 @@
+distiller-sdk (3.0.0) unstable; urgency=medium
+
+  [ utsavbalar1231 ]
+  * docs: add comprehensive documentation and wiki for all SDK modules
+
+  [ Tommy ]
+  * Update README.md
+
+  [ utsavbalar1231 ]
+  * feat: add multi platform support
+  * refactor: consolidate multi-platform support into unified package
+  * build: improve cross-compilation support for ARM64
+  * feat: add platform detection helper script
+  * refactor: use platform detection helper in postinst
+  * feat!: migrate from distiller-cm5-sdk to distiller-sdk
+  * refactor(build): improve dependency checks and cross-compilation
+  * fix(debian): update repository URLs and packaging metadata
+  * refactor(config): remove legacy e-ink configuration templates
+  * refactor(build): replace build-deb.sh with Justfile
+  * fix(eink): add missing Cargo.lock required by Makefile.rust
+  * build: add lintian debian profile to debuild
+  * build(debian): improve packaging compliance with lintian overrides
+  * refactor(debian): improve uv-based package management
+  * feat(platform): add ArmSom CM5 IO (RK3576) platform support
+  * docs(sdk): update documentation
+  * chore(debian): add git-buildpackage configuratio
+
+ -- PamirAI Incorporated <founders@pamir.ai>  Sat, 18 Oct 2025 00:15:15 +0530
+
 distiller-cm5-sdk (2.0.0) unstable; urgency=medium
 
   [ utsavbalar1231 ]

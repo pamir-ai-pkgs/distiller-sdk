@@ -12,7 +12,7 @@ from .led import LED, LEDError, create_led_with_sudo
 __all__ = ['LED', 'LEDError', 'create_led_with_sudo']
 
 # Version information
-__version__ = '2.0.0'
+__version__ = '3.0.0'
 
 # Module metadata
 __author__ = 'Distiller SDK Team'
