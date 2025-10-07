@@ -1,14 +1,16 @@
 Source: distiller-sdk
 Section: python
 Priority: optional
-Maintainer: PamirAI Incorporated <support@pamir.ai>
+Maintainer: PamirAI Incorporated <founders@pamir.ai>
 Build-Depends: debhelper-compat (= 13),
                dh-python,
                python3-setuptools,
                curl,
                ca-certificates
-Standards-Version: 4.6.2
+Standards-Version: 4.7.0
 Homepage: https://github.com/pamir-ai-pkgs/distiller-sdk
+Vcs-Git: https://github.com/pamir-ai-pkgs/distiller-sdk.git
+Vcs-Browser: https://github.com/pamir-ai-pkgs/distiller-sdk
 Rules-Requires-Root: no
 
 Package: distiller-sdk
