@@ -4,7 +4,6 @@ src opt/distiller-sdk/
 # Install configuration files
 pyproject.toml opt/distiller-sdk/
 README.md opt/distiller-sdk/
-eink.conf.template opt/distiller-sdk/
 configs opt/distiller-sdk/
 
 # Install platform detection helper script
