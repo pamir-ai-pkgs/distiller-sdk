@@ -1,8 +1,8 @@
 # Hardware Modules
 
 The Distiller SDK provides comprehensive Python interfaces for controlling hardware components
-on the CM5 platform. All hardware modules follow consistent patterns with context manager support
-and proper resource cleanup.
+on the Distiller platform (Raspberry Pi CM5, Radxa Zero 3/3W). All hardware modules follow
+consistent patterns with context manager support and proper resource cleanup.
 
 ## Audio System
 

@@ -8,7 +8,7 @@ Before installing the SDK, ensure your system meets these requirements:
 
 ### System Requirements
 
-- **Platform**: Raspberry Pi CM5 or compatible ARM64 system
+- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, or compatible ARM64 system
 - **OS**: ARM64 Linux (Debian/Ubuntu-based)
 - **Python**: 3.11 or higher
 - **RAM**: 2GB minimum, 4GB recommended
@@ -44,13 +44,14 @@ sudo apt-get install -y \
 1. **Download the latest release**:
 
 ```bash
-wget https://github.com/Pamir-AI/distiller-sdk/releases/latest/download/distiller-sdk_2.0.0_arm64.deb
+# Download latest version
+wget https://github.com/Pamir-AI/distiller-sdk/releases/latest/download/distiller-sdk_arm64.deb
 ```
 
 2. **Install the package**:
 
 ```bash
-sudo dpkg -i distiller-sdk_2.0.0_arm64.deb
+sudo dpkg -i distiller-sdk_*_arm64.deb
 sudo apt-get install -f  # Install any missing dependencies
 ```
 

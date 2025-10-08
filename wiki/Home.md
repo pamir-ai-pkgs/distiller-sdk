@@ -39,7 +39,7 @@ The Distiller SDK is a Python package that provides:
 
 ## Requirements
 
-- **Platform**: Raspberry Pi CM5 or compatible ARM64 system
+- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, or compatible ARM64 system
 - **OS**: ARM64 Linux (Debian/Ubuntu-based)
 - **Python**: 3.11 or higher
 - **RAM**: 2GB minimum, 4GB recommended
@@ -65,7 +65,7 @@ for text in asr.record_and_transcribe_ptt():
 
     # Display on E-ink
     display.clear()
-    display.display_text(text)
+    display.render_text(text, font_size=20, x=10, y=10, mode=DisplayMode.FULL)
 
     # Speak response
     tts.speak_stream(f"You said: {text}")
@@ -87,7 +87,3 @@ This wiki is organized into the following sections:
 - **Issues**: [GitHub Issues](https://github.com/Pamir-AI/distiller-sdk/issues)
 - **Source Code**: [GitHub Repository](https://github.com/Pamir-AI/distiller-sdk)
 - **License**: See [LICENSE](https://github.com/Pamir-AI/distiller-sdk/blob/main/LICENSE)
-
-## Version
-
-Current SDK Version: **2.0.0**

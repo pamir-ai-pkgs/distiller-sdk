@@ -4,6 +4,8 @@ distiller-sdk for Debian
 This package installs the Distiller SDK to /opt/distiller-sdk as a
 self-contained Python environment.
 
+Supported Platforms: Raspberry Pi CM5, Radxa Zero 3/3W
+
 Installation
 -----------
 
@@ -14,67 +16,101 @@ After installing the package:
    source /opt/distiller-sdk/activate.sh
    ```
 
-2. Use the Python interpreter with the SDK:
-   ```bash
-   /opt/distiller-sdk/python your_script.py
-   ```
-
-3. Or activate the environment and use Python normally:
+2. Or run Python scripts with the SDK:
    ```bash
    source /opt/distiller-sdk/activate.sh
-   python3 -c "from distiller_sdk import whisper; print('SDK loaded successfully')"
+   python your_script.py
+   ```
+
+3. Verify the installation:
+   ```bash
+   source /opt/distiller-sdk/activate.sh
+   python -c "import distiller_sdk; print('SDK loaded successfully')"
    ```
 
 Directory Structure
 ------------------
 
 /opt/distiller-sdk/
-├── venv/                    # Python virtual environment
+├── .venv/                   # Python virtual environment (uv-managed)
+├── src/distiller_sdk/       # SDK Python source code
 ├── lib/                     # Native shared libraries
 ├── models/                  # AI model files
-│   ├── parakeet/           # ASR models
+│   ├── parakeet/           # ASR models + VAD
 │   ├── piper/              # TTS models and executables
-│   └── whisper/            # Whisper models
+│   └── whisper/            # Whisper models (optional)
+├── configs/                 # Platform-specific configurations
 ├── activate.sh             # Environment activation script
-├── python                  # Python launcher with SDK environment
-└── distiller_sdk-*.whl # Python wheel package
+├── pyproject.toml          # Project configuration
+└── uv.lock                 # Dependency lock file
 
 Usage Examples
 -------------
 
 ```python
-# Activate environment first
-source /opt/distiller-sdk/activate.sh
+# Activate environment first: source /opt/distiller-sdk/activate.sh
 
 # Use Whisper for speech recognition
-from distiller_sdk import whisper
-whisper_instance = whisper.Whisper()
-for text in whisper_instance.transcribe("speech.wav"):
+from distiller_sdk.whisper import Whisper
+whisper_asr = Whisper()
+for text in whisper_asr.transcribe("speech.wav"):
     print(text)
 
-# Use Parakeet for ASR + VAD
-from distiller_sdk import parakeet
-parakeet_instance = parakeet.Parakeet(vad_silence_duration=0.5)
-for text in parakeet_instance.auto_record_and_transcribe():
+# Use Parakeet for ASR with Voice Activity Detection
+from distiller_sdk.parakeet import Parakeet
+parakeet_asr = Parakeet(vad_silence_duration=0.5)
+for text in parakeet_asr.auto_record_and_transcribe():
     print(f"Transcribed: {text}")
 
 # Use Piper for text-to-speech
-from distiller_sdk import piper
-piper_instance = piper.Piper()
-piper_instance.speak_stream("Hello, world!", volume=30)
+from distiller_sdk.piper import Piper
+tts = Piper()
+tts.speak_stream("Hello, world!", volume=50)
 
-# Use e-ink display
-from distiller_sdk.hardware.eink import EinkDriver
-display = EinkDriver()
-display.initialize()
-# ... use display functions
+# Use E-ink display
+from distiller_sdk.hardware.eink import Display, DisplayMode
+with Display() as display:
+    display.display_image("image.png", mode=DisplayMode.FULL)
+    display.clear()
+
+# Use Audio system
+from distiller_sdk.hardware.audio import Audio
+audio = Audio()
+Audio.set_mic_gain_static(80)
+audio.record("recording.wav", duration=5)
+audio.play("recording.wav")
+audio.close()
+
+# Use Camera
+from distiller_sdk.hardware.camera import Camera
+camera = Camera()
+camera.capture_image("photo.jpg")
+camera.close()
+
+# Use LED control
+from distiller_sdk.hardware.sam import LED
+led = LED(use_sudo=True)
+led.set_rgb_color(led_id=0, red=255, green=0, blue=0)
+led.turn_off_all()
 ```
 
-Integration with Other Packages
-------------------------------
+Features
+--------
 
-This package is designed to be used by other Debian packages like
-distiller-mcp-hub. The shared library is also available at
-/usr/lib/libdistiller_display_sdk_shared.so for compatibility.
+Hardware Control:
+- Audio: ALSA-based recording/playback with hardware volume control
+- E-ink Display: EPD128x250 (250×128) and EPD240x416 support
+- Camera: rpicam-apps-based capture for Raspberry Pi
+- LED: RGB LED control via sysfs interface
+
+AI Capabilities:
+- Parakeet: Real-time ASR with Voice Activity Detection
+- Piper: High-quality text-to-speech synthesis
+- Whisper: Advanced ASR (optional, larger models)
+
+Package Management:
+- Uses uv for fast, reliable dependency management
+- System-wide installation at /opt/distiller-sdk
+- Native library integration for optimal performance
 
 -- PamirAI Incorporated <founders@pamir.ai>  Thu, 13 Jun 2024 18:45:00 +0000 

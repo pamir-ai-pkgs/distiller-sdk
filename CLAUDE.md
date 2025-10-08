@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Distiller SDK - Python SDK for the Distiller CM5 platform providing hardware control for e-ink displays, audio I/O, camera, LED control, and AI capabilities (ASR/TTS) using uv package management. Built as a Debian package targeting ARM64 Linux systems (Raspberry Pi CM5, Radxa Zero 3/3W).
+Distiller SDK - Python SDK for the Distiller platform providing hardware control for e-ink displays, audio I/O, camera, LED control, and AI capabilities (ASR/TTS) using uv package management. Built as a Debian package targeting ARM64 Linux systems (Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO).
 
 ## Build Commands
 
@@ -14,27 +14,36 @@ Distiller SDK - Python SDK for the Distiller CM5 platform providing hardware con
 ./build.sh --whisper          # Include Whisper models (~500MB+)
 ./build.sh --skip-rust        # Skip Rust library build
 
-# Build Debian package
-just build                # Standard build
-just build clean          # Clean rebuild
-just build whisper        # Include Whisper models
+# Build Debian package using Justfile
+just build                    # Standard build (arm64 default)
+just build amd64              # Cross-build for amd64
+just clean                    # Clean all build artifacts
+just prepare whisper          # Download models including Whisper
 
 # Install locally for testing
 sudo dpkg -i dist/distiller-sdk_*_arm64.deb
 sudo apt-get install -f       # Fix dependencies
+
+# Verify installation
+source /opt/distiller-sdk/activate.sh
+python -c "import distiller_sdk; print('SDK imported successfully!')"
 ```
 
 ## Development Setup
 
 ```bash
-# Install with uv (for local development)
-uv venv --system-site-packages
-source .venv/bin/activate
-uv sync
+# Local development with uv
+uv sync                       # Install dependencies (creates .venv)
+source .venv/bin/activate     # Activate virtual environment
 
-# Set up Python path for imports
+# Set up Python path for imports (when not using installed package)
 export PYTHONPATH="/opt/distiller-sdk:$PYTHONPATH"
 export LD_LIBRARY_PATH="/opt/distiller-sdk/lib:$LD_LIBRARY_PATH"
+source /opt/distiller-sdk/activate.sh
+
+# Code quality checks
+just lint                     # Run ruff check + format check + mypy
+just fix                      # Auto-fix formatting issues
 ```
 
 ## Testing
@@ -48,6 +57,36 @@ python -m distiller_sdk.hardware.eink._display_test
 # Verify SDK imports
 python -c "import distiller_sdk; print('SDK imported successfully!')"
 python -c "from distiller_sdk.hardware.audio import Audio; from distiller_sdk.hardware.camera import Camera; from distiller_sdk.hardware.eink import Display; from distiller_sdk.parakeet import Parakeet; from distiller_sdk.piper import Piper; print('All imports successful!')"
+
+# Verify installed package (after dpkg -i)
+source /opt/distiller-sdk/activate.sh
+python -c "import distiller_sdk; print('SDK imported successfully!')"
+```
+
+## Package Inspection & Debugging
+
+```bash
+# Inspect built package contents
+dpkg -c dist/distiller-sdk_*_arm64.deb
+
+# Check package metadata
+dpkg-deb -I dist/distiller-sdk_*_arm64.deb
+
+# Run lintian checks (already runs during build)
+lintian --pedantic dist/distiller-sdk_*_arm64.deb
+
+# Check installed package files
+dpkg -L distiller-sdk
+
+# Debug platform detection
+source debian/platform-detect.sh
+detect_platform
+get_platform_description $(detect_platform)
+get_spi_device $(detect_platform)
+get_gpio_chip $(detect_platform)
+
+# Check changelog
+dch -i    # Edit changelog interactively
 ```
 
 ## Architecture
@@ -68,22 +107,31 @@ src/distiller_sdk/
 
 ### Platform Detection System
 Multi-platform support via `platform-detect.sh` helper script:
-- **Raspberry Pi CM5** (BCM2712): `/dev/spidev0.0`, `/dev/gpiochip0`
-- **Radxa Zero 3/3W** (RK3566): `/dev/spidev3.0`, `/dev/gpiochip3`
-- **Armbian** builds: Kernel pattern detection during build
-- Override with `DISTILLER_PLATFORM` environment variable
+- **Raspberry Pi CM5** (BCM2712): `/dev/spidev0.0`, `/dev/gpiochip0`, GPIO pins: dc=7, rst=13, busy=9
+- **Radxa Zero 3/3W** (RK3566): `/dev/spidev3.0`, `/dev/gpiochip3`, GPIO pins: dc=8, rst=2, busy=1
+- **ArmSom CM5 IO** (RK3576): `/dev/spidev3.0`, `/dev/gpiochip4`, GPIO pins: TBD
+- **Armbian** builds: Kernel pattern detection via `/lib/modules/` patterns
+- Override with `DISTILLER_PLATFORM=cm5|radxa|armsom-rk3576|armbian` environment variable
 
 Platform-specific configurations in `configs/`:
 - `cm5.conf` - Raspberry Pi CM5 hardware settings
 - `radxa-zero3.conf` - Radxa Zero 3/3W hardware settings
+- `armsom-rk3576.conf` - ArmSom CM5 IO hardware settings (GPIO pins incomplete)
+
+Detection priority:
+1. `DISTILLER_PLATFORM` environment variable (validated against supported platforms)
+2. Armbian detection (`/etc/armbian-release`, `/boot/armbianEnv.txt`, kernel patterns)
+3. Device tree compatibility (`/proc/device-tree/compatible`)
+4. Defaults to "unknown"
 
 ### E-ink Display Architecture
-The display system uses ctypes bindings to a C shared library (`libdistiller_display_sdk_shared.so`):
+The display system uses ctypes bindings to a Rust-compiled shared library (`libdistiller_display_sdk_shared.so`):
 - **Firmware types**: EPD128x250 (250×128), EPD240x416 (240×416)
 - **Configuration priority**: 1) `DISTILLER_EINK_FIRMWARE` env var, 2) config files, 3) default EPD128x250
 - **Image processing**: Supports PNG/JPEG/GIF/BMP/TIFF/WebP with auto-scaling, dithering, and transformations
 - **Bitpacking**: 1-bit packed data with standalone transformation functions for rotation/flipping
 - **Composer submodule**: Template rendering, text overlay, shape drawing
+- **Rust library**: Located in `src/distiller_sdk/hardware/eink/lib/`, built via `Makefile.rust` for ARM64 target
 
 ### Audio System
 ALSA-based audio with both file and streaming operations:
@@ -106,28 +154,32 @@ V4L2 camera interface via OpenCV:
 ## Debian Packaging
 
 ### Package Build System
-Justfile-based build system:
-- Uses `debuild` for Debian package creation
-- Target architecture specified via `arch` parameter: `just build arm64`
+Justfile-based build system (replaces legacy `build-deb.sh`):
+- Uses `debuild` with lintian profile for compliance checking
+- Target architecture specified via `arch` parameter: `just build arm64` or `just build amd64`
 - Platform-agnostic single package (replaces old per-platform packages)
+- Provides/Replaces/Breaks `distiller-cm5-sdk` for migration from v2.x
+- Build artifacts placed in `dist/` directory
 
 ### Post-installation Flow (`debian/postinst`)
-1. Detect platform using `platform-detect.sh`
-2. Copy platform-specific config to `/opt/distiller-sdk/eink.conf`
-3. Create uv virtual environment with system-site-packages
-4. Run `uv sync` to install dependencies
-5. Verify Python environment and SDK imports
-6. Generate `activate.sh` script for environment setup
-7. Check for required devices (SPI, GPIO) and warn if missing
-8. Update `ldconfig` cache for shared libraries
+1. Remove legacy `/opt/distiller-cm5-sdk/` installation if present
+2. Detect platform using `debian/platform-detect.sh` helper functions
+3. Copy platform-specific config to `/opt/distiller-sdk/eink.conf`
+4. Create uv virtual environment with `--system-site-packages` (fallback to regular venv if needed)
+5. Run `uv sync --frozen --no-editable --compile-bytecode` for production install
+6. Set appropriate file permissions (readable by all, executables in .venv/bin)
+7. Verify Python environment and SDK imports
+8. Check for required devices (SPI, GPIO) and warn if missing with platform-specific instructions
+9. Update `ldconfig` cache for shared libraries
 
 ### Installation Location
 All files install to `/opt/distiller-sdk/`:
 - Python source in `src/distiller_sdk/`
-- AI models in `models/`, `parakeet/models/`, `piper/models/`
-- Native libraries in `lib/`
-- Virtual environment in `.venv/`
-- Activation script: `activate.sh`
+- AI models in `parakeet/models/`, `piper/models/`, `whisper/models/` (optional)
+- Native libraries in `lib/` (Rust e-ink library)
+- Virtual environment in `.venv/` (created during postinst)
+- Activation script: `activate.sh` (generated during postinst)
+- Platform configs in `configs/`
 
 ## Important Patterns
 
@@ -162,12 +214,36 @@ result = flip_bitpacked_vertical(
 - **Ruff config**: Line length 100, target Python 3.11
 - **Hardware access**: May require sudo or user groups (audio, video, spi, gpio, i2c)
 - **Model downloads**: Hugging Face for Parakeet/Whisper, GitHub releases for Piper
-- **Native dependencies**: C library for e-ink display lives in `src/distiller_sdk/hardware/eink/lib/`
+- **Rust library**: E-ink display uses Rust library in `src/distiller_sdk/hardware/eink/lib/`
+  - Built with `Makefile.rust` targeting `aarch64-unknown-linux-gnu`
+  - Auto-rebuilds when source files (.rs), Cargo.toml, or Cargo.lock change
+  - Outputs `libdistiller_display_sdk_shared.so` used via ctypes
+
+### Rust E-ink Library Development
+```bash
+cd src/distiller_sdk/hardware/eink/lib
+
+# Check if rebuild needed
+make -f Makefile.rust check-rebuild
+
+# Build library
+make -f Makefile.rust build
+
+# Clean build artifacts
+make -f Makefile.rust clean
+
+# Show target info
+make -f Makefile.rust target-info
+```
 
 ## Common Pitfalls
 
 1. **Display firmware mismatch**: EPD128x250 firmware name represents 250×128 display (width×height), not 128×250
-2. **Platform detection during build**: Armbian builds must detect platform via kernel patterns before `/etc/armbian-release` exists
-3. **uv installation**: `postinst` script must handle multiple uv installation paths (root, user, system)
+2. **Platform detection during build**: Armbian builds must detect platform via kernel patterns in `/lib/modules/` before `/etc/armbian-release` exists
+3. **uv installation**: `postinst` script handles multiple uv installation paths via PATH export including root/user `.local/bin` and `.cargo/bin`
 4. **Audio permissions**: Recording/playback requires user in `audio` group
 5. **SPI/GPIO access**: E-ink display requires SPI enabled in device tree and proper GPIO permissions
+6. **Rust build dependencies**: E-ink library build requires Rust toolchain with `aarch64-unknown-linux-gnu` target
+7. **ArmSom RK3576 GPIO pins**: GPIO pin configuration for e-ink display is incomplete in `configs/armsom-rk3576.conf`
+8. **Justfile architecture**: Default build architecture is `arm64`; specify `just build amd64` for cross-platform builds
+9. **Model size**: Standard build is ~200MB; including Whisper adds ~300-500MB more via `just prepare whisper`

@@ -1,14 +1,14 @@
 # Distiller SDK
 
-Python SDK for the Distiller CM5 platform, providing hardware control, audio processing, computer
-vision, and AI capabilities using **uv** package management.
+Python SDK for the Distiller platform (Raspberry Pi CM5, Radxa Zero 3/3W), providing hardware control,
+audio processing, computer vision, and AI capabilities using **uv** package management.
 
 ## Quick Start
 
 ### Prerequisites
 
 - **Python 3.11+** (automatically installed with package)
-- **ARM64 Linux system** (CM5 platform)
+- **ARM64 Linux system** (Raspberry Pi CM5, Radxa Zero 3/3W)
 - **uv package manager** (auto-installed during setup)
 
 ### Installation
@@ -315,6 +315,32 @@ result = flip_bitpacked_vertical(
     rotate_bitpacked_ccw_90(data, 250, 128),
     128, 250  # Note: dimensions swap after 90° rotation
 )
+```
+
+#### EinkComposer Module
+
+Advanced image composition and template rendering for e-ink displays:
+
+```python
+from distiller_sdk.hardware.eink.composer import EinkComposer, TemplateRenderer
+
+# Create composer for your display
+composer = EinkComposer(width=250, height=128)
+
+# Apply dithering
+from distiller_sdk.hardware.eink.composer import floyd_steinberg_dither
+dithered_image = floyd_steinberg_dither(image_array)
+
+# Template-based rendering
+renderer = TemplateRenderer(width=250, height=128)
+template = {
+    "background": {"color": "white"},
+    "elements": [
+        {"type": "text", "content": "Hello", "x": 10, "y": 20, "size": 24},
+        {"type": "rectangle", "x": 5, "y": 5, "width": 240, "height": 118}
+    ]
+}
+result = renderer.render(template)
 ```
 
 ### Camera
@@ -624,7 +650,7 @@ python -m distiller_sdk.hardware.eink._display_test
 
 ### Hardware
 
-- **Platform**: Raspberry Pi CM5 or compatible ARM64 system
+- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, or compatible ARM64 system
 - **RAM**: 2GB minimum, 4GB recommended
 - **Storage**: 2GB for full installation with models
 - **Peripherals**: E-ink display (SPI), Camera (V4L2), Audio (ALSA)
@@ -636,9 +662,9 @@ python -m distiller_sdk.hardware.eink._display_test
 - **Libraries**: ALSA, V4L2, SPI support
 - **Groups**: audio, video, spi, gpio, i2c
 
-## Version Information
+## Platform Information
 
-- **SDK Version**: 2.0.0
+- **Supported Platforms**: Raspberry Pi CM5, Radxa Zero 3/3W
 - **Python**: 3.11+
 - **Package Manager**: uv (latest)
 - **Architecture**: ARM64
