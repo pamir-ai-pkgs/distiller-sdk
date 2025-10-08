@@ -192,7 +192,7 @@ Note: Whisper models are not included by default due to their size.
 ```bash
 # Build SDK with Whisper models
 ./build.sh --whisper
-./build-deb.sh whisper
+just build whisper
 ```
 
 ### Features

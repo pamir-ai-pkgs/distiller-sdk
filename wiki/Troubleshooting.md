@@ -316,7 +316,7 @@ cd /path/to/distiller-sdk
 ./build.sh --whisper
 
 # Rebuild package with Whisper
-./build-deb.sh whisper
+just build whisper
 
 # Verify models exist
 ls -la /opt/distiller-sdk/src/distiller_sdk/whisper/models/

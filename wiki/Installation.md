@@ -73,7 +73,7 @@ cd distiller-sdk
 2. **Make build scripts executable**:
 
 ```bash
-chmod +x build.sh build-deb.sh
+chmod +x build.sh
 ```
 
 3. **Download AI models**:
@@ -90,13 +90,13 @@ chmod +x build.sh build-deb.sh
 
 ```bash
 # Standard build
-./build-deb.sh
+just build
 
 # Include Whisper models
-./build-deb.sh whisper
+just build whisper
 
 # Clean rebuild
-./build-deb.sh clean
+just build clean
 ```
 
 5. **Install the package**:

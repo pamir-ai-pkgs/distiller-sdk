@@ -93,7 +93,7 @@ distiller-sdk/
 │   └── whisper/           # Whisper ASR (optional)
 ├── tests/                  # Test files
 ├── build.sh               # Model download script
-├── build-deb.sh           # Debian package builder
+├── Justfile               # Build system with recipes
 └── pyproject.toml         # Project configuration
 ```
 
@@ -306,13 +306,13 @@ ignore = ["E501"]  # Line too long
 
 ```bash
 # Standard build
-./build-deb.sh
+just build
 
 # Clean rebuild
-./build-deb.sh clean
+just build clean
 
 # Include Whisper
-./build-deb.sh whisper
+just build whisper
 
 # Test package
 sudo dpkg -i dist/distiller-sdk_*.deb
@@ -425,7 +425,7 @@ git push origin v2.0.1
 
 ```bash
 # Clean build
-./build-deb.sh clean
+just build clean
 
 # Upload to releases
 gh release create v2.0.1 dist/*.deb

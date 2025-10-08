@@ -4,7 +4,7 @@
 	dh $@ --with python3
 
 override_dh_auto_build:
-	# Build step is handled by build-deb.sh which runs build.sh to:
+	# Build step is handled by Justfile prepare recipe which runs build.sh to:
 	# 1. Download AI models from HuggingFace
 	# 2. Build the Rust e-ink display library for ARM64
 	# This ensures all assets are ready for packaging

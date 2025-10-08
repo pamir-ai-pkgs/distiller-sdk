@@ -120,13 +120,10 @@ jobs:
         run: |
           source ~/.cargo/env
           echo "Starting build process..."
-          chmod +x build.sh build-deb.sh
-          
-          # Download models (excluding Whisper by default)
-          ./build.sh
-          
-          # Build the Debian package
-          ./build-deb.sh
+          chmod +x build.sh
+
+          # Build the Debian package (includes model download)
+          just build
           
           echo "Build completed. Checking artifacts:"
           ls -la dist/

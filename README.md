@@ -17,11 +17,11 @@ vision, and AI capabilities using **uv** package management.
 # Clone and build
 git clone https://github.com/pamir-ai-pkgs/distiller-sdk.git
 cd distiller-sdk
-chmod +x build.sh build-deb.sh
+chmod +x build.sh
 
 # Download models and build package
 ./build.sh                    # Download models (excluding Whisper)
-./build-deb.sh               # Build Debian package
+just build                    # Build Debian package
 
 # Install
 sudo dpkg -i dist/distiller-sdk_*_arm64.deb
@@ -85,9 +85,9 @@ uv tree                  # Show dependencies
 ./build.sh --whisper     # Include Whisper
 
 # Build Debian package
-./build-deb.sh          # Standard build
-./build-deb.sh clean    # Clean rebuild
-./build-deb.sh whisper  # Include Whisper
+just build               # Standard build
+just clean               # Clean artifacts
+just build whisper       # Include Whisper (via prepare recipe)
 ```
 
 ## SDK Modules
@@ -524,9 +524,9 @@ if manager.initialize():
 ### Package Build
 
 ```bash
-./build-deb.sh         # Build .deb package
-./build-deb.sh clean   # Clean rebuild
-./build-deb.sh whisper # Include Whisper models
+just build             # Build .deb package
+just clean             # Clean rebuild
+just build whisper     # Include Whisper models (via prepare recipe)
 ```
 
 ### Installation

@@ -15,9 +15,9 @@ Distiller SDK - Python SDK for the Distiller CM5 platform providing hardware con
 ./build.sh --skip-rust        # Skip Rust library build
 
 # Build Debian package
-./build-deb.sh                # Standard build
-./build-deb.sh clean          # Clean rebuild
-./build-deb.sh whisper        # Include Whisper models
+just build                # Standard build
+just build clean          # Clean rebuild
+just build whisper        # Include Whisper models
 
 # Install locally for testing
 sudo dpkg -i dist/distiller-sdk_*_arm64.deb
@@ -106,9 +106,9 @@ V4L2 camera interface via OpenCV:
 ## Debian Packaging
 
 ### Package Build System
-Universal `build-deb.sh` script with:
-- Auto-detection of project type (python-uv, python, nodejs, dkms, systemd)
-- Target architecture override: `TARGET_ARCH=arm64 ./build-deb.sh`
+Justfile-based build system:
+- Uses `debuild` for Debian package creation
+- Target architecture specified via `arch` parameter: `just build arm64`
 - Platform-agnostic single package (replaces old per-platform packages)
 
 ### Post-installation Flow (`debian/postinst`)
