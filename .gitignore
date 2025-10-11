@@ -14,9 +14,6 @@ sdist/
 *.egg
 *.whl
 
-# uv lock file is tracked for reproducible builds
-# uv.lock
-
 # Virtual environment
 .venv/
 venv/
@@ -49,18 +46,10 @@ Thumbs.db
 *.sublime-workspace
 nbproject/ 
 
-# Extras
-final_review_gate.py
-
 # Debian packaging files
+debian/*.debhelper.*
+debian/*.substvars
 debian/.debhelper/
 debian/debhelper-build-stamp
-debian/*.substvars
-debian/files
-
-# Debian package build directories
 debian/distiller-sdk/
-
-# Generated debian control files
-debian/control.cm5
-debian/control.radxa
+debian/files

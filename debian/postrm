@@ -26,9 +26,6 @@ remove | upgrade | deconfigure)
 	[ -L "/usr/lib/libdistiller_display_sdk_shared.so" ] &&
 		rm -f /usr/lib/libdistiller_display_sdk_shared.so
 
-	# Update shared library cache
-	ldconfig
-
 	echo "INFO: distiller-sdk cleanup completed"
 	;;
 
@@ -40,13 +37,12 @@ purge)
 	[ -d "/opt/distiller-sdk" ] && rm -rf /opt/distiller-sdk
 
 	# Clean up temporary files
-	rm -f /tmp/distiller-* /var/run/distiller-* /var/lock/distiller-* 2>/dev/null || true
+	find /tmp -maxdepth 1 -name 'distiller-*' -type f -delete 2>/dev/null || true
+	find /var/run -maxdepth 1 -name 'distiller-*' -type f -delete 2>/dev/null || true
+	find /var/lock -maxdepth 1 -name 'distiller-*' -type f -delete 2>/dev/null || true
 
 	# Ensure shared library symlink is removed
 	rm -f /usr/lib/libdistiller_display_sdk_shared.so 2>/dev/null || true
-
-	# Update shared library cache
-	ldconfig
 
 	echo "INFO: distiller-sdk purged successfully"
 	;;

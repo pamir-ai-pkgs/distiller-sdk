@@ -1,0 +1,29 @@
+# Intentional installation to /opt for embedded device vendor application
+# This is a proprietary SDK for Pamir AI Distiller edge devices, not intended for Debian main
+distiller-sdk: dir-or-file-in-opt
+
+# Pre-built Piper TTS binaries from upstream (rhasspy/piper)
+# These are third-party binaries with build-time RPATH that cannot be easily patched
+distiller-sdk: custom-library-search-path *piper*
+distiller-sdk: unstripped-binary-or-object *piper*
+
+# Rust library built as part of SDK, hardening applied where possible
+distiller-sdk: hardening-no-pie *piper/piper*
+
+# Symlink in /usr/lib for system library discovery, intentional ldconfig trigger
+distiller-sdk: package-has-unnecessary-activation-of-ldconfig-trigger
+
+# Secure temp file handling using find with -type f, lintian cannot detect this
+distiller-sdk: possibly-insecure-handling-of-tmp-files-in-maintainer-script /tmp *
+
+# Virtual environment setup requires recursive permission changes
+distiller-sdk: recursive-privilege-change *
+
+# Python library files should not be executable
+distiller-sdk: script-not-executable *
+
+# Development/test file with rust-script shebang for standalone execution
+distiller-sdk: unusual-interpreter *
+
+# Intentional directory structure for models and Rust source code
+distiller-sdk: repeated-path-segment *

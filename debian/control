@@ -27,7 +27,8 @@ Depends: ${misc:Depends},
          portaudio19-dev,
          libasound2-dev,
          build-essential,
-         pkgconf
+         pkgconf,
+         libc6 (>= 2.34)
 Recommends: rpicam-apps | libcamera-apps
 Provides: distiller-cm5-sdk
 Replaces: distiller-cm5-sdk (<< 2.1.0)

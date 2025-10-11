@@ -103,9 +103,6 @@ EOF
 		[ -e "$GPIO_CHIP" ] || echo "WARNING: $GPIO_CHIP not found!"
 	fi
 
-	# Update shared library cache
-	ldconfig
-
 	echo ""
 	echo "============================================="
 	echo "Distiller SDK installed successfully!"
