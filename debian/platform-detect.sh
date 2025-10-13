@@ -148,28 +148,3 @@ get_platform_description() {
 		;;
 	esac
 }
-
-print_platform_info() {
-	local platform=$(detect_platform)
-	local detection_method="auto-detected"
-
-	# Check if platform was overridden
-	if [ -n "$DISTILLER_PLATFORM" ] && validate_platform "$DISTILLER_PLATFORM"; then
-		detection_method="overridden by DISTILLER_PLATFORM"
-	fi
-
-	echo "Platform: $platform ($detection_method)"
-	if [ -n "$DISTILLER_PLATFORM" ]; then
-		echo "DISTILLER_PLATFORM env var: $DISTILLER_PLATFORM"
-	fi
-	echo "Description: $(get_platform_description "$platform")"
-	echo "SPI Device: $(get_spi_device "$platform")"
-	echo "GPIO Chip: $(get_gpio_chip "$platform")"
-	echo "GPIO Pins: $(get_gpio_pins "$platform")"
-	echo "Config File: $(get_config_file "$platform")"
-}
-
-# If script is run directly (not sourced), print platform info
-if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
-	print_platform_info
-fi

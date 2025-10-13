@@ -1,17 +1,15 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
-# Pre-removal script for distiller-sdk
-if [ "$1" = "remove" ] || [ "$1" = "upgrade" ] || [ "$1" = "deconfigure" ]; then
-	echo "Preparing to remove distiller-sdk..."
-
+case "$1" in
+remove | upgrade | deconfigure)
 	# Stop any running Python processes from the SDK's virtual environment
 	if [ -d "/opt/distiller-sdk/.venv" ]; then
 		VENV_PYTHON="/opt/distiller-sdk/.venv/bin/python"
 		if [ -f "$VENV_PYTHON" ]; then
 			PIDS=$(lsof -t "$VENV_PYTHON" 2>/dev/null || true)
 			if [ -n "$PIDS" ]; then
-				echo "Stopping SDK Python processes..."
+				echo "INFO: Stopping SDK Python processes..."
 				for pid in $PIDS; do
 					kill -TERM "$pid" 2>/dev/null || true
 				done
@@ -19,6 +17,16 @@ if [ "$1" = "remove" ] || [ "$1" = "upgrade" ] || [ "$1" = "deconfigure" ]; then
 			fi
 		fi
 	fi
-fi
+	;;
+
+failed-upgrade) ;;
+
+*)
+	echo "ERROR: prerm called with unknown argument \`$1'" >&2
+	exit 1
+	;;
+esac
 
 #DEBHELPER#
+
+exit 0

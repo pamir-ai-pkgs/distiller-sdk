@@ -1,12 +1,9 @@
-#!/bin/bash
-# Debian package preinst script for distiller-sdk
-# Modern Debian packaging practices
-
+#!/bin/sh
 set -e
 
 # Architecture check
 check_architecture() {
-	local arch=$(dpkg --print-architecture)
+	arch=$(dpkg --print-architecture)
 	if [ "$arch" != "arm64" ]; then
 		cat >&2 <<EOF
 ERROR: This package is only supported on arm64 architecture.
@@ -20,7 +17,7 @@ EOF
 # Check for uv package manager
 check_uv() {
 	# Check common installation paths
-	local uv_found=false
+	uv_found=false
 
 	if command -v uv >/dev/null 2>&1; then
 		uv_found=true
@@ -70,19 +67,12 @@ EOF
 # Main logic
 case "$1" in
 install | upgrade)
-	# Perform architecture check
 	check_architecture
-
-	# Check for uv package manager
 	check_uv
-
-	# Check for distiller user
 	check_distiller_user
 	;;
 
-abort-upgrade)
-	# No action needed
-	;;
+abort-upgrade) ;;
 
 *)
 	echo "ERROR: preinst called with unknown argument: $1" >&2

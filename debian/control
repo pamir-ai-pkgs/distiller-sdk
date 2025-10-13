@@ -3,8 +3,6 @@ Section: python
 Priority: optional
 Maintainer: PamirAI Incorporated <founders@pamir.ai>
 Build-Depends: debhelper-compat (= 13),
-               dh-python,
-               python3-setuptools,
                curl,
                ca-certificates
 Standards-Version: 4.7.0
@@ -17,8 +15,7 @@ Package: distiller-sdk
 Architecture: arm64
 Depends: ${misc:Depends},
          python3 (>= 3.11),
-         python3-dev,
-         python3-venv,
+         uv,
          curl,
          ca-certificates,
          alsa-utils,

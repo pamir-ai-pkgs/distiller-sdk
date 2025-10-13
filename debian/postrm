@@ -1,18 +1,12 @@
-#!/bin/bash
+#!/bin/sh
 set -e
-
-# Post-removal script for distiller-sdk
-# Cleans up all SDK artifacts after removal
 
 case "$1" in
 remove | upgrade | deconfigure)
-	echo "INFO: Cleaning up distiller-sdk..."
-
 	# Remove virtual environment
 	[ -d "/opt/distiller-sdk/.venv" ] && rm -rf /opt/distiller-sdk/.venv
 
 	# Remove generated files
-	rm -f /opt/distiller-sdk/uv.lock 2>/dev/null || true
 	rm -f /opt/distiller-sdk/.python-version 2>/dev/null || true
 	rm -f /opt/distiller-sdk/activate.sh 2>/dev/null || true
 	rm -f /opt/distiller-sdk/eink.conf 2>/dev/null || true
@@ -26,30 +20,21 @@ remove | upgrade | deconfigure)
 	[ -L "/usr/lib/libdistiller_display_sdk_shared.so" ] &&
 		rm -f /usr/lib/libdistiller_display_sdk_shared.so
 
-	echo "INFO: distiller-sdk cleanup completed"
+	# Clean up uv cache to save disk space
+	uv cache clean || true
 	;;
 
 purge)
-	echo "INFO: Purging distiller-sdk completely..."
-
 	# Remove the entire installation directory
-	[ -d "/opt/distiller-cm5-sdk" ] && rm -rf /opt/distiller-cm5-sdk
 	[ -d "/opt/distiller-sdk" ] && rm -rf /opt/distiller-sdk
 
 	# Clean up temporary files
 	find /tmp -maxdepth 1 -name 'distiller-*' -type f -delete 2>/dev/null || true
 	find /var/run -maxdepth 1 -name 'distiller-*' -type f -delete 2>/dev/null || true
 	find /var/lock -maxdepth 1 -name 'distiller-*' -type f -delete 2>/dev/null || true
-
-	# Ensure shared library symlink is removed
-	rm -f /usr/lib/libdistiller_display_sdk_shared.so 2>/dev/null || true
-
-	echo "INFO: distiller-sdk purged successfully"
 	;;
 
-failed-upgrade | abort-install | abort-upgrade | disappear)
-	# No action needed
-	;;
+failed-upgrade | abort-install | abort-upgrade | disappear) ;;
 
 *)
 	echo "ERROR: postrm called with unknown argument \`$1'" >&2

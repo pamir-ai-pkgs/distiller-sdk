@@ -27,3 +27,6 @@ distiller-sdk: unusual-interpreter *
 
 # Intentional directory structure for models and Rust source code
 distiller-sdk: repeated-path-segment *
+
+# postinst sources platform-detect.sh 
+distiller-sdk: possible-bashism-in-maintainer-script

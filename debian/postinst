@@ -10,14 +10,15 @@ PLATFORM_DETECT_SCRIPT="/opt/distiller-sdk/platform-detect.sh"
 	echo "ERROR: Platform detection script not found: $PLATFORM_DETECT_SCRIPT" >&2
 	exit 1
 }
-source "$PLATFORM_DETECT_SCRIPT"
+if ! source "$PLATFORM_DETECT_SCRIPT"; then
+	echo "ERROR: Failed to source platform detection script" >&2
+	exit 1
+fi
 
 # Main installation logic
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ]; then
 	# Remove old distiller-cm5-sdk installation completely
 	[ -d "/opt/distiller-cm5-sdk" ] && rm -rf /opt/distiller-cm5-sdk
-
-	echo "INFO: Setting up Distiller SDK..."
 
 	# Detect platform for hardware configuration
 	PLATFORM=$(detect_platform)
@@ -47,8 +48,15 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 		}
 	fi
 
-	# Install dependencies
-	uv sync
+	# Install dependencies with production settings
+	export UV_COMPILE_BYTECODE=1
+	export UV_NO_CACHE=1
+	export UV_LINK_MODE=copy
+
+	# Use --frozen to use lockfile exactly as packaged
+	# Use --no-editable for production install
+	# Use --compile-bytecode for faster startup times
+	uv sync --frozen --no-editable --compile-bytecode
 
 	VENV_PATH="/opt/distiller-sdk/.venv"
 
@@ -77,17 +85,6 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 		exit 1
 	fi
 
-	# Create activation script
-	cat >/opt/distiller-sdk/activate.sh <<'EOF'
-#!/bin/bash
-# Activate the distiller-sdk virtual environment
-source /opt/distiller-sdk/.venv/bin/activate
-export PYTHONPATH="/opt/distiller-sdk/src:$PYTHONPATH"
-export LD_LIBRARY_PATH="/opt/distiller-sdk/lib:$LD_LIBRARY_PATH"
-echo "Distiller SDK environment activated"
-EOF
-	chmod 755 /opt/distiller-sdk/activate.sh
-
 	# Platform-specific device checks
 	if [ "$PLATFORM" = "radxa" ]; then
 		[ -e "$SPI_DEVICE" ] || {
@@ -103,15 +100,5 @@ EOF
 		[ -e "$GPIO_CHIP" ] || echo "WARNING: $GPIO_CHIP not found!"
 	fi
 
-	echo ""
-	echo "============================================="
-	echo "Distiller SDK installed successfully!"
-	echo "============================================="
-	echo ""
-	echo "Platform: $PLATFORM_DESC"
-	echo "Config: /opt/distiller-sdk/eink.conf"
-	echo ""
-	echo "To activate the environment, run:"
-	echo "  source /opt/distiller-sdk/activate.sh"
-	echo ""
+	echo "INFO: Distiller SDK installed successfully!"
 fi

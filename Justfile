@@ -7,7 +7,7 @@ setup:
 clean:
     rm -rf debian/.debhelper debian/files debian/*.log debian/*.substvars debian/distiller-sdk debian/debhelper-build-stamp dist
     rm -f ../*.deb ../*.dsc ../*.tar.* ../*.changes ../*.buildinfo ../*.build
-    rm -rf build *.egg-info .venv uv.lock
+    rm -rf build *.egg-info .venv
     find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
     find . -type f -name "*.pyc" -delete 2>/dev/null || true
     rm -rf src/distiller_sdk/hardware/eink/lib/target

@@ -3,11 +3,13 @@ src opt/distiller-sdk/
 
 # Install configuration files
 pyproject.toml opt/distiller-sdk/
+uv.lock opt/distiller-sdk/
 README.md opt/distiller-sdk/
 configs opt/distiller-sdk/
 
 # Install platform detection helper script
-platform-detect.sh opt/distiller-sdk/
+debian/platform-detect.sh opt/distiller-sdk/
+debian/activate.sh opt/distiller-sdk/
 
 # Install the ARM64 shared library
 src/distiller_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so opt/distiller-sdk/lib/
