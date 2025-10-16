@@ -10,7 +10,7 @@
 validate_platform() {
 	local platform="$1"
 	case "$platform" in
-	cm5 | radxa | armbian | unknown)
+	cm5 | radxa | armbian | armsom-rk3576 | unknown)
 		return 0
 		;;
 	*)
@@ -63,6 +63,9 @@ detect_platform() {
 		elif echo "$compat" | grep -q -e "radxa,zero3" -e "rockchip,rk3566"; then
 			echo "radxa"
 			return
+		elif echo "$compat" | grep -q -e "armsom,cm5-io" -e "rockchip,rk3576"; then
+			echo "armsom-rk3576"
+			return
 		fi
 	fi
 
@@ -73,7 +76,7 @@ get_spi_device() {
 	local platform="${1:-$(detect_platform)}"
 
 	case "$platform" in
-	armbian | radxa)
+	armbian | radxa | armsom-rk3576)
 		echo "/dev/spidev3.0"
 		;;
 	cm5)
@@ -92,6 +95,9 @@ get_gpio_chip() {
 	armbian | radxa)
 		echo "/dev/gpiochip3"
 		;;
+	armsom-rk3576)
+		echo "/dev/gpiochip4"
+		;;
 	cm5)
 		echo "/dev/gpiochip0"
 		;;
@@ -107,6 +113,10 @@ get_gpio_pins() {
 	case "$platform" in
 	armbian | radxa)
 		echo "dc_pin=8 rst_pin=2 busy_pin=1"
+		;;
+	armsom-rk3576)
+		# TODO: Determine actual GPIO pins for e-ink display
+		echo "dc_pin=TODO rst_pin=TODO busy_pin=TODO"
 		;;
 	cm5)
 		echo "dc_pin=7 rst_pin=13 busy_pin=9"
@@ -124,6 +134,9 @@ get_config_file() {
 	armbian | radxa)
 		echo "/opt/distiller-sdk/configs/radxa-zero3.conf"
 		;;
+	armsom-rk3576)
+		echo "/opt/distiller-sdk/configs/armsom-rk3576.conf"
+		;;
 	cm5)
 		echo "/opt/distiller-sdk/configs/cm5.conf"
 		;;
@@ -139,6 +152,9 @@ get_platform_description() {
 	case "$platform" in
 	armbian | radxa)
 		echo "Radxa Zero 3/3W (RK3566)"
+		;;
+	armsom-rk3576)
+		echo "ArmSom CM5 IO (RK3576)"
 		;;
 	cm5)
 		echo "Raspberry Pi CM5"
