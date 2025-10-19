@@ -1,3 +1,17 @@
+distiller-sdk (3.1.0) unstable; urgency=medium
+
+  [ utsavbalar1231 ]
+  * feat(led): implement missing LED animations and triggers
+  * style: resolve all ruff and mypy linting errors
+  * feat(sdk): add centralized version management using importlib.metadata
+  * build(Justfile): skip dependency checking during package build
+  * build(debian): remove setuptools build artifacts from package
+  * build(debian): set distiller user ownership in postinst
+  * build(debian): preserve activate.sh during package removal
+  * chore(.gitignore): avoid tracking Cargo.lock file
+
+ -- PamirAI Incorporated <founders@pamir.ai>  Mon, 20 Oct 2025 01:58:47 +0530
+
 distiller-sdk (3.0.0) unstable; urgency=medium
 
   [ utsavbalar1231 ]
