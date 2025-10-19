@@ -12,11 +12,10 @@ The module wraps the Linux sysfs interface for the SAM driver.
 
 from .led import LED, LEDError, create_led_with_sudo
 
-__all__ = ["LED", "LEDError", "create_led_with_sudo"]
-
-# Version information
-__version__ = "3.0.0"
+__all__ = ["LED", "LEDError", "create_led_with_sudo", "__version__"]
 
 # Module metadata
+from distiller_sdk import __version__
+
 __author__ = "Distiller SDK Team"
 __description__ = "SAM hardware control module with sysfs-based RGB LED support"
