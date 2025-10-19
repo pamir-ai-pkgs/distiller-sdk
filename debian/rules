@@ -17,6 +17,12 @@ override_dh_auto_build:
 override_dh_auto_install:
 	dh_auto_install
 
+	# Clean up setuptools build artifacts that shouldn't be packaged
+	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/build
+	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/src/distiller_sdk.egg-info
+	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/bin
+	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/models
+
 	# Post-install cleanup and library linking
 	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/src/distiller_sdk/hardware/eink/lib
 	mkdir -p $(CURDIR)/debian/distiller-sdk/usr/lib
