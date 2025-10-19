@@ -1,4 +1,4 @@
-from audio import Audio
+from distiller_sdk.hardware.audio import Audio
 import time
 
 print("Testing static methods:")
@@ -8,7 +8,9 @@ print(f"Current speaker volume: {Audio.get_speaker_volume_static()}")
 # Set values using static methods
 Audio.set_mic_gain_static(70)
 Audio.set_speaker_volume_static(75)
-print(f"After static update - mic gain: {Audio.get_mic_gain_static()}, speaker volume: {Audio.get_speaker_volume_static()}")
+print(
+    f"After static update - mic gain: {Audio.get_mic_gain_static()}, speaker volume: {Audio.get_speaker_volume_static()}"
+)
 
 print("\nTesting instance methods:")
 audio = Audio(auto_check_config=True)
@@ -18,7 +20,7 @@ if audio.check_system_config():
 else:
     print("System config is Not Configured")
 
-    
+
 audio.play("test_audio.wav")
 audio.set_speaker_volume(60)
 print(f"Speaker volume: {audio.get_speaker_volume()}")
@@ -33,5 +35,3 @@ time.sleep(5)
 audio.stop_playback()
 
 audio.close()
-
-

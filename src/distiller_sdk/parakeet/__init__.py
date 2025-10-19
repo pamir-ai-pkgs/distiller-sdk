@@ -1,1 +1,1 @@
-from .parakeet import Parakeet
+from .parakeet import Parakeet as Parakeet

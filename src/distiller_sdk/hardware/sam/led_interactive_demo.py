@@ -21,7 +21,7 @@ Features demonstrated:
 import time
 import sys
 import signal
-from led import LED, LEDError, create_led_with_sudo
+from distiller_sdk.hardware.sam import LEDError, create_led_with_sudo
 
 
 class InteractiveLEDDemo:
@@ -31,52 +31,50 @@ class InteractiveLEDDemo:
         """Initialize the demo."""
         self.led = None
         self.available_leds = []
-        
+
     def wait_for_enter(self, message="Press Enter to continue..."):
         """Wait for user to press Enter."""
         try:
             input(f"\n💡 {message}")
         except KeyboardInterrupt:
             raise KeyboardInterrupt
-    
+
     def print_section(self, title, description=""):
         """Print a formatted section header."""
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"🎯 {title}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         if description:
             print(f"📝 {description}")
-    
+
     def demo_initialization(self):
         """Demo 1: LED initialization and discovery."""
         self.print_section(
-            "Demo 1: LED Initialization", 
-            "Discovering available LEDs and setting up sudo mode"
+            "Demo 1: LED Initialization", "Discovering available LEDs and setting up sudo mode"
         )
-        
+
         print("🔧 Initializing LED module with sudo mode...")
         self.led = create_led_with_sudo()
         print("✅ LED module initialized successfully!")
-        
+
         self.available_leds = self.led.get_available_leds()
         print(f"🔍 Discovered LEDs: {self.available_leds}")
         print(f"📊 Total LEDs found: {len(self.available_leds)}")
-        
+
         if not self.available_leds:
             raise LEDError("❌ No LEDs found! Check if the SAM driver is loaded.")
-        
+
         self.wait_for_enter("Ready to test RGB colors?")
-    
+
     def demo_rgb_colors(self):
         """Demo 2: RGB color control."""
         self.print_section(
-            "Demo 2: RGB Color Control", 
-            "Testing primary and secondary colors on LED 0"
+            "Demo 2: RGB Color Control", "Testing primary and secondary colors on LED 0"
         )
-        
+
         led_id = self.available_leds[0]
         print(f"🎨 Testing RGB colors on LED {led_id}...")
-        
+
         colors = [
             (255, 0, 0, "🔴 Red"),
             (0, 255, 0, "🟢 Green"),
@@ -89,33 +87,33 @@ class InteractiveLEDDemo:
             (128, 64, 0, "🤎 Brown"),
             (0, 128, 64, "🟢 Forest Green"),
         ]
-        
+
         for red, green, blue, name in colors:
             print(f"Setting {name} - RGB({red}, {green}, {blue})")
             self.led.set_rgb_color(led_id, red, green, blue)
             self.led.set_brightness(led_id, 200)
-            
+
             # Verify the color was set
             current = self.led.get_rgb_color(led_id)
             print(f"  ✓ Verified: RGB{current}")
             time.sleep(0.8)
-        
+
         self.wait_for_enter("Ready to test brightness control?")
-    
+
     def demo_brightness_control(self):
         """Demo 3: Brightness control."""
         self.print_section(
-            "Demo 3: Brightness Control", 
-            "Demonstrating brightness levels while preserving color ratios"
+            "Demo 3: Brightness Control",
+            "Demonstrating brightness levels while preserving color ratios",
         )
-        
+
         led_id = self.available_leds[0]
         print(f"💡 Testing brightness control on LED {led_id}...")
-        
+
         # Set a nice purple color
         self.led.set_rgb_color(led_id, 128, 0, 255)
         print("🟣 Set base color: Purple RGB(128, 0, 255)")
-        
+
         brightness_levels = [
             (255, "🌟 Maximum (100%)"),
             (192, "☀️ High (75%)"),
@@ -125,23 +123,23 @@ class InteractiveLEDDemo:
             (0, "⚫ Off (0%)"),
             (128, "🌤️ Back to Medium"),
         ]
-        
+
         for brightness, description in brightness_levels:
             print(f"Setting brightness: {description} - {brightness}/255")
             self.led.set_brightness(led_id, brightness)
-            
+
             # Verify brightness was set
             current = self.led.get_brightness(led_id)
             print(f"  ✓ Verified: {current}/255")
             time.sleep(1.2)
-        
+
         self.wait_for_enter("Ready to test multi-LED static control?")
-    
+
     def demo_multi_led_control(self):
         """Demo 4: Multi-LED control with animations."""
         self.print_section(
             "Demo 4: Multi-LED Control with Animations",
-            "Setting different animations on multiple LEDs simultaneously"
+            "Setting different animations on multiple LEDs simultaneously",
         )
 
         if len(self.available_leds) == 1:
@@ -162,7 +160,9 @@ class InteractiveLEDDemo:
                 time.sleep(3)
 
         else:
-            print(f"Setting different animations on {len(self.available_leds)} LEDs simultaneously...")
+            print(
+                f"Setting different animations on {len(self.available_leds)} LEDs simultaneously..."
+            )
 
             # Define animations for multiple LEDs
             animations = [
@@ -199,7 +199,7 @@ class InteractiveLEDDemo:
         """Demo 5: Animation modes with kernel-based looping."""
         self.print_section(
             "Demo 5: Animation Modes",
-            "Testing blink, fade, and rainbow modes with different timings"
+            "Testing blink, fade, and rainbow modes with different timings",
         )
 
         led_id = self.available_leds[0]
@@ -302,8 +302,7 @@ class InteractiveLEDDemo:
     def demo_led_triggers(self):
         """Demo 6: Linux LED triggers."""
         self.print_section(
-            "Demo 6: LED Triggers",
-            "Testing heartbeat-rgb, breathing-rgb, and rainbow-rgb triggers"
+            "Demo 6: LED Triggers", "Testing heartbeat-rgb, breathing-rgb, and rainbow-rgb triggers"
         )
 
         led_id = self.available_leds[0]
@@ -389,8 +388,7 @@ class InteractiveLEDDemo:
     def demo_timing_control(self):
         """Demo 7: Dynamic timing changes."""
         self.print_section(
-            "Demo 7: Dynamic Timing Control",
-            "Changing animation timing while running"
+            "Demo 7: Dynamic Timing Control", "Changing animation timing while running"
         )
 
         led_id = self.available_leds[0]
@@ -472,21 +470,20 @@ class InteractiveLEDDemo:
     def demo_convenience_methods(self):
         """Demo 8: Convenience methods."""
         self.print_section(
-            "Demo 8: Convenience Methods",
-            "Testing bulk operations and helper functions"
+            "Demo 8: Convenience Methods", "Testing bulk operations and helper functions"
         )
-        
+
         if len(self.available_leds) > 1:
             print(f"🎯 Testing bulk operations on {len(self.available_leds)} LEDs...")
-            
+
             print("🌟 Using set_color_all() - All LEDs to white")
             self.led.set_color_all(255, 255, 255)
             time.sleep(1.5)
-            
+
             print("🔅 Using set_brightness_all() - All LEDs to 30%")
             self.led.set_brightness_all(76)
             time.sleep(1.5)
-            
+
             print("🎨 Setting different colors individually...")
             colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
             for i, led_id in enumerate(self.available_leds[:4]):
@@ -495,30 +492,27 @@ class InteractiveLEDDemo:
                     self.led.set_rgb_color(led_id, r, g, b)
                     print(f"  LED {led_id}: RGB({r}, {g}, {b})")
             time.sleep(2)
-            
+
             print("⚫ Using turn_off_all() - All LEDs off")
             self.led.turn_off_all()
             time.sleep(1)
         else:
             print("ℹ️ Single LED system - testing individual convenience methods...")
             led_id = self.available_leds[0]
-            
+
             print(f"🔸 static_led() - Static purple on LED {led_id}")
             self.led.static_led(led_id, 128, 0, 255)
             time.sleep(1.5)
-            
+
             print(f"⚫ turn_off() - Turn off LED {led_id}")
             self.led.turn_off(led_id)
             time.sleep(1)
-        
+
         self.wait_for_enter("Ready to test error handling?")
-    
+
     def demo_error_handling(self):
         """Demo 9: Error handling."""
-        self.print_section(
-            "Demo 9: Error Handling",
-            "Testing input validation and error messages"
-        )
+        self.print_section("Demo 9: Error Handling", "Testing input validation and error messages")
 
         valid_led = self.available_leds[0]
         print("Testing error handling and validation...")
@@ -529,10 +523,16 @@ class InteractiveLEDDemo:
             ("Invalid RGB value (<0)", lambda: self.led.set_rgb_color(valid_led, -10, 0, 0)),
             ("Invalid brightness (>255)", lambda: self.led.set_brightness(valid_led, 300)),
             ("Invalid brightness (<0)", lambda: self.led.set_brightness(valid_led, -50)),
-            ("Invalid animation mode", lambda: self.led.set_animation_mode(valid_led, "invalid_mode")),
+            (
+                "Invalid animation mode",
+                lambda: self.led.set_animation_mode(valid_led, "invalid_mode"),
+            ),
             ("Invalid trigger", lambda: self.led.set_trigger(valid_led, "invalid-trigger")),
             ("Invalid blink timing (<100ms)", lambda: self.led.blink_led(valid_led, 255, 0, 0, 50)),
-            ("Invalid blink timing (>1000ms)", lambda: self.led.blink_led(valid_led, 255, 0, 0, 1500)),
+            (
+                "Invalid blink timing (>1000ms)",
+                lambda: self.led.blink_led(valid_led, 255, 0, 0, 1500),
+            ),
             ("Invalid fade timing", lambda: self.led.fade_led(valid_led, 0, 255, 0, 2000)),
             ("Invalid rainbow timing", lambda: self.led.rainbow_led(valid_led, 50)),
         ]
@@ -547,64 +547,60 @@ class InteractiveLEDDemo:
                 print(f"WARN: {description}: Unexpected error type - {type(e).__name__}: {e}")
 
         self.wait_for_enter("Ready to test sudo mode switching?")
-    
+
     def demo_sudo_mode(self):
         """Demo 10: Sudo mode switching."""
         self.print_section(
-            "Demo 10: Sudo Mode Management",
-            "Testing sudo mode switching functionality"
+            "Demo 10: Sudo Mode Management", "Testing sudo mode switching functionality"
         )
-        
+
         print("🔐 Testing sudo mode switching...")
-        
+
         original_mode = self.led.use_sudo
         print(f"📊 Current sudo mode: {original_mode}")
-        
+
         # Switch mode
         new_mode = not original_mode
         print(f"🔄 Switching to sudo mode: {new_mode}")
         self.led.set_sudo_mode(new_mode)
-        
+
         if self.led.use_sudo == new_mode:
             print("✅ Sudo mode successfully changed")
         else:
             print("❌ Failed to change sudo mode")
-        
+
         # Switch back
         print(f"🔄 Restoring original sudo mode: {original_mode}")
         self.led.set_sudo_mode(original_mode)
         print(f"📊 Final sudo mode: {self.led.use_sudo}")
-        
+
         self.wait_for_enter("Ready for the final cleanup demo?")
-    
+
     def demo_cleanup(self):
         """Demo 11: Cleanup and summary."""
-        self.print_section(
-            "Demo 11: Cleanup & Summary",
-            "Proper cleanup and demonstration summary"
-        )
-        
+        self.print_section("Demo 11: Cleanup & Summary", "Proper cleanup and demonstration summary")
+
         print("🧹 Performing comprehensive cleanup...")
-        
+
         # Turn off all LEDs
         print(f"⚫ Turning off all {len(self.available_leds)} LEDs...")
         self.led.turn_off_all()
-        
+
         print("\nDemo Summary:")
         print(f"  LED count: {len(self.available_leds)}")
-        print(f"  RGB colors: Primary and secondary colors")
-        print(f"  Brightness: Multiple levels (0-255)")
-        print(f"  Animations: Blink, fade, rainbow modes")
-        print(f"  LED triggers: Heartbeat, breathing, rainbow")
-        print(f"  Timing control: Dynamic timing changes (100-1000ms)")
-        print(f"  Multi-LED: Individual and bulk operations")
-        print(f"  Convenience: Helper functions")
-        print(f"  Error handling: Input validation")
-        print(f"  Sudo mode: Permission management")
-        print(f"  Cleanup: Proper resource cleanup")
+        print("  RGB colors: Primary and secondary colors")
+        print("  Brightness: Multiple levels (0-255)")
+        print("  Animations: Blink, fade, rainbow modes")
+        print("  LED triggers: Heartbeat, breathing, rainbow")
+        print("  Timing control: Dynamic timing changes (100-1000ms)")
+        print("  Multi-LED: Individual and bulk operations")
+        print("  Convenience: Helper functions")
+        print("  Error handling: Input validation")
+        print("  Sudo mode: Permission management")
+        print("  Cleanup: Proper resource cleanup")
 
         print("\nAll LED functionality demonstrated successfully!")
-    
+
     def run_full_demo(self):
         """Run the complete interactive demo."""
         print("Interactive LED Demo and Test Suite")
@@ -617,17 +613,17 @@ class InteractiveLEDDemo:
             self.wait_for_enter("Ready to start the LED demo?")
 
             # Run all demo sections
-            self.demo_initialization()              # Demo 1
-            self.demo_rgb_colors()                  # Demo 2
-            self.demo_brightness_control()          # Demo 3
-            self.demo_multi_led_control()           # Demo 4 - Updated with animations
-            self.demo_animation_modes()             # Demo 5 - NEW
-            self.demo_led_triggers()                # Demo 6 - NEW
-            self.demo_timing_control()              # Demo 7 - NEW
-            self.demo_convenience_methods()         # Demo 8
-            self.demo_error_handling()              # Demo 9
-            self.demo_sudo_mode()                   # Demo 10
-            self.demo_cleanup()                     # Demo 11
+            self.demo_initialization()  # Demo 1
+            self.demo_rgb_colors()  # Demo 2
+            self.demo_brightness_control()  # Demo 3
+            self.demo_multi_led_control()  # Demo 4 - Updated with animations
+            self.demo_animation_modes()  # Demo 5 - NEW
+            self.demo_led_triggers()  # Demo 6 - NEW
+            self.demo_timing_control()  # Demo 7 - NEW
+            self.demo_convenience_methods()  # Demo 8
+            self.demo_error_handling()  # Demo 9
+            self.demo_sudo_mode()  # Demo 10
+            self.demo_cleanup()  # Demo 11
 
             print("\nDemo completed successfully!")
             print("Thank you for trying the LED module!")
@@ -643,7 +639,7 @@ class InteractiveLEDDemo:
         except Exception as e:
             print(f"\nUnexpected error: {e}")
             self.cleanup_on_exit()
-    
+
     def cleanup_on_exit(self):
         """Cleanup when exiting unexpectedly."""
         if self.led and self.available_leds:
@@ -651,26 +647,27 @@ class InteractiveLEDDemo:
             try:
                 self.led.turn_off_all()
                 print("✅ Cleanup completed")
-            except:
+            except Exception:
                 print("⚠️ Cleanup failed - LEDs may still be active")
 
 
 def main():
     """Main function."""
+
     # Set up signal handler for clean exit
     def signal_handler(sig, frame):
         print("\n🛑 Received exit signal...")
         sys.exit(0)
-    
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+
     # Run the demo
     demo = InteractiveLEDDemo()
     demo.run_full_demo()
-    
+
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())

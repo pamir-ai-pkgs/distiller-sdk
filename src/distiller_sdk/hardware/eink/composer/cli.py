@@ -4,22 +4,25 @@ import sys
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING
 
 from .composer import EinkComposer
 
 # Try to import hardware display support
-try:
-    sys.path.insert(0, "/opt/distiller-sdk/src")
+if TYPE_CHECKING:
     from distiller_sdk.hardware.eink import Display, DisplayMode, ScalingMethod, DitheringMethod
+else:
+    try:
+        sys.path.insert(0, "/opt/distiller-sdk/src")
+        from distiller_sdk.hardware.eink import Display, DisplayMode, ScalingMethod, DitheringMethod
 
-    HARDWARE_AVAILABLE = True
-except ImportError:
-    HARDWARE_AVAILABLE = False
-    Display = None
-    DisplayMode = None
-    ScalingMethod = None
-    DitheringMethod = None
+        HARDWARE_AVAILABLE = True
+    except ImportError:
+        HARDWARE_AVAILABLE = False
+        Display = None  # type: ignore
+        DisplayMode = None  # type: ignore
+        ScalingMethod = None  # type: ignore
+        DitheringMethod = None  # type: ignore
 
 
 def create_parser():

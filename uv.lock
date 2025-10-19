@@ -256,6 +256,12 @@ dependencies = [
     { name = "spidev" },
 ]
 
+[package.optional-dependencies]
+dev = [
+    { name = "types-pyaudio" },
+    { name = "types-qrcode" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "build", specifier = ">=1.2.2.post1" },
@@ -268,7 +274,10 @@ requires-dist = [
     { name = "sounddevice", specifier = ">=0.5.2" },
     { name = "soundfile", specifier = ">=0.13.1" },
     { name = "spidev", specifier = ">=3.7" },
+    { name = "types-pyaudio", marker = "extra == 'dev'" },
+    { name = "types-qrcode", marker = "extra == 'dev'" },
 ]
+provides-extras = ["dev"]
 
 [[package]]
 name = "faster-whisper"
@@ -845,6 +854,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737, upload-time = "2024-11-24T20:12:22.481Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/30/dc54f88dd4a2b5dc8a0279bdd7270e735851848b762aeb1c1184ed1f6b14/tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2", size = 78540, upload-time = "2024-11-24T20:12:19.698Z" },
+]
+
+[[package]]
+name = "types-pyaudio"
+version = "0.2.16.20250801"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/35/cf/d3e3457dcbc6292aa8f472c15d805dcb5c07c57a5037168d52197aecac1c/types_pyaudio-0.2.16.20250801.tar.gz", hash = "sha256:c6ff1b9681f67c1f14d8d86804b99fe5b1fa79f88c5a1ec0367fccfc183e095d", size = 9729, upload-time = "2025-08-01T03:48:36.441Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e0/dc/34727c5464ac7c72db569b0c9787303d13374667dc74568f46b4086a3943/types_pyaudio-0.2.16.20250801-py3-none-any.whl", hash = "sha256:1b6d293e0d511108b1d13575868e87fba6ea9056900aee4f8440e0fdc89f9f75", size = 8808, upload-time = "2025-08-01T03:48:35.331Z" },
+]
+
+[[package]]
+name = "types-qrcode"
+version = "8.2.0.20250914"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a6/1b/b662d2baa355df5739ca084b0d959a5ce8d0e1bea742ee3e027372f89a56/types_qrcode-8.2.0.20250914.tar.gz", hash = "sha256:fc82e0112095c60c0ef3e403ab2a604a9ae1929c70fb0e708bc1ebfe8ca5c45e", size = 14988, upload-time = "2025-09-14T02:56:59.106Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/46/47/9105e9949a83789b6982bcbab4874ce7804f74fd27e6ab83d0186805b0aa/types_qrcode-8.2.0.20250914-py3-none-any.whl", hash = "sha256:6b992d62f05c2df0422507c5307ddd969c0a4d2ab23863c4217f96226710c308", size = 19849, upload-time = "2025-09-14T02:56:58.353Z" },
 ]
 
 [[package]]

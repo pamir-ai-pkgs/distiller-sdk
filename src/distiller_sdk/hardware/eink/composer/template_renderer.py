@@ -9,7 +9,7 @@ import os
 import tempfile
 import qrcode
 import numpy as np
-import cv2
+import cv2  # type: ignore
 
 from . import EinkComposer
 
@@ -159,8 +159,9 @@ class TemplateRenderer:
 
         # Store temp file for cleanup
         if not hasattr(composer, "_temp_files"):
-            composer._temp_files = []
-        composer._temp_files.append(temp_path)
+            setattr(composer, "_temp_files", [])
+        temp_files: list = getattr(composer, "_temp_files")
+        temp_files.append(temp_path)
 
     def _add_regular_layer(self, composer: EinkComposer, layer_data: dict):
         """Add regular (non-placeholder) layer using EinkComposer."""
@@ -219,12 +220,13 @@ class TemplateRenderer:
     def _cleanup_temp_files(self, composer: EinkComposer):
         """Clean up temporary files created during rendering."""
         if hasattr(composer, "_temp_files"):
-            for temp_file in composer._temp_files:
+            temp_files: list = getattr(composer, "_temp_files")
+            for temp_file in temp_files:
                 try:
                     os.remove(temp_file)
                 except OSError:
                     pass
-            composer._temp_files.clear()
+            temp_files.clear()
 
     def render_and_save(self, ip_address: str, tunnel_url: str, output_path: str) -> str:
         """

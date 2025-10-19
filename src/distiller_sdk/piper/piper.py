@@ -7,8 +7,7 @@ from distiller_sdk.hardware.audio.audio import Audio
 from distiller_sdk import get_model_path
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("Piper")
 
@@ -24,7 +23,7 @@ class Piper:
             model_path = get_model_path("piper")
         if piper_path is None:
             piper_path = os.path.join(model_path, "piper")
-        
+
         self.model_path = model_path
         self.piper_path = piper_path
         self.voice_onnx = os.path.join(self.model_path, "en_US-amy-medium.onnx")
@@ -55,7 +54,7 @@ class Piper:
                 "language": "English (US)",
                 "quality": "medium",
                 "model_path": self.voice_onnx,
-                "config_path": self.voice_json
+                "config_path": self.voice_json,
             }
         ]
         logger.info(f"Piper: Available voices: {[v['name'] for v in voices]}")
@@ -73,20 +72,20 @@ class Piper:
         except subprocess.CalledProcessError as e:
             logger.error(f"Piper: Error running piper command: {e.stderr}")
             raise ValueError(f"Piper: Error running piper command: {e.stderr}")
-    
+
     def find_hw_by_name(self, card_name):
         try:
-            result = subprocess.run(['aplay', '-l'], capture_output=True, text=True, check=True)
+            result = subprocess.run(["aplay", "-l"], capture_output=True, text=True, check=True)
             lines = result.stdout.splitlines()
-            
+
             for line in lines:
-                if 'card' in line and card_name in line:
-                    match = re.search(r'card (\d+):', line)
+                if "card" in line and card_name in line:
+                    match = re.search(r"card (\d+):", line)
                     if match:
                         card_num = match.group(1)
                         logger.info(f"Piper: Found sound card '{card_name}' with number {card_num}")
                         return card_num
-            
+
             logger.warning(f"Piper: Sound card '{card_name}' not found, defaulting to card 0")
             return "0"  # Default fallback
         except Exception as e:
@@ -99,12 +98,12 @@ class Piper:
             raise ValueError("Piper: The volume level is not within the range of 0-100.")
 
         Audio.set_speaker_volume_static(volume)
-        
+
         # Find sound card by name if provided
         hw_num = "0"  # Default
         if sound_card_name:
             hw_num = self.find_hw_by_name(sound_card_name)
-        
+
         # Escape single quotes in text to prevent shell syntax errors
         escaped_text = text.replace("'", "'\\''")
         command = f"""echo '{escaped_text}' | sudo {self.piper} --model {self.voice_onnx} --config {self.voice_json} --output-raw | aplay -D plughw:{hw_num} -r 22050 -f S16_LE -t raw"""
@@ -117,10 +116,10 @@ class Piper:
             raise ValueError(f"Piper: Error streaming audio: {str(e)}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     piper = Piper()
     text_t = "Hello, this is a test."
     output_file_path_t = piper.get_wav_file_path(text_t)
-    print("output_file_path:",output_file_path_t)
+    print("output_file_path:", output_file_path_t)
     # Example using the sound card by name
     piper.speak_stream(text_t, 30, "snd_rpi_pamir_ai_soundcard")

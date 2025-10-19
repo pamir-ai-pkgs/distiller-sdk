@@ -30,6 +30,12 @@ dependencies = [
   "spidev>=3.7",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "types-pyaudio",
+  "types-qrcode",
+]
+
 [tool.setuptools.packages.find]
 where = [ "src" ]
 

@@ -11,7 +11,7 @@ import os
 import time
 import subprocess
 import threading
-import cv2
+import cv2  # type: ignore
 import numpy as np
 import tempfile
 import shutil
@@ -68,7 +68,7 @@ class Camera:
         self.format = format.lower()
         self._camera = None
         self._is_streaming = False
-        self._stream_thread = None
+        self._stream_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._frame = None
         self._frame_lock = threading.Lock()

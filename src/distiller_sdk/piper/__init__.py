@@ -1,1 +1,1 @@
-from .piper import Piper
+from .piper import Piper as Piper

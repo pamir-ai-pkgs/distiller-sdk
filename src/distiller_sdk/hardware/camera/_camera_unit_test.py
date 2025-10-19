@@ -6,8 +6,8 @@ This script tests all available functions with a real camera and saves captured 
 
 import os
 import time
-import cv2
-from camera import Camera
+import cv2  # type: ignore
+from distiller_sdk.hardware.camera import Camera
 
 
 def main():

@@ -104,7 +104,6 @@ class Display:
         Raises:
             DisplayError: If library can't be loaded or display can't be initialized
         """
-        self._lib = None
         self._initialized = False
 
         # Find and load the shared library
@@ -115,7 +114,7 @@ class Display:
             raise DisplayError(f"Display library not found: {library_path}")
 
         try:
-            self._lib = ctypes.CDLL(library_path)
+            self._lib: ctypes.CDLL = ctypes.CDLL(library_path)
         except OSError as e:
             raise DisplayError(f"Failed to load display library: {e}")
 
@@ -384,8 +383,8 @@ class Display:
         flip_horizontal: bool = False,
         flip_vertical: bool = False,
         invert_colors: bool = False,
-        src_width: int = None,
-        src_height: int = None,
+        src_width: Optional[int] = None,
+        src_height: Optional[int] = None,
     ) -> None:
         """
         Display an image on the e-ink screen.

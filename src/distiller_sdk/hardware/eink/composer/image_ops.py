@@ -1,6 +1,6 @@
 import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
-from typing import Literal, Optional
+from typing import Literal, Optional, cast
 
 
 def resize_image(
@@ -92,14 +92,14 @@ def resize_image(
 def flip_horizontal(image: np.ndarray) -> np.ndarray:
     """Flip image horizontally (mirror left-right)."""
     pil_img = Image.fromarray(image, mode="L")
-    flipped = pil_img.transpose(Image.FLIP_LEFT_RIGHT)
+    flipped = pil_img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
     return np.array(flipped)
 
 
 def flip_vertical(image: np.ndarray) -> np.ndarray:
     """Flip image vertically (mirror top-bottom)."""
     pil_img = Image.fromarray(image, mode="L")
-    flipped = pil_img.transpose(Image.FLIP_TOP_BOTTOM)
+    flipped = pil_img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
     return np.array(flipped)
 
 
@@ -145,12 +145,12 @@ def adjust_brightness_contrast(
     Returns:
         Adjusted image
     """
-    pil_img = Image.fromarray(image, mode="L")
+    pil_img: Image.Image = Image.fromarray(image, mode="L")
 
     # Apply brightness
     if brightness != 1.0:
-        enhancer = ImageEnhance.Brightness(pil_img)
-        pil_img = enhancer.enhance(brightness)
+        brightness_enhancer = ImageEnhance.Brightness(pil_img)
+        pil_img = cast(Image.Image, brightness_enhancer.enhance(brightness))
 
     # Apply contrast
     # Convert contrast from (-100 to 100) scale to Pillow's scale
@@ -158,9 +158,9 @@ def adjust_brightness_contrast(
     if contrast != 0:
         # Map -100..100 to roughly 0..2 scale for Pillow
         contrast_factor = 1.0 + (contrast / 100.0)
-        contrast_factor = max(0, contrast_factor)  # Ensure non-negative
-        enhancer = ImageEnhance.Contrast(pil_img)
-        pil_img = enhancer.enhance(contrast_factor)
+        contrast_factor = max(0.0, contrast_factor)  # Ensure non-negative
+        contrast_enhancer = ImageEnhance.Contrast(pil_img)
+        pil_img = cast(Image.Image, contrast_enhancer.enhance(contrast_factor))
 
     return np.array(pil_img)
 

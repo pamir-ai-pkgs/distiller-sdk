@@ -8,7 +8,7 @@ import os
 import tempfile
 from unittest.mock import Mock, patch
 
-from display import (
+from distiller_sdk.hardware.eink import (
     Display,
     DisplayMode,
     get_display_info,

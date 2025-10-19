@@ -1,19 +1,16 @@
 import os
 import io
-from typing import Generator, Tuple, List, Optional
-from faster_whisper import WhisperModel
+from typing import Generator, Optional
+from faster_whisper import WhisperModel  # type: ignore
 import logging
-import numpy as np
-import pyaudio
+import pyaudio  # type: ignore
 import wave
 import threading
-import time
 
 from distiller_sdk.hardware.audio.audio import Audio
 from distiller_sdk import get_model_path
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class Whisper:
@@ -35,11 +32,12 @@ class Whisper:
             "model_size": model_config.get("model_size", "faster-distil-whisper-small.en"),
             "model_size_or_path": os.path.join(
                 model_config.get("model_hub_path", model_path),
-                model_config.get("model_size", "faster-distil-whisper-small.en")),
+                model_config.get("model_size", "faster-distil-whisper-small.en"),
+            ),
             "device": model_config.get("device", "cpu"),
             "compute_type": model_config.get("compute_type", "int8"),
             "beam_size": model_config.get("beam_size", 5),
-            "language": model_config.get("language", "en")
+            "language": model_config.get("language", "en"),
         }
         self.audio_config = {
             "channels": audio_config.get("channels", 1),
@@ -47,28 +45,29 @@ class Whisper:
             "chunk": audio_config.get("chunk", 1024),
             "record_secs": audio_config.get("record_secs", 3),
             "device": audio_config.get("device", None),  # None means default device
-            "format": audio_config.get("format", pyaudio.paInt16)
+            "format": audio_config.get("format", pyaudio.paInt16),
         }
 
         self.model = self.load_model()  # Load models once during initialization
         self._is_recording = False
-        self._audio_frames = []
-        self._audio_thread = None
-        self._pyaudio = None
-        self._stream = None
+        self._audio_frames: list[bytes] = []
+        self._audio_thread: Optional[threading.Thread] = None
+        self._pyaudio: Optional[pyaudio.PyAudio] = None
+        self._stream: Optional[pyaudio.Stream] = None
 
     def load_model(self):
         logging.info(f"Loading Whisper Model from {self.model_config['model_size_or_path']}")
         if not os.path.isfile(os.path.join(self.model_config["model_size_or_path"], "model.bin")):
             logging.error("Model not found")
             raise ValueError(
-                f"Whisper Model not found, please put whisper model in {self.model_config['model_size_or_path']}")
+                f"Whisper Model not found, please put whisper model in {self.model_config['model_size_or_path']}"
+            )
 
         with suppress_stdout_stderr():
             model = WhisperModel(
                 model_size_or_path=self.model_config["model_size_or_path"],
                 device=self.model_config["device"],
-                compute_type=self.model_config["compute_type"]
+                compute_type=self.model_config["compute_type"],
             )
 
         if model is None:
@@ -76,49 +75,51 @@ class Whisper:
             raise ValueError("Load Whisper Model error")
         return model
 
-    def transcribe(self, audio_path: str = None) -> Generator[str, None, None]:
+    def transcribe(self, audio_path: Optional[str] = None) -> Generator[str, None, None]:
         segments, info = self.model.transcribe(
             audio_path,
             beam_size=self.model_config["beam_size"],
-            language=self.model_config["language"]
+            language=self.model_config["language"],
         )
 
-        logging.info(f"Detected language '{info.language}' with probability {info.language_probability}")
+        logging.info(
+            f"Detected language '{info.language}' with probability {info.language_probability}"
+        )
 
         for segment in segments:
             logging.info(f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}")
             yield segment.text
-            
+
     def transcribe_buffer(self, audio_data: bytes) -> Generator[str, None, None]:
         """
         Transcribe audio from a WAV format byte buffer.
-        
+
         Args:
             audio_data: Audio data as bytes in WAV format
-            
+
         Returns:
             Generator yielding transcribed text segments
         """
         # Create in-memory file-like object
         buffer = io.BytesIO(audio_data)
-        
+
         segments, info = self.model.transcribe(
-            buffer,
-            beam_size=self.model_config["beam_size"],
-            language=self.model_config["language"]
+            buffer, beam_size=self.model_config["beam_size"], language=self.model_config["language"]
         )
 
-        logging.info(f"Detected language '{info.language}' with probability {info.language_probability}")
+        logging.info(
+            f"Detected language '{info.language}' with probability {info.language_probability}"
+        )
 
         for segment in segments:
             logging.info(f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}")
             yield segment.text
-    
+
     def _init_audio(self):
         """Initialize PyAudio instance and get device info if needed"""
         if self._pyaudio is None:
             self._pyaudio = pyaudio.PyAudio()
-            
+
         # If a specific device name was provided, find its index
         if isinstance(self.audio_config["device"], str):
             device_index = None
@@ -132,7 +133,7 @@ class Whisper:
                 self.audio_config["device"] = None
             else:
                 self.audio_config["device"] = device_index
-                
+
     def _recording_thread(self):
         """Thread function for audio recording"""
         while self._is_recording:
@@ -142,90 +143,93 @@ class Whisper:
             except Exception as e:
                 logging.error(f"Error recording audio: {e}")
                 break
-    
+
     def start_recording(self) -> bool:
         """
         Start recording audio (push-to-talk start).
-        
+
         Returns:
             True if recording started successfully, False otherwise
         """
         if self._is_recording:
             logging.warning("Already recording")
             return False
-            
+
         try:
             self._init_audio()
-            
+            assert self._pyaudio is not None  # Initialized by _init_audio()
+
             self._stream = self._pyaudio.open(
                 format=self.audio_config["format"],
                 channels=self.audio_config["channels"],
                 rate=self.audio_config["rate"],
                 input=True,
                 input_device_index=self.audio_config["device"],
-                frames_per_buffer=self.audio_config["chunk"]
+                frames_per_buffer=self.audio_config["chunk"],
             )
-            
+
             self._audio_frames = []
             self._is_recording = True
             self._audio_thread = threading.Thread(target=self._recording_thread)
             self._audio_thread.daemon = True
             self._audio_thread.start()
-            
+
             logging.info("Recording started")
             return True
         except Exception as e:
             logging.error(f"Failed to start recording: {e}")
             self._is_recording = False
             return False
-    
-    def stop_recording(self) -> bytes:
+
+    def stop_recording(self) -> Optional[bytes]:
         """
         Stop recording audio (push-to-talk end) and return the recorded audio as bytes.
-        
+
         Returns:
-            Audio data as bytes in WAV format
+            Audio data as bytes in WAV format, or None if no audio was recorded
         """
         if not self._is_recording:
             logging.warning("Not recording")
             return None
-            
+
         self._is_recording = False
         if self._audio_thread:
             self._audio_thread.join(timeout=1.0)
-            
+
         if self._stream:
             self._stream.stop_stream()
             self._stream.close()
             self._stream = None
-            
+
         logging.info("Recording stopped")
-        
+
         # Convert raw audio data to WAV format
         if not self._audio_frames:
             logging.warning("No audio recorded")
             return None
-            
+
+        assert self._pyaudio is not None  # Must be initialized if we recorded audio
+
         buffer = io.BytesIO()
-        with wave.open(buffer, 'wb') as wf:
+        with wave.open(buffer, "wb") as wf:
             wf.setnchannels(self.audio_config["channels"])
             wf.setsampwidth(self._pyaudio.get_sample_size(self.audio_config["format"]))
             wf.setframerate(self.audio_config["rate"])
-            wf.writeframes(b''.join(self._audio_frames))
-            
+            wf.writeframes(b"".join(self._audio_frames))
+
         return buffer.getvalue()
-    
+
     def cleanup(self):
         """Release PyAudio resources"""
         if self._pyaudio:
             self._pyaudio.terminate()
             self._pyaudio = None
-    
+
     def record_and_transcribe_ptt(self) -> Generator[str, None, None]:
         """
         Simple interactive push-to-talk demo.
         Press Enter to start recording, press Enter again to stop and transcribe.
-        
+
         Returns:
             Generator yielding transcribed text segments
         """
@@ -233,10 +237,10 @@ class Whisper:
             input("Press Enter to start recording...")
             if not self.start_recording():
                 return
-                
+
             input("Recording... Press Enter to stop...")
             audio_data = self.stop_recording()
-            
+
             if audio_data:
                 print("Transcribing...")
                 yield from self.transcribe_buffer(audio_data)
@@ -262,10 +266,10 @@ class suppress_stdout_stderr(object):
         os.close(self.null_fds[1])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Example usage with push-to-talk
     whisper = Whisper(model_config={"model_size": "faster-distil-whisper-small.en"})
-    
+
     print("=== Push-to-Talk Demo ===")
     try:
         input("Press Enter to start recording...")

@@ -1,5 +1,5 @@
 import numpy as np
-import cv2
+import cv2  # type: ignore
 from typing import List, Dict, Optional, Literal, Any
 from dataclasses import dataclass, field
 
@@ -243,7 +243,7 @@ class EinkComposer:
                         setattr(layer, key, value)
 
                 # Regenerate QR placeholder image if dimensions changed
-                if dimensions_changing:
+                if dimensions_changing and isinstance(layer, ImageLayer):
                     import numpy as np
 
                     width = layer.width or 70  # Default width if None

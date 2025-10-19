@@ -1,13 +1,11 @@
-import os
-import sys
-import time
 import subprocess
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 from pathlib import Path
 
 
 class LEDError(Exception):
     """Custom exception for LED-related errors."""
+
     pass
 
 
@@ -32,40 +30,40 @@ class LED:
     # Valid animation modes and timings supported by kernel driver
     VALID_MODES = ["static", "blink", "fade", "rainbow"]
     VALID_TIMINGS = [100, 200, 500, 1000]
-    
+
     def __init__(self, base_path: str = "/sys/class/leds", use_sudo: bool = False):
         """
         Initialize the LED module interface.
-        
+
         Args:
             base_path: Base path for LED sysfs interface (default: /sys/class/leds)
             use_sudo: Whether to use sudo for write operations (default: False)
-            
+
         Raises:
             LEDError: If the sysfs interface is not available or accessible
         """
         self.base_path = Path(base_path)
         self.use_sudo = use_sudo
-        
+
         # Check if sysfs interface exists
         if not self.base_path.exists():
             raise LEDError(f"LED sysfs interface not found at {base_path}")
-            
+
         # Discover available LEDs
         self.available_leds = self._discover_leds()
-        
+
         if not self.available_leds:
             raise LEDError("No compatible LEDs found (pamir:led* pattern)")
-    
+
     def _discover_leds(self) -> List[int]:
         """
         Discover available LEDs by scanning for pamir:led* directories.
-        
+
         Returns:
             List of LED numbers (e.g., [0, 1, 2] for led0, led1, led2)
         """
         leds = []
-        
+
         try:
             for item in self.base_path.iterdir():
                 if item.is_dir() and item.name.startswith("pamir:led"):
@@ -76,35 +74,35 @@ class LED:
                         continue
         except (OSError, PermissionError):
             pass
-            
+
         return sorted(leds)
-    
+
     def _get_led_path(self, led_id: int) -> Path:
         """
         Get the sysfs path for a specific LED.
-        
+
         Args:
             led_id: LED number (0, 1, 2, etc.)
-            
+
         Returns:
             Path to the LED's sysfs directory
-            
+
         Raises:
             LEDError: If LED ID is not available
         """
         if led_id not in self.available_leds:
             raise LEDError(f"LED {led_id} not available. Available LEDs: {self.available_leds}")
-            
+
         return self.base_path / f"pamir:led{led_id}"
-    
+
     def _write_sysfs_file(self, file_path: Path, value: str) -> None:
         """
         Write a value to a sysfs file.
-        
+
         Args:
             file_path: Path to sysfs file
             value: Value to write
-            
+
         Raises:
             LEDError: If writing fails
         """
@@ -112,20 +110,14 @@ class LED:
             try:
                 # Use subprocess with sudo to write the value
                 cmd = ["sudo", "tee", str(file_path)]
-                process = subprocess.run(
-                    cmd, 
-                    input=str(value), 
-                    text=True, 
-                    capture_output=True, 
-                    check=True
-                )
+                subprocess.run(cmd, input=str(value), text=True, capture_output=True, check=True)
             except subprocess.CalledProcessError as e:
                 raise LEDError(f"Failed to write '{value}' to {file_path} using sudo: {e}")
             except FileNotFoundError:
                 raise LEDError("sudo command not found. Please install sudo or run as root.")
         else:
             try:
-                with open(file_path, 'w') as f:
+                with open(file_path, "w") as f:
                     f.write(str(value))
                     f.flush()
             except PermissionError as e:
@@ -136,54 +128,54 @@ class LED:
                 )
             except (OSError, IOError) as e:
                 raise LEDError(f"Failed to write '{value}' to {file_path}: {e}")
-    
+
     def _read_sysfs_file(self, file_path: Path) -> str:
         """
         Read a value from a sysfs file.
-        
+
         Args:
             file_path: Path to sysfs file
-            
+
         Returns:
             Content of the file (stripped)
-            
+
         Raises:
             LEDError: If reading fails
         """
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 return f.read().strip()
         except (OSError, IOError, PermissionError) as e:
             raise LEDError(f"Failed to read from {file_path}: {e}")
-    
+
     def set_sudo_mode(self, use_sudo: bool) -> None:
         """
         Enable or disable sudo mode for write operations.
-        
+
         Args:
             use_sudo: Whether to use sudo for write operations
         """
         self.use_sudo = use_sudo
-    
+
     def get_available_leds(self) -> List[int]:
         """
         Get list of available LED IDs.
-        
+
         Returns:
             List of available LED numbers
         """
         return self.available_leds.copy()
-    
+
     def set_rgb_color(self, led_id: int, red: int, green: int, blue: int) -> None:
         """
         Set RGB color for a specific LED.
-        
+
         Args:
             led_id: LED number (0, 1, 2, etc.)
             red: Red component (0-255)
             green: Green component (0-255)
             blue: Blue component (0-255)
-            
+
         Raises:
             LEDError: If LED ID is invalid or values are out of range
 
@@ -195,29 +187,29 @@ class LED:
         for component, value in [("red", red), ("green", green), ("blue", blue)]:
             if not 0 <= value <= 255:
                 raise LEDError(f"{component.capitalize()} value {value} out of range (0-255)")
-        
+
         led_path = self._get_led_path(led_id)
-        
+
         # Set RGB components
         self._write_sysfs_file(led_path / "red", str(red))
         self._write_sysfs_file(led_path / "green", str(green))
         self._write_sysfs_file(led_path / "blue", str(blue))
-    
+
     def get_rgb_color(self, led_id: int) -> Tuple[int, int, int]:
         """
         Get current RGB color for a specific LED.
-        
+
         Args:
             led_id: LED number (0, 1, 2, etc.)
-            
+
         Returns:
             Tuple of (red, green, blue) values (0-255)
-            
+
         Raises:
             LEDError: If LED ID is invalid or reading fails
         """
         led_path = self._get_led_path(led_id)
-        
+
         try:
             red = int(self._read_sysfs_file(led_path / "red"))
             green = int(self._read_sysfs_file(led_path / "green"))
@@ -225,7 +217,7 @@ class LED:
             return (red, green, blue)
         except ValueError as e:
             raise LEDError(f"Failed to parse RGB values for LED {led_id}: {e}")
-    
+
     def set_animation_mode(self, led_id: int, mode: str, timing: Optional[int] = None) -> None:
         """
         Set animation mode for a specific LED with kernel-based looping.
@@ -250,8 +242,7 @@ class LED:
         # Validate mode
         if mode not in self.VALID_MODES:
             raise LEDError(
-                f"Invalid animation mode '{mode}'. "
-                f"Valid modes: {', '.join(self.VALID_MODES)}"
+                f"Invalid animation mode '{mode}'. Valid modes: {', '.join(self.VALID_MODES)}"
             )
 
         led_path = self._get_led_path(led_id)
@@ -264,7 +255,7 @@ class LED:
 
         # Set animation mode
         self._write_sysfs_file(led_path / "mode", mode)
-    
+
     def get_animation_mode(self, led_id: int) -> Tuple[str, int]:
         """
         Get current animation mode and timing for a specific LED.
@@ -291,7 +282,7 @@ class LED:
             return (mode, timing)
         except ValueError as e:
             raise LEDError(f"Failed to parse animation mode/timing for LED {led_id}: {e}")
-    
+
     def set_trigger(self, led_id: int, trigger: str) -> None:
         """
         Set LED trigger for a specific LED.
@@ -319,7 +310,7 @@ class LED:
         """
         led_path = self._get_led_path(led_id)
         self._write_sysfs_file(led_path / "trigger", trigger)
-    
+
     def get_trigger(self, led_id: int) -> str:
         """
         Get current active trigger for a specific LED.
@@ -343,12 +334,12 @@ class LED:
         # Parse trigger string: "none [heartbeat-rgb] breathing-rgb ..."
         # Active trigger is enclosed in brackets
         for item in trigger_content.split():
-            if item.startswith('[') and item.endswith(']'):
-                return item.strip('[]')
+            if item.startswith("[") and item.endswith("]"):
+                return item.strip("[]")
 
         # If no brackets found, assume "none" is active
         return "none"
-    
+
     def get_available_triggers(self, led_id: int) -> List[str]:
         """
         Get list of available triggers for a specific LED.
@@ -373,68 +364,68 @@ class LED:
         # Remove brackets from active trigger
         triggers = []
         for item in trigger_content.split():
-            trigger_name = item.strip('[]')
+            trigger_name = item.strip("[]")
             triggers.append(trigger_name)
 
         return triggers
-    
+
     def set_brightness(self, led_id: int, brightness: int) -> None:
         """
         Set overall brightness for a specific LED.
-        
+
         Args:
             led_id: LED number (0, 1, 2, etc.)
             brightness: Brightness value (0-255)
-            
+
         Raises:
             LEDError: If LED ID is invalid or brightness is out of range
         """
         if not 0 <= brightness <= 255:
             raise LEDError(f"Brightness {brightness} out of range (0-255)")
-        
+
         led_path = self._get_led_path(led_id)
         self._write_sysfs_file(led_path / "brightness", str(brightness))
-    
+
     def get_brightness(self, led_id: int) -> int:
         """
         Get current brightness for a specific LED.
-        
+
         Args:
             led_id: LED number (0, 1, 2, etc.)
-            
+
         Returns:
             Current brightness value (0-255)
-            
+
         Raises:
             LEDError: If LED ID is invalid or reading fails
         """
         led_path = self._get_led_path(led_id)
-        
+
         try:
             return int(self._read_sysfs_file(led_path / "brightness"))
         except ValueError as e:
             raise LEDError(f"Failed to parse brightness for LED {led_id}: {e}")
-    
+
     # Convenience methods for common operations
-    
+
     def turn_off(self, led_id: int) -> None:
         """
         Turn off a specific LED.
-        
+
         Args:
             led_id: LED number (0, 1, 2, etc.)
         """
         self.set_brightness(led_id, 0)
-    
+
     def turn_off_all(self) -> None:
         """Turn off all available LEDs."""
         for led_id in self.available_leds:
             self.turn_off(led_id)
-    
+
     def set_color_all(self, red: int, green: int, blue: int) -> None:
         """
         Set the same RGB color for all available LEDs.
-        
+
         Args:
             red: Red component (0-255)
             green: Green component (0-255)
@@ -442,19 +433,18 @@ class LED:
         """
         for led_id in self.available_leds:
             self.set_rgb_color(led_id, red, green, blue)
-    
+
     def set_brightness_all(self, brightness: int) -> None:
         """
         Set the same brightness for all available LEDs.
-        
+
         Args:
             brightness: Brightness value (0-255)
         """
         for led_id in self.available_leds:
             self.set_brightness(led_id, brightness)
-    
-    def blink_led(self, led_id: int, red: int, green: int, blue: int,
-                  timing: int = 500) -> None:
+
+    def blink_led(self, led_id: int, red: int, green: int, blue: int, timing: int = 500) -> None:
         """
         Set a LED to blink with specified color using kernel-based animation.
 
@@ -480,9 +470,8 @@ class LED:
 
         # Enable blink animation mode
         self.set_animation_mode(led_id, "blink", timing)
-    
-    def fade_led(self, led_id: int, red: int, green: int, blue: int,
-                 timing: int = 1000) -> None:
+
+    def fade_led(self, led_id: int, red: int, green: int, blue: int, timing: int = 1000) -> None:
         """
         Set a LED to fade with specified color using kernel-based animation.
 
@@ -508,7 +497,7 @@ class LED:
 
         # Enable fade animation mode
         self.set_animation_mode(led_id, "fade", timing)
-    
+
     def rainbow_led(self, led_id: int, timing: int = 1000) -> None:
         """
         Set a LED to rainbow cycle mode using kernel-based animation.
@@ -533,11 +522,11 @@ class LED:
         """
         # Enable rainbow animation mode (RGB values are ignored in this mode)
         self.set_animation_mode(led_id, "rainbow", timing)
-    
+
     def static_led(self, led_id: int, red: int, green: int, blue: int) -> None:
         """
         Set a LED to static color and stop any animation.
-        
+
         Args:
             led_id: LED number (0, 1, 2, etc.)
             red: Red component (0-255)
@@ -548,27 +537,28 @@ class LED:
         self.set_animation_mode(led_id, "static")
 
     # Legacy compatibility methods (matching old interface)
-    
+
     def connect(self) -> bool:
         """
         Legacy compatibility method.
-        
+
         Returns:
             bool: Always True (sysfs interface doesn't require connection)
         """
         return True
-    
+
     def disconnect(self) -> None:
         """
         Legacy compatibility method.
         """
         pass
-    
-    def set_led_color(self, r: int, g: int, b: int, brightness: float = 0.5, 
-                      delay: float = 0.0, led_id: int = 0) -> bool:
+
+    def set_led_color(
+        self, r: int, g: int, b: int, brightness: float = 0.5, delay: float = 0.0, led_id: int = 0
+    ) -> bool:
         """
         Legacy compatibility method for setting LED color.
-        
+
         Args:
             r: Red component (0-255)
             g: Green component (0-255)
@@ -576,19 +566,19 @@ class LED:
             brightness: LED brightness (0.0-1.0)
             delay: Ignored (for compatibility)
             led_id: LED number (default: 0)
-            
+
         Returns:
             bool: True if successful
         """
         try:
             # Convert brightness from 0.0-1.0 to 0-255
             brightness_int = int(brightness * 255)
-            
+
             self.set_rgb_color(led_id, r, g, b)
             self.set_brightness(led_id, brightness_int)
-            
+
             # Note: delay parameter is ignored in this static-only version
-            
+
             return True
         except LEDError:
             return False
@@ -598,9 +588,8 @@ class LED:
 def create_led_with_sudo() -> LED:
     """
     Create an LED instance with sudo enabled.
-    
+
     Returns:
         LED instance configured to use sudo for write operations
     """
     return LED(use_sudo=True)
-
