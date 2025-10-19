@@ -14,19 +14,24 @@ class LEDError(Exception):
 class LED:
     """
     SDK interface for RGB LED control via sysfs.
-    
+
     This class provides comprehensive RGB LED control with support for:
     - Multiple LEDs (led0, led1, led2, etc.)
     - RGB color control (0-255 per component)
-    - Animation modes (static, blink, fade, rainbow)
-    - LED triggers (heartbeat-rgb, breathing-rgb, rainbow-rgb)
+    - Animation modes (static, blink, fade, rainbow) - kernel-based looping
+    - LED triggers (heartbeat-rgb, breathing-rgb, rainbow-rgb, and standard Linux triggers)
     - Brightness control (0-255)
-    - Timing control for animations (100-1600ms)
-    
+    - Timing control for animations (100/200/500/1000ms)
+
+    Animation modes are hardware-accelerated and loop continuously in the kernel driver.
+    LED triggers provide system-driven patterns like heartbeat and breathing effects.
+
     Note: Most operations require root privileges. Use sudo or set use_sudo=True.
     """
-    
-    # Note: Animation modes and triggers have been removed - only static control available
+
+    # Valid animation modes and timings supported by kernel driver
+    VALID_MODES = ["static", "blink", "fade", "rainbow"]
+    VALID_TIMINGS = [100, 200, 500, 1000]
     
     def __init__(self, base_path: str = "/sys/class/leds", use_sudo: bool = False):
         """
@@ -181,6 +186,10 @@ class LED:
             
         Raises:
             LEDError: If LED ID is invalid or values are out of range
+
+        Note:
+            Each RGB component write sends a separate command to the hardware.
+            Brief color transitions may be visible during updates (R → R+G → R+G+B).
         """
         # Validate color values
         for component, value in [("red", red), ("green", green), ("blue", blue)]:
@@ -219,60 +228,155 @@ class LED:
     
     def set_animation_mode(self, led_id: int, mode: str, timing: Optional[int] = None) -> None:
         """
-        Set animation mode for a specific LED.
-        
-        NOTE: Animation modes have been disabled in this version.
-        Only static color control is available.
-        
+        Set animation mode for a specific LED with kernel-based looping.
+
+        Animations run continuously in the kernel driver without CPU intervention.
+
+        Args:
+            led_id: LED number (0, 1, 2, etc.)
+            mode: Animation mode - "static", "blink", "fade", or "rainbow"
+            timing: Optional timing in milliseconds. Will be rounded to nearest
+                   valid value (100, 200, 500, or 1000). If not provided, current
+                   timing value is preserved.
+
         Raises:
-            NotImplementedError: Animation modes are not implemented
+            LEDError: If LED ID is invalid or mode is not supported
+
+        Examples:
+            led.set_animation_mode(0, "blink", 500)  # Blink every 500ms
+            led.set_animation_mode(0, "rainbow", 1000)  # Rainbow cycle, 1 second per cycle
+            led.set_animation_mode(0, "static")  # Stop animation, keep current color
         """
-        raise NotImplementedError("Animation modes have been removed. Use set_rgb_color() for static control only.")
+        # Validate mode
+        if mode not in self.VALID_MODES:
+            raise LEDError(
+                f"Invalid animation mode '{mode}'. "
+                f"Valid modes: {', '.join(self.VALID_MODES)}"
+            )
+
+        led_path = self._get_led_path(led_id)
+
+        # Set timing if provided
+        if timing is not None:
+            # Find nearest valid timing value
+            nearest_timing = min(self.VALID_TIMINGS, key=lambda x: abs(x - timing))
+            self._write_sysfs_file(led_path / "timing", str(nearest_timing))
+
+        # Set animation mode
+        self._write_sysfs_file(led_path / "mode", mode)
     
     def get_animation_mode(self, led_id: int) -> Tuple[str, int]:
         """
         Get current animation mode and timing for a specific LED.
-        
-        NOTE: Animation modes have been disabled in this version.
-        
+
+        Args:
+            led_id: LED number (0, 1, 2, etc.)
+
+        Returns:
+            Tuple of (mode, timing_ms) where mode is one of "static", "blink",
+            "fade", or "rainbow", and timing_ms is the current timing value in milliseconds
+
         Raises:
-            NotImplementedError: Animation modes are not implemented
+            LEDError: If LED ID is invalid or reading fails
+
+        Example:
+            mode, timing = led.get_animation_mode(0)
+            print(f"LED 0 mode: {mode}, timing: {timing}ms")
         """
-        raise NotImplementedError("Animation modes have been removed. Use get_rgb_color() and get_brightness() instead.")
+        led_path = self._get_led_path(led_id)
+
+        try:
+            mode = self._read_sysfs_file(led_path / "mode")
+            timing = int(self._read_sysfs_file(led_path / "timing"))
+            return (mode, timing)
+        except ValueError as e:
+            raise LEDError(f"Failed to parse animation mode/timing for LED {led_id}: {e}")
     
     def set_trigger(self, led_id: int, trigger: str) -> None:
         """
         Set LED trigger for a specific LED.
-        
-        NOTE: LED triggers have been disabled in this version.
-        Only static color control is available.
-        
+
+        Triggers provide system-driven LED patterns like heartbeat, breathing effects,
+        and other kernel-based animations. Setting a trigger takes control of the LED
+        away from manual color/mode control.
+
+        Args:
+            led_id: LED number (0, 1, 2, etc.)
+            trigger: Trigger name (e.g., "heartbeat-rgb", "breathing-rgb", "rainbow-rgb",
+                    "none", or any standard Linux LED trigger)
+
         Raises:
-            NotImplementedError: LED triggers are not implemented
+            LEDError: If LED ID is invalid or trigger is not available
+
+        Examples:
+            led.set_trigger(0, "heartbeat-rgb")  # System heartbeat pattern
+            led.set_trigger(0, "breathing-rgb")  # Breathing effect
+            led.set_trigger(0, "none")           # Disable trigger, return to manual control
+
+        Note:
+            Use get_available_triggers() to see all available triggers for a LED.
+            Set trigger to "none" to return to manual color/animation control.
         """
-        raise NotImplementedError("LED triggers have been removed. Use set_rgb_color() for static control only.")
+        led_path = self._get_led_path(led_id)
+        self._write_sysfs_file(led_path / "trigger", trigger)
     
     def get_trigger(self, led_id: int) -> str:
         """
-        Get current trigger for a specific LED.
-        
-        NOTE: LED triggers have been disabled in this version.
-        
+        Get current active trigger for a specific LED.
+
+        Args:
+            led_id: LED number (0, 1, 2, etc.)
+
+        Returns:
+            Name of the currently active trigger, or "none" if no trigger is active
+
         Raises:
-            NotImplementedError: LED triggers are not implemented
+            LEDError: If LED ID is invalid or reading fails
+
+        Example:
+            trigger = led.get_trigger(0)
+            print(f"Active trigger: {trigger}")
         """
-        raise NotImplementedError("LED triggers have been removed. Use get_rgb_color() and get_brightness() instead.")
+        led_path = self._get_led_path(led_id)
+        trigger_content = self._read_sysfs_file(led_path / "trigger")
+
+        # Parse trigger string: "none [heartbeat-rgb] breathing-rgb ..."
+        # Active trigger is enclosed in brackets
+        for item in trigger_content.split():
+            if item.startswith('[') and item.endswith(']'):
+                return item.strip('[]')
+
+        # If no brackets found, assume "none" is active
+        return "none"
     
     def get_available_triggers(self, led_id: int) -> List[str]:
         """
         Get list of available triggers for a specific LED.
-        
-        NOTE: LED triggers have been disabled in this version.
-        
+
+        Args:
+            led_id: LED number (0, 1, 2, etc.)
+
+        Returns:
+            List of available trigger names
+
         Raises:
-            NotImplementedError: LED triggers are not implemented
+            LEDError: If LED ID is invalid or reading fails
+
+        Example:
+            triggers = led.get_available_triggers(0)
+            print(f"Available triggers: {', '.join(triggers)}")
         """
-        raise NotImplementedError("LED triggers have been removed. Only static color control is available.")
+        led_path = self._get_led_path(led_id)
+        trigger_content = self._read_sysfs_file(led_path / "trigger")
+
+        # Parse trigger string: "none [heartbeat-rgb] breathing-rgb ..."
+        # Remove brackets from active trigger
+        triggers = []
+        for item in trigger_content.split():
+            trigger_name = item.strip('[]')
+            triggers.append(trigger_name)
+
+        return triggers
     
     def set_brightness(self, led_id: int, brightness: int) -> None:
         """
@@ -320,7 +424,6 @@ class LED:
         Args:
             led_id: LED number (0, 1, 2, etc.)
         """
-        self.set_rgb_color(led_id, 0, 0, 0)
         self.set_brightness(led_id, 0)
     
     def turn_off_all(self) -> None:
@@ -350,44 +453,90 @@ class LED:
         for led_id in self.available_leds:
             self.set_brightness(led_id, brightness)
     
-    def blink_led(self, led_id: int, red: int, green: int, blue: int, 
+    def blink_led(self, led_id: int, red: int, green: int, blue: int,
                   timing: int = 500) -> None:
         """
-        Set a LED to blink with specified color.
-        
-        NOTE: Animation modes have been disabled in this version.
-        
+        Set a LED to blink with specified color using kernel-based animation.
+
+        This convenience method sets the RGB color and then enables blink mode.
+        The blinking animation runs continuously in the kernel driver.
+
+        Args:
+            led_id: LED number (0, 1, 2, etc.)
+            red: Red component (0-255)
+            green: Green component (0-255)
+            blue: Blue component (0-255)
+            timing: Blink timing in milliseconds (default: 500)
+                   Will be rounded to nearest valid value (100/200/500/1000)
+
         Raises:
-            NotImplementedError: Animation modes are not implemented
+            LEDError: If LED ID is invalid or values are out of range
+
+        Example:
+            led.blink_led(0, 255, 0, 0, 500)  # Blink red every 500ms
         """
-        raise NotImplementedError("Blinking animation has been removed. Use set_rgb_color() for static control only.")
+        # Set the RGB color first
+        self.set_rgb_color(led_id, red, green, blue)
+
+        # Enable blink animation mode
+        self.set_animation_mode(led_id, "blink", timing)
     
     def fade_led(self, led_id: int, red: int, green: int, blue: int,
                  timing: int = 1000) -> None:
         """
-        Set a LED to fade with specified color.
-        
-        NOTE: Animation modes have been disabled in this version.
-        
+        Set a LED to fade with specified color using kernel-based animation.
+
+        This convenience method sets the RGB color and then enables fade mode.
+        The fading animation runs continuously in the kernel driver.
+
+        Args:
+            led_id: LED number (0, 1, 2, etc.)
+            red: Red component (0-255)
+            green: Green component (0-255)
+            blue: Blue component (0-255)
+            timing: Fade timing in milliseconds (default: 1000)
+                   Will be rounded to nearest valid value (100/200/500/1000)
+
         Raises:
-            NotImplementedError: Animation modes are not implemented
+            LEDError: If LED ID is invalid or values are out of range
+
+        Example:
+            led.fade_led(0, 0, 255, 0, 1000)  # Fade green with 1 second cycle
         """
-        raise NotImplementedError("Fading animation has been removed. Use set_rgb_color() for static control only.")
+        # Set the RGB color first
+        self.set_rgb_color(led_id, red, green, blue)
+
+        # Enable fade animation mode
+        self.set_animation_mode(led_id, "fade", timing)
     
     def rainbow_led(self, led_id: int, timing: int = 1000) -> None:
         """
-        Set a LED to rainbow cycle mode.
-        
-        NOTE: Animation modes have been disabled in this version.
-        
+        Set a LED to rainbow cycle mode using kernel-based animation.
+
+        Rainbow mode cycles through all colors continuously in the kernel driver.
+        The RGB color settings are ignored in rainbow mode.
+
+        Args:
+            led_id: LED number (0, 1, 2, etc.)
+            timing: Cycle timing in milliseconds (default: 1000)
+                   Will be rounded to nearest valid value (100/200/500/1000)
+
         Raises:
-            NotImplementedError: Animation modes are not implemented
+            LEDError: If LED ID is invalid
+
+        Example:
+            led.rainbow_led(0, 1000)  # Rainbow cycle, 1 second per full cycle
+
+        Note:
+            Rainbow mode ignores the current RGB color settings and cycles through
+            all colors automatically.
         """
-        raise NotImplementedError("Rainbow animation has been removed. Use set_rgb_color() for static control only.")
+        # Enable rainbow animation mode (RGB values are ignored in this mode)
+        self.set_animation_mode(led_id, "rainbow", timing)
     
     def static_led(self, led_id: int, red: int, green: int, blue: int) -> None:
         """
-        Set a LED to static color.
+        Set a LED to static color and stop any animation.
         
         Args:
             led_id: LED number (0, 1, 2, etc.)
@@ -396,7 +545,8 @@ class LED:
             blue: Blue component (0-255)
         """
         self.set_rgb_color(led_id, red, green, blue)
-    
+        self.set_animation_mode(led_id, "static")
+
     # Legacy compatibility methods (matching old interface)
     
     def connect(self) -> bool:

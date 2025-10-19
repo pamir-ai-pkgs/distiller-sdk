@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
-Interactive LED Demo and Test Suite (Static Control Only)
+Interactive LED Demo and Test Suite
 
-This demo showcases basic LED functionality in an interactive way.
+This demo showcases comprehensive LED functionality in an interactive way.
 Press Enter to continue between each demo section.
 Run as: python led_interactive_demo.py
 
 Features demonstrated:
 - LED discovery and initialization
-- RGB color control (static only)
+- RGB color control
 - Brightness control
-- Multi-LED static control
-- Convenience methods (static only)
+- Animation modes (blink, fade, rainbow)
+- LED triggers (heartbeat-rgb, breathing-rgb, rainbow-rgb)
+- Dynamic timing control
+- Multi-LED control with animations
+- Convenience methods
 - Error handling
 """
 
@@ -22,8 +25,8 @@ from led import LED, LEDError, create_led_with_sudo
 
 
 class InteractiveLEDDemo:
-    """Interactive LED demonstration class for static control only."""
-    
+    """Interactive LED demonstration class."""
+
     def __init__(self):
         """Initialize the demo."""
         self.led = None
@@ -134,67 +137,342 @@ class InteractiveLEDDemo:
         
         self.wait_for_enter("Ready to test multi-LED static control?")
     
-    def demo_multi_led_static(self):
-        """Demo 4: Multi-LED static control."""
+    def demo_multi_led_control(self):
+        """Demo 4: Multi-LED control with animations."""
         self.print_section(
-            "Demo 4: Multi-LED Static Control", 
-            "Setting different static colors on multiple LEDs"
+            "Demo 4: Multi-LED Control with Animations",
+            "Setting different animations on multiple LEDs simultaneously"
         )
-        
+
         if len(self.available_leds) == 1:
-            print("ℹ️ Single LED system - demonstrating color changes on one LED")
+            print("Single LED system - demonstrating different animations sequentially")
             led_id = self.available_leds[0]
-            
-            colors = [
-                (255, 0, 0, "🔴 Red"),
-                (0, 255, 0, "🟢 Green"),
-                (0, 0, 255, "🔵 Blue"),
-                (255, 255, 0, "🟡 Yellow"),
-                (255, 0, 255, "🟣 Magenta"),
+
+            animations = [
+                ("Blinking red", lambda: self.led.blink_led(led_id, 255, 0, 0, 400)),
+                ("Fading green", lambda: self.led.fade_led(led_id, 0, 255, 0, 600)),
+                ("Rainbow cycle", lambda: self.led.rainbow_led(led_id, 800)),
+                ("Static blue", lambda: self.led.static_led(led_id, 0, 0, 255)),
             ]
-            
-            for red, green, blue, name in colors:
-                print(f"LED {led_id}: {name}")
-                self.led.static_led(led_id, red, green, blue)
-                self.led.set_brightness(led_id, 150)
-                time.sleep(1.5)
-        
+
+            for description, action in animations:
+                print(f"LED {led_id}: {description}")
+                action()
+                self.led.set_brightness(led_id, 200)
+                time.sleep(3)
+
         else:
-            print(f"🎨 Setting different colors on {len(self.available_leds)} LEDs...")
-            
-            # Define colors for multiple LEDs
-            colors = [
-                (255, 0, 0, "🔴 Red"),      # LED 0
-                (0, 255, 0, "🟢 Green"),    # LED 1
-                (0, 0, 255, "🔵 Blue"),     # LED 2
-                (255, 255, 0, "🟡 Yellow"), # LED 3
-                (255, 0, 255, "🟣 Magenta"), # LED 4
-                (0, 255, 255, "🩵 Cyan"),   # LED 5
-                (255, 128, 0, "🟠 Orange"), # LED 6
-                (128, 0, 128, "🟣 Purple"), # LED 7+
+            print(f"Setting different animations on {len(self.available_leds)} LEDs simultaneously...")
+
+            # Define animations for multiple LEDs
+            animations = [
+                (0, "Blinking red", lambda id: self.led.blink_led(id, 255, 0, 0, 400)),
+                (1, "Fading green", lambda id: self.led.fade_led(id, 0, 255, 0, 600)),
+                (2, "Rainbow cycle", lambda id: self.led.rainbow_led(id, 800)),
+                (3, "Blinking yellow", lambda id: self.led.blink_led(id, 255, 255, 0, 300)),
+                (4, "Fading magenta", lambda id: self.led.fade_led(id, 255, 0, 255, 700)),
+                (5, "Static cyan", lambda id: self.led.static_led(id, 0, 255, 255)),
+                (6, "Blinking orange", lambda id: self.led.blink_led(id, 255, 128, 0, 500)),
+                (7, "Rainbow cycle", lambda id: self.led.rainbow_led(id, 1000)),
             ]
-            
-            for i, led_id in enumerate(self.available_leds):
-                if i < len(colors):
-                    r, g, b, name = colors[i]
-                else:
-                    # Cycle through colors for additional LEDs
-                    r, g, b, name = colors[i % len(colors)]
-                
-                print(f"LED {led_id}: {name} - RGB({r}, {g}, {b})")
-                self.led.set_rgb_color(led_id, r, g, b)
-                self.led.set_brightness(led_id, 150)
-                time.sleep(0.3)
-            
-            print(f"\n✨ All {len(self.available_leds)} LEDs now showing different static colors!")
-            time.sleep(3)
-        
-        self.wait_for_enter("Ready to test convenience methods?")
-    
-    def demo_convenience_methods(self):
-        """Demo 5: Convenience methods."""
+
+            for idx, led_id in enumerate(self.available_leds):
+                if idx < len(animations):
+                    anim_idx, description, action = animations[idx]
+                    print(f"LED {led_id}: {description}")
+                    action(led_id)
+                    self.led.set_brightness(led_id, 180)
+                    time.sleep(0.2)
+
+            print(f"\nAll {len(self.available_leds)} LEDs now running different animations!")
+            print("Watch them animate independently for 5 seconds...")
+            time.sleep(5)
+
+            # Stop animations by setting static colors
+            print("\nStopping animations by setting static colors...")
+            self.led.turn_off_all()
+            time.sleep(1)
+
+        self.wait_for_enter("Ready to test animation modes?")
+
+    def demo_animation_modes(self):
+        """Demo 5: Animation modes with kernel-based looping."""
         self.print_section(
-            "Demo 5: Convenience Methods", 
+            "Demo 5: Animation Modes",
+            "Testing blink, fade, and rainbow modes with different timings"
+        )
+
+        led_id = self.available_leds[0]
+        print(f"Testing animation modes on LED {led_id}...")
+        print("Note: Animations loop continuously in the kernel driver\n")
+
+        # Blink mode tests
+        print("--- Blink Animation ---")
+        print("Setting red blink at 500ms timing...")
+        self.led.blink_led(led_id, 255, 0, 0, 500)
+        self.led.set_brightness(led_id, 200)
+        print("Watch the LED blink continuously for 3 seconds...")
+        time.sleep(3)
+
+        print("\nChanging to faster blink (200ms)...")
+        self.led.blink_led(led_id, 255, 0, 0, 200)
+        print("Notice the faster blinking rate...")
+        time.sleep(3)
+
+        print("\nChanging to slower blink (1000ms)...")
+        self.led.blink_led(led_id, 255, 0, 0, 1000)
+        print("Notice the slower blinking rate...")
+        time.sleep(3)
+
+        print("\nChanging color to green while still blinking at 1000ms...")
+        self.led.blink_led(led_id, 0, 255, 0, 1000)
+        time.sleep(3)
+
+        self.wait_for_enter("Ready to test fade animation?")
+
+        # Fade mode tests
+        print("\n--- Fade Animation ---")
+        print("Setting purple fade at 1000ms timing...")
+        self.led.fade_led(led_id, 128, 0, 255, 1000)
+        self.led.set_brightness(led_id, 200)
+        print("Watch the LED smoothly fade in and out...")
+        time.sleep(4)
+
+        print("\nChanging to faster fade (400ms)...")
+        self.led.fade_led(led_id, 128, 0, 255, 400)
+        print("Notice the faster fading speed...")
+        time.sleep(3)
+
+        print("\nChanging color to cyan while fading at 400ms...")
+        self.led.fade_led(led_id, 0, 255, 255, 400)
+        time.sleep(3)
+
+        print("\nChanging to slow fade (1000ms) with orange...")
+        self.led.fade_led(led_id, 255, 128, 0, 1000)
+        time.sleep(4)
+
+        self.wait_for_enter("Ready to test rainbow animation?")
+
+        # Rainbow mode tests
+        print("\n--- Rainbow Animation ---")
+        print("Setting rainbow cycle at 1000ms timing...")
+        self.led.rainbow_led(led_id, 1000)
+        self.led.set_brightness(led_id, 200)
+        print("Watch the LED cycle through rainbow colors...")
+        time.sleep(5)
+
+        print("\nChanging to faster rainbow (300ms)...")
+        self.led.rainbow_led(led_id, 300)
+        print("Notice the faster color cycling...")
+        time.sleep(4)
+
+        print("\nChanging to slower rainbow (1500ms)...")
+        self.led.rainbow_led(led_id, 1500)
+        print("Notice the slower color transitions...")
+        time.sleep(6)
+
+        # Test switching between animation modes
+        print("\n--- Animation Mode Switching ---")
+        print("Switching from rainbow to blink...")
+        self.led.blink_led(led_id, 255, 255, 0, 500)
+        time.sleep(3)
+
+        print("Switching from blink to fade...")
+        self.led.fade_led(led_id, 255, 0, 255, 600)
+        time.sleep(3)
+
+        print("Switching from fade to rainbow...")
+        self.led.rainbow_led(led_id, 800)
+        time.sleep(4)
+
+        print("Stopping animation with static color...")
+        self.led.static_led(led_id, 0, 255, 0)
+        self.led.set_brightness(led_id, 150)
+        time.sleep(2)
+
+        print("\nAnimation modes demonstration complete!")
+        print("Key points:")
+        print("  - Animations loop continuously in kernel")
+        print("  - Timing can be changed dynamically (100-1000ms)")
+        print("  - Animations can be switched without stopping")
+        print("  - Static color stops animation")
+
+        self.wait_for_enter("Ready to test LED triggers?")
+
+    def demo_led_triggers(self):
+        """Demo 6: Linux LED triggers."""
+        self.print_section(
+            "Demo 6: LED Triggers",
+            "Testing heartbeat-rgb, breathing-rgb, and rainbow-rgb triggers"
+        )
+
+        led_id = self.available_leds[0]
+        print(f"Testing LED triggers on LED {led_id}...")
+        print("Note: Triggers are managed by the Linux LED subsystem\n")
+
+        # Get available triggers
+        print("--- Available Triggers ---")
+        try:
+            triggers = self.led.get_available_triggers(led_id)
+            print(f"Available triggers: {', '.join(triggers)}")
+        except Exception as e:
+            print(f"Could not read available triggers: {e}")
+
+        # Test heartbeat trigger
+        print("\n--- Heartbeat Trigger ---")
+        print("Setting heartbeat-rgb trigger...")
+        self.led.set_trigger(led_id, "heartbeat-rgb")
+        current_trigger = self.led.get_trigger(led_id)
+        print(f"Current trigger: {current_trigger}")
+        print("Watch the LED pulse like a heartbeat...")
+        time.sleep(5)
+
+        self.wait_for_enter("Ready to test breathing trigger?")
+
+        # Test breathing trigger
+        print("\n--- Breathing Trigger ---")
+        print("Setting breathing-rgb trigger...")
+        self.led.set_trigger(led_id, "breathing-rgb")
+        current_trigger = self.led.get_trigger(led_id)
+        print(f"Current trigger: {current_trigger}")
+        print("Watch the LED breathe in and out smoothly...")
+        time.sleep(5)
+
+        self.wait_for_enter("Ready to test rainbow trigger?")
+
+        # Test rainbow trigger
+        print("\n--- Rainbow Trigger ---")
+        print("Setting rainbow-rgb trigger...")
+        self.led.set_trigger(led_id, "rainbow-rgb")
+        current_trigger = self.led.get_trigger(led_id)
+        print(f"Current trigger: {current_trigger}")
+        print("Watch the LED cycle through rainbow colors...")
+        time.sleep(6)
+
+        # Test trigger switching
+        print("\n--- Trigger Switching ---")
+        print("Switching between triggers...")
+
+        print("Heartbeat...")
+        self.led.set_trigger(led_id, "heartbeat-rgb")
+        time.sleep(3)
+
+        print("Breathing...")
+        self.led.set_trigger(led_id, "breathing-rgb")
+        time.sleep(3)
+
+        print("Rainbow...")
+        self.led.set_trigger(led_id, "rainbow-rgb")
+        time.sleep(3)
+
+        # Disable trigger
+        print("\n--- Disabling Trigger ---")
+        print("Setting trigger to 'none' to disable automatic control...")
+        self.led.set_trigger(led_id, "none")
+        current_trigger = self.led.get_trigger(led_id)
+        print(f"Current trigger: {current_trigger}")
+
+        print("Setting manual static color (blue)...")
+        self.led.static_led(led_id, 0, 0, 255)
+        self.led.set_brightness(led_id, 150)
+        time.sleep(2)
+
+        print("\nLED triggers demonstration complete!")
+        print("Key points:")
+        print("  - Triggers are kernel-based LED effects")
+        print("  - Multiple trigger types available")
+        print("  - Use 'none' trigger to regain manual control")
+        print("  - Triggers can be switched dynamically")
+
+        self.wait_for_enter("Ready to test timing control?")
+
+    def demo_timing_control(self):
+        """Demo 7: Dynamic timing changes."""
+        self.print_section(
+            "Demo 7: Dynamic Timing Control",
+            "Changing animation timing while running"
+        )
+
+        led_id = self.available_leds[0]
+        print(f"Testing dynamic timing control on LED {led_id}...")
+        print("Note: Timing changes apply immediately\n")
+
+        # Start with blink at medium speed
+        print("--- Blink Timing Control ---")
+        print("Starting with 500ms blink (medium speed)...")
+        self.led.blink_led(led_id, 255, 0, 0, 500)
+        self.led.set_brightness(led_id, 200)
+        time.sleep(3)
+
+        print("Changing to 100ms (very fast blink)...")
+        self.led.blink_led(led_id, 255, 0, 0, 100)
+        print("Notice the immediate timing change...")
+        time.sleep(3)
+
+        print("Changing to 1000ms (slow blink)...")
+        self.led.blink_led(led_id, 255, 0, 0, 1000)
+        print("Notice the slower timing...")
+        time.sleep(4)
+
+        print("Changing back to 300ms (fast blink)...")
+        self.led.blink_led(led_id, 255, 0, 0, 300)
+        time.sleep(3)
+
+        self.wait_for_enter("Ready to test fade timing control?")
+
+        # Fade timing control
+        print("\n--- Fade Timing Control ---")
+        print("Starting with 800ms fade...")
+        self.led.fade_led(led_id, 0, 255, 0, 800)
+        time.sleep(3)
+
+        print("Changing to 200ms (rapid fade)...")
+        self.led.fade_led(led_id, 0, 255, 0, 200)
+        print("Notice the faster fading...")
+        time.sleep(3)
+
+        print("Changing to 1000ms (slow fade)...")
+        self.led.fade_led(led_id, 0, 255, 0, 1000)
+        print("Notice the slower fading...")
+        time.sleep(4)
+
+        self.wait_for_enter("Ready to test rainbow timing control?")
+
+        # Rainbow timing control
+        print("\n--- Rainbow Timing Control ---")
+        print("Starting with 600ms rainbow cycle...")
+        self.led.rainbow_led(led_id, 600)
+        time.sleep(4)
+
+        print("Changing to 150ms (fast rainbow)...")
+        self.led.rainbow_led(led_id, 150)
+        print("Notice the rapid color changes...")
+        time.sleep(3)
+
+        print("Changing to 1000ms (slow rainbow)...")
+        self.led.rainbow_led(led_id, 1000)
+        print("Notice the smooth color transitions...")
+        time.sleep(4)
+
+        # Stop animation
+        print("\nStopping animation with static color...")
+        self.led.static_led(led_id, 255, 255, 255)
+        self.led.set_brightness(led_id, 100)
+        time.sleep(1)
+
+        print("\nTiming control demonstration complete!")
+        print("Key points:")
+        print("  - Timing range: 100-1000ms")
+        print("  - Changes apply immediately")
+        print("  - Works with blink, fade, and rainbow modes")
+        print("  - Kernel-based timing for precision")
+
+        self.wait_for_enter("Ready to test convenience methods?")
+
+    def demo_convenience_methods(self):
+        """Demo 8: Convenience methods."""
+        self.print_section(
+            "Demo 8: Convenience Methods",
             "Testing bulk operations and helper functions"
         )
         
@@ -236,41 +514,44 @@ class InteractiveLEDDemo:
         self.wait_for_enter("Ready to test error handling?")
     
     def demo_error_handling(self):
-        """Demo 6: Error handling."""
+        """Demo 9: Error handling."""
         self.print_section(
-            "Demo 6: Error Handling", 
+            "Demo 9: Error Handling",
             "Testing input validation and error messages"
         )
-        
+
         valid_led = self.available_leds[0]
-        print("🧪 Testing error handling and validation...")
-        
+        print("Testing error handling and validation...")
+
         test_cases = [
             ("Invalid LED ID", lambda: self.led.set_rgb_color(999, 255, 0, 0)),
-            ("Invalid RGB value", lambda: self.led.set_rgb_color(valid_led, 300, 0, 0)),
-            ("Invalid brightness", lambda: self.led.set_brightness(valid_led, 300)),
-            ("Disabled animation mode", lambda: self.led.set_animation_mode(valid_led, "blink")),
-            ("Disabled trigger", lambda: self.led.set_trigger(valid_led, "heartbeat-rgb")),
-            ("Disabled blink method", lambda: self.led.blink_led(valid_led, 255, 0, 0)),
-            ("Disabled fade method", lambda: self.led.fade_led(valid_led, 0, 255, 0)),
-            ("Disabled rainbow method", lambda: self.led.rainbow_led(valid_led)),
+            ("Invalid RGB value (>255)", lambda: self.led.set_rgb_color(valid_led, 300, 0, 0)),
+            ("Invalid RGB value (<0)", lambda: self.led.set_rgb_color(valid_led, -10, 0, 0)),
+            ("Invalid brightness (>255)", lambda: self.led.set_brightness(valid_led, 300)),
+            ("Invalid brightness (<0)", lambda: self.led.set_brightness(valid_led, -50)),
+            ("Invalid animation mode", lambda: self.led.set_animation_mode(valid_led, "invalid_mode")),
+            ("Invalid trigger", lambda: self.led.set_trigger(valid_led, "invalid-trigger")),
+            ("Invalid blink timing (<100ms)", lambda: self.led.blink_led(valid_led, 255, 0, 0, 50)),
+            ("Invalid blink timing (>1000ms)", lambda: self.led.blink_led(valid_led, 255, 0, 0, 1500)),
+            ("Invalid fade timing", lambda: self.led.fade_led(valid_led, 0, 255, 0, 2000)),
+            ("Invalid rainbow timing", lambda: self.led.rainbow_led(valid_led, 50)),
         ]
-        
+
         for description, test_func in test_cases:
             try:
                 test_func()
-                print(f"❌ {description}: Should have failed!")
-            except (LEDError, NotImplementedError) as e:
-                print(f"✅ {description}: Correctly caught - {str(e)[:60]}...")
+                print(f"FAIL: {description}: Should have raised an error!")
+            except LEDError as e:
+                print(f"PASS: {description}: Correctly caught - {str(e)[:60]}...")
             except Exception as e:
-                print(f"⚠️ {description}: Unexpected error - {e}")
-        
+                print(f"WARN: {description}: Unexpected error type - {type(e).__name__}: {e}")
+
         self.wait_for_enter("Ready to test sudo mode switching?")
     
     def demo_sudo_mode(self):
-        """Demo 7: Sudo mode switching."""
+        """Demo 10: Sudo mode switching."""
         self.print_section(
-            "Demo 7: Sudo Mode Management", 
+            "Demo 10: Sudo Mode Management",
             "Testing sudo mode switching functionality"
         )
         
@@ -297,9 +578,9 @@ class InteractiveLEDDemo:
         self.wait_for_enter("Ready for the final cleanup demo?")
     
     def demo_cleanup(self):
-        """Demo 8: Cleanup and summary."""
+        """Demo 11: Cleanup and summary."""
         self.print_section(
-            "Demo 8: Cleanup & Summary", 
+            "Demo 11: Cleanup & Summary",
             "Proper cleanup and demonstration summary"
         )
         
@@ -309,54 +590,58 @@ class InteractiveLEDDemo:
         print(f"⚫ Turning off all {len(self.available_leds)} LEDs...")
         self.led.turn_off_all()
         
-        print("\n📊 Demo Summary:")
-        print(f"  ✅ LEDs tested: {len(self.available_leds)}")
-        print(f"  ✅ RGB colors: Primary and secondary colors")
-        print(f"  ✅ Brightness: Multiple levels (0-255)")
-        print(f"  ✅ Static control: Individual and bulk operations")
-        print(f"  ✅ Convenience: Helper functions")
-        print(f"  ✅ Error handling: Input validation")
-        print(f"  ✅ Sudo mode: Permission management")
-        print(f"  ✅ Cleanup: Proper resource cleanup")
-        print(f"  ⚠️ Animations/Triggers: Disabled (static control only)")
-        
-        print("\n🎉 All static LED functionality demonstrated successfully!")
+        print("\nDemo Summary:")
+        print(f"  LED count: {len(self.available_leds)}")
+        print(f"  RGB colors: Primary and secondary colors")
+        print(f"  Brightness: Multiple levels (0-255)")
+        print(f"  Animations: Blink, fade, rainbow modes")
+        print(f"  LED triggers: Heartbeat, breathing, rainbow")
+        print(f"  Timing control: Dynamic timing changes (100-1000ms)")
+        print(f"  Multi-LED: Individual and bulk operations")
+        print(f"  Convenience: Helper functions")
+        print(f"  Error handling: Input validation")
+        print(f"  Sudo mode: Permission management")
+        print(f"  Cleanup: Proper resource cleanup")
+
+        print("\nAll LED functionality demonstrated successfully!")
     
     def run_full_demo(self):
         """Run the complete interactive demo."""
-        print("🌈 Interactive LED Demo and Test Suite (Static Control)")
+        print("Interactive LED Demo and Test Suite")
         print("=" * 60)
-        print("📝 This demo walks you through static LED functionality only")
-        print("💡 Press Enter between sections to continue")
-        print("🛑 Press Ctrl+C anytime to exit safely")
-        print("⚠️ Note: Animations and triggers have been disabled")
-        
+        print("This demo walks you through comprehensive LED functionality")
+        print("Press Enter between sections to continue")
+        print("Press Ctrl+C anytime to exit safely")
+
         try:
             self.wait_for_enter("Ready to start the LED demo?")
-            
+
             # Run all demo sections
-            self.demo_initialization()
-            self.demo_rgb_colors()
-            self.demo_brightness_control()
-            self.demo_multi_led_static()
-            self.demo_convenience_methods()
-            self.demo_error_handling()
-            self.demo_sudo_mode()
-            self.demo_cleanup()
-            
-            print(f"\n🎊 Demo completed successfully!")
-            print("Thank you for trying the LED module (static control)!")
-            
+            self.demo_initialization()              # Demo 1
+            self.demo_rgb_colors()                  # Demo 2
+            self.demo_brightness_control()          # Demo 3
+            self.demo_multi_led_control()           # Demo 4 - Updated with animations
+            self.demo_animation_modes()             # Demo 5 - NEW
+            self.demo_led_triggers()                # Demo 6 - NEW
+            self.demo_timing_control()              # Demo 7 - NEW
+            self.demo_convenience_methods()         # Demo 8
+            self.demo_error_handling()              # Demo 9
+            self.demo_sudo_mode()                   # Demo 10
+            self.demo_cleanup()                     # Demo 11
+
+            print("\nDemo completed successfully!")
+            print("Thank you for trying the LED module!")
+
         except KeyboardInterrupt:
-            print(f"\n🛑 Demo interrupted by user")
+            print("\nDemo interrupted by user")
             self.cleanup_on_exit()
         except LEDError as e:
-            print(f"\n❌ LED Error: {e}")
+            print(f"\nLED Error: {e}")
             if "Permission denied" in str(e):
-                print("💡 Tip: Run with proper sudo permissions")
+                print("Tip: Run with proper sudo permissions")
             self.cleanup_on_exit()
         except Exception as e:
-            print(f"\n❌ Unexpected error: {e}")
+            print(f"\nUnexpected error: {e}")
             self.cleanup_on_exit()
     
     def cleanup_on_exit(self):

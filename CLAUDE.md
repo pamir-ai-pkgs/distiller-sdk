@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Distiller SDK - Python SDK for the Distiller platform providing hardware control for e-ink displays, audio I/O, camera, LED control, and AI capabilities (ASR/TTS) using uv package management. Built as a Debian package targeting ARM64 Linux systems (Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO).
 
+**Important Context**: This is a sub-project within a larger Google Repo-based multi-repository structure (parent: `/home/utsav/dev/pamir-ai/`). Git operations work normally within this directory, but the `.git` is a symlink to `.repo/projects/distiller-sdk.git`.
+
 ## Build Commands
 
 ```bash
@@ -33,7 +35,7 @@ python -c "import distiller_sdk; print('SDK imported successfully!')"
 
 ```bash
 # Local development with uv
-uv sync                       # Install dependencies (creates .venv)
+just setup                    # Install dependencies (creates .venv via uv sync)
 source .venv/bin/activate     # Activate virtual environment
 
 # Set up Python path for imports (when not using installed package)
@@ -44,6 +46,11 @@ source /opt/distiller-sdk/activate.sh
 # Code quality checks
 just lint                     # Run ruff check + format check + mypy
 just fix                      # Auto-fix formatting issues
+
+# Development workflow for quick iteration
+# Edit Python code in src/distiller_sdk/
+# No rebuild needed - changes take effect immediately when using local .venv
+python -m distiller_sdk.hardware.eink._display_test  # Test your changes
 ```
 
 ## Testing
@@ -54,7 +61,13 @@ python -m distiller_sdk.hardware.audio._audio_test
 python -m distiller_sdk.hardware.camera._camera_unit_test
 python -m distiller_sdk.hardware.eink._display_test
 
-# Verify SDK imports
+# Note: For comprehensive test suite, use distiller-test-harness repository
+# cd ../distiller-test-harness
+# uv run pytest                          # Run all tests
+# uv run pytest -m hardware              # Hardware-only tests
+# uv run pytest sdk_tests/test_audio.py  # Specific module tests
+
+# Verify SDK imports (quick sanity check)
 python -c "import distiller_sdk; print('SDK imported successfully!')"
 python -c "from distiller_sdk.hardware.audio import Audio; from distiller_sdk.hardware.camera import Camera; from distiller_sdk.hardware.eink import Display; from distiller_sdk.parakeet import Parakeet; from distiller_sdk.piper import Piper; print('All imports successful!')"
 
@@ -96,14 +109,57 @@ dch -i    # Edit changelog interactively
 src/distiller_sdk/
 ├── hardware/           # Hardware abstraction layer
 │   ├── audio/         # ALSA-based audio I/O with streaming
+│   │   ├── audio.py             # Main Audio class (ALSA interface)
+│   │   └── _audio_test.py       # Hardware test script
 │   ├── camera/        # V4L2 camera capture (OpenCV)
-│   ├── eink/          # E-ink display control via ctypes to C library
-│   │   └── composer/  # Image processing, text rendering, transformations
+│   │   ├── camera.py            # Main Camera class (V4L2 interface)
+│   │   └── _camera_unit_test.py # Hardware test script
+│   ├── eink/          # E-ink display control via ctypes to Rust library
+│   │   ├── display.py           # Main Display class (ctypes bindings)
+│   │   ├── _display_test.py     # Hardware test script
+│   │   ├── lib/                 # Rust library source
+│   │   │   ├── src/             # Rust source code
+│   │   │   ├── Cargo.toml       # Rust dependencies
+│   │   │   ├── Makefile.rust    # Rust build system
+│   │   │   └── libdistiller_display_sdk_shared.so  # Built library
+│   │   └── composer/            # Image processing utilities
+│   │       ├── dithering.py     # Floyd-Steinberg, ordered dithering
+│   │       ├── image_ops.py     # Image scaling, cropping
+│   │       ├── text.py          # Text rendering on e-ink
+│   │       └── template_renderer.py  # Template-based rendering
 │   └── sam/           # LED control via sysfs GPIO
+│       ├── led.py               # Main LED class (sysfs interface with animations)
+│       └── led_interactive_demo.py  # Interactive demo
 ├── parakeet/          # ASR engine (sherpa-onnx) with VAD
+│   ├── parakeet.py              # Main Parakeet class
+│   └── models/                  # ONNX models (downloaded by build.sh)
 ├── piper/             # TTS engine (Piper)
+│   ├── piper.py                 # Main Piper class
+│   ├── models/                  # Voice models (downloaded by build.sh)
+│   └── piper/                   # Piper binary and libs
 └── whisper/           # Optional Whisper ASR (faster-whisper)
+    ├── whisper.py               # Main Whisper class
+    └── models/                  # Whisper models (optional download)
+
+configs/                # Platform-specific hardware configs
+├── cm5.conf                     # Raspberry Pi CM5 settings
+├── radxa-zero3.conf            # Radxa Zero 3/3W settings
+└── armsom-rk3576.conf          # ArmSom CM5 IO settings
+
+debian/                 # Debian packaging files
+├── platform-detect.sh          # Multi-platform detection helper
+├── postinst                    # Post-installation script
+├── control                     # Package metadata and dependencies
+├── rules                       # debuild build rules
+└── changelog                   # Version history
 ```
+
+**Key Files to Know**:
+- `build.sh`: Downloads AI models and builds Rust library
+- `Justfile`: Build automation (setup, build, lint, clean, changelog)
+- `pyproject.toml`: Python package metadata, dependencies, version
+- `debian/platform-detect.sh`: Platform detection logic (sourced by postinst)
+- `debian/postinst`: Critical installation script that sets up uv venv and platform config
 
 ### Platform Detection System
 Multi-platform support via `platform-detect.sh` helper script:
@@ -146,6 +202,14 @@ V4L2 camera interface via OpenCV:
 - Configurable camera settings (brightness, contrast, etc.)
 - Frame callback mechanism for processing
 
+### LED System
+sysfs-based RGB LED control with advanced features:
+- **Basic control**: Per-LED RGB color setting, brightness control (0-255)
+- **Animation modes**: Non-blocking animations (blink, fade, rainbow) with configurable timing
+- **Linux LED triggers**: Hardware-accelerated effects (heartbeat-rgb, breathing-rgb)
+- **Multi-LED support**: Control individual LEDs or all LEDs simultaneously
+- Thread-safe animation management
+
 ### AI Integration
 - **Parakeet**: Streaming ASR with VAD (Voice Activity Detection) using sherpa-onnx
 - **Piper**: TTS with direct audio output or WAV file generation
@@ -160,6 +224,14 @@ Justfile-based build system (replaces legacy `build-deb.sh`):
 - Platform-agnostic single package (replaces old per-platform packages)
 - Provides/Replaces/Breaks `distiller-cm5-sdk` for migration from v2.x
 - Build artifacts placed in `dist/` directory
+
+### Package Dependencies
+**This package is the foundation dependency** for other Distiller packages:
+- `distiller-services` (WiFi provisioning) depends on `distiller-sdk >= 3.0.0`
+- `distiller-telemetry` (device registration) depends on `distiller-sdk >= 3.0.0`
+- `distiller-test-harness` (test suite) depends on `distiller-sdk >= 3.0.0`
+
+**Important**: When bumping SDK version, dependent packages may need updates to their Debian control files if the API changes. The `>= 3.0.0` constraint allows for compatible minor/patch updates.
 
 ### Post-installation Flow (`debian/postinst`)
 1. Remove legacy `/opt/distiller-cm5-sdk/` installation if present
@@ -195,7 +267,26 @@ with Display() as display:
 ```
 
 ### Error Handling
-All hardware modules raise custom exceptions (`DisplayError`, etc.) for error conditions. Always handle hardware initialization failures gracefully as devices may not be present.
+All hardware modules raise custom exceptions (`DisplayError`, `LEDError`, etc.) for error conditions. Always handle hardware initialization failures gracefully as devices may not be present.
+
+### LED Animation Management
+LED animations run in background threads and are non-blocking:
+```python
+# Start animation (returns immediately)
+led.blink_led(led_id=0, red=255, green=0, blue=0, timing=500)
+
+# Do other work while LED blinks
+# ...
+
+# Stop animation when done
+led.stop_animation(led_id=0)
+
+# Or stop all animations at once
+led.stop_all_animations()
+
+# Always stop animations before cleanup
+led.turn_off_all()
+```
 
 ### Transformation Chaining
 For e-ink display transformations, note that dimensions swap after 90/270° rotations:
@@ -220,13 +311,17 @@ result = flip_bitpacked_vertical(
   - Outputs `libdistiller_display_sdk_shared.so` used via ctypes
 
 ### Rust E-ink Library Development
+The e-ink display functionality is implemented in Rust and exposed to Python via ctypes.
+
+**Important**: The Rust library is automatically built during `./build.sh` execution. You typically don't need to build it manually unless modifying the Rust code.
+
 ```bash
 cd src/distiller_sdk/hardware/eink/lib
 
 # Check if rebuild needed
 make -f Makefile.rust check-rebuild
 
-# Build library
+# Build library manually (if modifying Rust code)
 make -f Makefile.rust build
 
 # Clean build artifacts
@@ -234,6 +329,92 @@ make -f Makefile.rust clean
 
 # Show target info
 make -f Makefile.rust target-info
+
+# After rebuilding Rust library, test the changes
+cd ../../../..  # Back to SDK root
+python -m distiller_sdk.hardware.eink._display_test
+```
+
+**Rust Library Location**: `src/distiller_sdk/hardware/eink/lib/`
+- Source code: `src/` directory (Rust)
+- Build output: `libdistiller_display_sdk_shared.so` (copied to package `lib/` during install)
+- Python bindings: `src/distiller_sdk/hardware/eink/display.py` (ctypes interface)
+
+## Development Workflows
+
+### Quick Python-only Changes
+For changes to Python code only (no Rust library changes):
+```bash
+# 1. Make changes to Python files in src/distiller_sdk/
+# 2. Test immediately (no build needed)
+source .venv/bin/activate
+python -m distiller_sdk.hardware.audio._audio_test
+
+# 3. When ready to package
+just lint                          # Check code quality
+just build                         # Build Debian package
+```
+
+### Changes Involving Rust Library
+For changes to the Rust e-ink library:
+```bash
+# 1. Make changes to Rust code in src/distiller_sdk/hardware/eink/lib/src/
+# 2. Rebuild Rust library
+cd src/distiller_sdk/hardware/eink/lib
+make -f Makefile.rust build
+cd ../../../..
+
+# 3. Test changes
+python -m distiller_sdk.hardware.eink._display_test
+
+# 4. When ready, rebuild full package
+./build.sh                         # Downloads models and builds Rust library
+just build                         # Build Debian package
+```
+
+### Adding New Hardware Platform Support
+To add support for a new platform (e.g., new SBC):
+```bash
+# 1. Create config file
+cp configs/cm5.conf configs/new-platform.conf
+# Edit configs/new-platform.conf with correct SPI/GPIO settings
+
+# 2. Update platform detection
+# Edit debian/platform-detect.sh:
+#   - Add new platform to validate_platform() function
+#   - Add detection logic to detect_platform() function
+#   - Add config mapping to get_config_file() function
+#   - Add hardware descriptions to get_spi_device(), get_gpio_chip(), etc.
+
+# 3. Test platform detection
+source debian/platform-detect.sh
+detect_platform
+get_platform_description new-platform
+
+# 4. Update documentation in CLAUDE.md and README.md
+```
+
+### Version Bumping and Release
+```bash
+# 1. Update version in pyproject.toml
+# Edit version = "3.0.0" -> "3.1.0"
+
+# 2. Update Debian changelog
+just changelog                     # Opens editor with dch -i
+# Add meaningful changelog entry
+
+# 3. Build and test
+just clean
+./build.sh
+just build
+sudo dpkg -i dist/distiller-sdk_*_arm64.deb
+just verify                        # Verify installation
+
+# 4. Commit and tag (within this repo)
+git add pyproject.toml debian/changelog
+git commit -m "chore: bump version to 3.1.0"
+git tag v3.1.0
+git push && git push --tags
 ```
 
 ## Common Pitfalls
@@ -247,3 +428,5 @@ make -f Makefile.rust target-info
 7. **ArmSom RK3576 GPIO pins**: GPIO pin configuration for e-ink display is incomplete in `configs/armsom-rk3576.conf`
 8. **Justfile architecture**: Default build architecture is `arm64`; specify `just build amd64` for cross-platform builds
 9. **Model size**: Standard build is ~200MB; including Whisper adds ~300-500MB more via `just prepare whisper`
+10. **Rust library not in Python path**: When testing locally, ensure `LD_LIBRARY_PATH` includes the Rust library location
+11. **Model files not downloaded**: Run `./build.sh` before first build to download AI models from HuggingFace

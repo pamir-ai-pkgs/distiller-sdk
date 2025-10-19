@@ -378,6 +378,8 @@ camera.close()
 
 ### LED Control
 
+Full RGB LED control with animation modes, Linux LED triggers, and timing control.
+
 ```python
 from distiller_sdk.hardware.sam import LED
 import time
@@ -398,10 +400,27 @@ led.set_color_all(red=0, green=255, blue=0)  # All green
 led.set_brightness_all(200)  # 0-255
 led.turn_off_all()
 
-# Breathing pattern example
-for brightness in range(0, 256, 5):  # Breathing
-    led.set_brightness(led_id=0, brightness=brightness)
-    time.sleep(0.05)
+# Animation modes (non-blocking)
+led.blink_led(led_id=0, red=255, green=0, blue=0, timing=500)  # Blink red at 500ms
+led.fade_led(led_id=0, red=0, green=255, blue=0, timing=1000)  # Fade green at 1000ms
+led.rainbow_led(led_id=0, timing=800)  # Rainbow cycle at 800ms
+
+# Stop any running animation
+led.stop_animation(led_id=0)
+led.stop_all_animations()
+
+# Linux LED triggers (hardware-accelerated effects)
+led.set_trigger(0, "heartbeat-rgb")    # Heartbeat pattern
+led.set_trigger(0, "breathing-rgb")    # Breathing effect
+led.set_trigger(0, "none")             # Disable trigger
+
+# Get available triggers
+triggers = led.get_available_triggers(0)
+current_trigger = led.get_trigger(0)
+
+# Custom animation timing control
+led.blink_led(led_id=0, red=255, green=255, blue=0, timing=200)  # Fast yellow blink
+led.fade_led(led_id=1, red=0, green=0, blue=255, timing=2000)    # Slow blue fade
 
 # Get available LEDs
 available = led.get_available_leds()  # Returns list of LED IDs
@@ -512,12 +531,18 @@ class HardwareManager:
     def capture_and_display(self):
         """Capture image and show on display."""
         if self.camera and self.display:
+            if self.led:
+                # Blink blue during capture
+                self.led.blink_led(led_id=0, red=0, green=0, blue=255, timing=300)
+
             # Capture and save image
             image = self.camera.capture_image("/tmp/capture.png")
             # Display on e-ink using auto-conversion
             self.display.display_png_auto("/tmp/capture.png", DisplayMode.FULL)
+
             if self.led:
-                # Set first LED to green for success
+                # Stop animation and show solid green for success
+                self.led.stop_animation(led_id=0)
                 self.led.set_rgb_color(led_id=0, red=0, green=255, blue=0)
 
     def cleanup(self):
@@ -525,6 +550,7 @@ class HardwareManager:
         if self.display:
             self.display.clear()
         if self.led:
+            self.led.stop_all_animations()  # Stop any running animations
             self.led.turn_off_all()
         if self.camera:
             self.camera.close()
