@@ -66,6 +66,9 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 		-o -type f -name "*.py" -exec chmod 644 {} \;
 	find /opt/distiller-sdk/.venv/bin -type f -exec chmod 755 {} \;
 
+	# Set ownership to distiller user
+	chown -R distiller:distiller /opt/distiller-sdk
+
 	# Verify installation
 	VENV_PYTHON="$VENV_PATH/bin/python"
 	if [ ! -f "$VENV_PYTHON" ]; then
