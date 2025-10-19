@@ -23,6 +23,7 @@ src/distiller_sdk/piper/output.wav
 src/distiller_sdk/hardware/camera/camera_test_output/
 src/distiller_sdk/hardware/eink/lib/target
 src/distiller_sdk/hardware/eink/lib/target-build
+src/distiller_sdk/hardware/eink/lib/Cargo.lock
 
 # Large model/data files (uncomment if you download these instead of checking in)
 src/distiller_sdk/piper/models/
