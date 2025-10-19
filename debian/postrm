@@ -8,7 +8,6 @@ remove | upgrade | deconfigure)
 
 	# Remove generated files
 	rm -f /opt/distiller-sdk/.python-version 2>/dev/null || true
-	rm -f /opt/distiller-sdk/activate.sh 2>/dev/null || true
 	rm -f /opt/distiller-sdk/eink.conf 2>/dev/null || true
 
 	# Remove any Python cache files
