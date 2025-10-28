@@ -40,23 +40,20 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 	cd /opt/distiller-sdk
 
 	[ -d ".venv" ] && rm -rf ".venv"
-	if ! uv venv --system-site-packages 2>/dev/null; then
-		echo "INFO: Creating venv without system-site-packages..."
-		uv venv || {
-			echo "WARNING: Failed to create virtual environment with uv"
-			exit 1
-		}
-	fi
 
-	# Install dependencies with production settings
+	uv venv --python $(which python3) || {
+		echo "ERROR: Failed to create virtual environment with uv"
+		exit 1
+	}
+
 	export UV_COMPILE_BYTECODE=1
 	export UV_NO_CACHE=1
 	export UV_LINK_MODE=copy
 
-	# Use --frozen to use lockfile exactly as packaged
-	# Use --no-editable for production install
-	# Use --compile-bytecode for faster startup times
-	uv sync --frozen --no-editable --compile-bytecode
+	uv sync --frozen --no-editable --compile-bytecode || {
+		echo "ERROR: Failed to install package dependencies" >&2
+		exit 1
+	}
 
 	VENV_PATH="/opt/distiller-sdk/.venv"
 
