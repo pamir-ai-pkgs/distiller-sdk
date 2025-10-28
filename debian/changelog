@@ -1,3 +1,16 @@
+distiller-sdk (3.2.0) unstable; urgency=medium
+
+  [ utsavbalar1231 ]
+  * fix(debian): add missing python3-dev to dependencies
+  * fix(eink): implement error codes and fix error propagation
+  * docs(eink): clarify EPD128x250 dimensions and logging features
+  * build(debian): improve uv based python installation in postinst
+  * style(eink): apply formatting and update tests for error codes
+  * docs: synchronize documentation with codebase
+  * chore(release): bump version to v3.2.0
+
+ -- PamirAI Incorporated <support@pamir.ai>  Wed, 29 Oct 2025 21:38:29 +0000
+
 distiller-sdk (3.1.0) unstable; urgency=medium
 
   [ utsavbalar1231 ]
