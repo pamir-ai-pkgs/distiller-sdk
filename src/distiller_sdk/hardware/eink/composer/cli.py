@@ -33,7 +33,8 @@ def create_parser():
         epilog="""
 Examples:
   # IMPORTANT: Always create a composition first!
-  # Standard e-ink display is 128x250 (width x height)
+  # Standard e-ink display: EPD128x250 native firmware (128x250)
+  # Note: Native 128×250 portrait, physically mounted as 250×128 landscape
   
   # Working example for e-ink hardware:
   eink-compose create --size 128x250

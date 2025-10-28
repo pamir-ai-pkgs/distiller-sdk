@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
 """
 Display module unit tests for CM5 SDK.
+
+Logging Configuration:
+    This test demonstrates logging configuration for the display module.
+    Configure logging to see debug output:
+
+    import logging
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    For Rust-level logging, set RUST_LOG environment variable:
+        export RUST_LOG=debug
+        python -m distiller_sdk.hardware.eink._display_test
 """
 
 import unittest
@@ -17,6 +31,12 @@ from distiller_sdk.hardware.eink import (
     get_default_firmware,
 )
 
+# Configure logging for tests (comment out to reduce noise)
+# logging.basicConfig(
+#     level=logging.DEBUG,
+#     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# )
+
 
 class TestDisplay(unittest.TestCase):
     """Test cases for Display class."""
@@ -24,14 +44,19 @@ class TestDisplay(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         # Mock the library loading to avoid hardware dependencies
+        # Note: FFI functions now return error codes (1=success, negative=error)
         self.mock_lib = Mock()
-        self.mock_lib.display_init.return_value = True
-        self.mock_lib.display_clear.return_value = True
-        self.mock_lib.display_image_png.return_value = True
-        self.mock_lib.display_image_raw.return_value = True
-        self.mock_lib.convert_png_to_1bit.return_value = True
+        self.mock_lib.display_init.return_value = 1  # SUCCESS
+        self.mock_lib.display_clear.return_value = 1  # SUCCESS
+        self.mock_lib.display_image_png.return_value = 1  # SUCCESS
+        self.mock_lib.display_image_raw.return_value = 1  # SUCCESS
+        self.mock_lib.display_image_file.return_value = 1  # SUCCESS
+        self.mock_lib.display_image_auto.return_value = 1  # SUCCESS
+        self.mock_lib.convert_png_to_1bit.return_value = 1  # SUCCESS
+        self.mock_lib.display_initialize_config.return_value = 1  # SUCCESS
         self.mock_lib.display_cleanup.return_value = None
         self.mock_lib.display_sleep.return_value = None
+        self.mock_lib.display_init_logger.return_value = None
 
         # Mock dimensions - return void, but we'll override the method
         self.mock_lib.display_get_dimensions.return_value = None
