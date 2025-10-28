@@ -68,8 +68,8 @@ if audio.is_playing():
 
 ## E-ink Display
 
-The E-ink module supports EPD128x250 (250×128) and EPD240x416 displays with comprehensive image
-processing.
+The E-ink module supports EPD128x250 (native: 128×250 portrait, mounted: 250×128 landscape) and
+EPD240x416 displays with comprehensive image processing.
 
 ### Features
 

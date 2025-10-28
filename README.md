@@ -144,11 +144,17 @@ audio.close()
 
 ### E-ink Display
 
-Supports EPD128x250 (250×128 pixels) and EPD240x416 (240×416 pixels) displays with comprehensive
-image processing capabilities.
+Supports EPD128x250 and EPD240x416 displays with comprehensive image processing capabilities.
 
-**Note**: The EPD128x250 firmware name follows internal convention but actually represents a 250×128
-(width×height) display.
+**EPD128x250 Display**:
+- **Native orientation**: 128×250 (portrait: 128 wide, 250 tall)
+- **Mounted orientation**: 250×128 (landscape - rotated 90° from native)
+- **Vendor firmware requirement**: Uses width=128, height=250 internally (REQUIRED for proper bit packing)
+- **Important**: Using 250×128 causes byte alignment issues and garbled output
+- **Firmware name**: EPD128x250 (vendor naming convention)
+
+**EPD240x416 Display**:
+- Dimensions: 240×416 pixels (matches physical orientation)
 
 #### Configuration
 
@@ -161,7 +167,7 @@ from distiller_sdk.hardware.eink import (
 
 # Configure firmware type (persists across sessions)
 set_default_firmware(FirmwareType.EPD240x416)  # 240×416 display
-set_default_firmware(FirmwareType.EPD128x250)  # 250×128 display (default)
+set_default_firmware(FirmwareType.EPD128x250)  # Native: 128×250 (portrait), mounted: 250×128 (landscape) (default)
 current_fw = get_default_firmware()
 
 # Configuration priority:
@@ -287,6 +293,10 @@ display.display_image(with_rect, mode=DisplayMode.FULL)
 
 #### Bitpacking Transformations (Standalone Functions)
 
+**Note**: For EPD128x250, the native orientation is 128×250 (portrait), but the display is mounted as 250×128 (landscape).
+The vendor firmware requires width=128, height=250 internally for proper bit packing.
+When working with bitpacked data, ensure your dimensions match the firmware requirements.
+
 ```python
 from distiller_sdk.hardware.eink import (
     rotate_bitpacked, rotate_bitpacked_ccw_90, rotate_bitpacked_cw_90,
@@ -294,7 +304,9 @@ from distiller_sdk.hardware.eink import (
     invert_bitpacked_colors
 )
 
-# 1-bit packed data (250x128 display for EPD128x250)
+# 1-bit packed data matching physical display orientation (user-facing)
+# For EPD128x250: native 128×250 (portrait), mounted 250×128 (landscape, rotated 90°)
+# Firmware uses 128×250 internally
 data = bytes([0xAA] * 4000)  # Alternating pattern
 
 # Rotation transformations
@@ -302,6 +314,13 @@ rotated_90_ccw = rotate_bitpacked(data, 90, 250, 128)  # Counter-clockwise
 rotated_90_ccw = rotate_bitpacked_ccw_90(data, 250, 128)  # Same as above
 rotated_90_cw = rotate_bitpacked_cw_90(data, 250, 128)  # Clockwise 90°
 rotated_180 = rotate_bitpacked_180(data, 250, 128)  # 180° rotation
+
+# Note: After 90° or 270° rotations, dimensions swap (250x128 becomes 128x250)
+# Example with chained transformations:
+# result = flip_bitpacked_vertical(
+#     rotate_bitpacked_ccw_90(data, 250, 128),  # Rotate 250x128 -> becomes 128x250
+#     128, 250  # Use swapped dimensions for flip
+# )
 
 # Flip transformations
 flipped_h = flip_bitpacked_horizontal(data, 250, 128)  # Mirror left-right

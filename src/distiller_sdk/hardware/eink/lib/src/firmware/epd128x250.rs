@@ -1,24 +1,50 @@
-//! Firmware implementation for 128x250 e-ink displays.
+//! Firmware implementation for EPD128x250 e-ink displays.
+//!
+//! # Dimension Specification
+//!
+//! **Native Orientation**: The vendor hardware is natively 128×250 (portrait: 128 wide, 250 tall).
+//!
+//! **Mounted Orientation**: The display is mounted rotated 90° to appear as 250×128 landscape
+//! (250 pixels wide × 128 pixels tall) to end users.
+//!
+//! **Firmware Requirement**: The vendor firmware REQUIRES width=128, height=250 internally for
+//! correct bit packing and byte alignment. Using width=250, height=128 causes byte alignment
+//! issues and produces garbled output.
+//!
+//! **Do NOT change these dimensions** - the 128×250 specification is correct and required.
 
 use crate::firmware::{CommandSequence, DisplayFirmware, DisplaySpec};
 
-/// Firmware configuration for 128x250 E-ink display
+/// Firmware configuration for EPD128x250 E-ink display.
+///
+/// **Vendor Firmware Name**: EPD128x250
+/// **Native Orientation**: 128×250 (portrait)
+/// **Mounted Orientation**: 250×128 (landscape - rotated 90° from native)
+/// **Internal Dimensions**: width=128, height=250 (required by vendor firmware)
+///
+/// The vendor firmware requires width=128, height=250 for correct bit packing.
 /// This is the current display variant - you can duplicate this file and modify
-/// register values for different display variants of the same controller family
+/// register values for different display variants of the same controller family.
 pub struct EPD128x250Firmware {
     spec: DisplaySpec,
 }
 
 impl EPD128x250Firmware {
-    /// Create a new `EPD128x250` firmware instance
+    /// Create a new `EPD128x250` firmware instance.
+    ///
+    /// **Critical**: width=128, height=250 is REQUIRED by vendor firmware for proper
+    /// bit packing. Do not change to 250×128 as it causes byte alignment issues.
     #[must_use]
     pub fn new() -> Self {
         Self {
             spec: DisplaySpec {
-                width: 128,
-                height: 250,
+                // These dimensions are REQUIRED by vendor firmware bit packing logic.
+                // Native hardware is 128×250 (portrait), mounted as 250×128 (landscape, rotated 90°).
+                // Using width=250, height=128 causes byte alignment issues and garbled output.
+                width: 128,   // Native orientation width (vendor firmware requirement)
+                height: 250,  // Native orientation height (vendor firmware requirement)
                 name: "EPD128x250".to_string(),
-                description: "128x250 E-ink display".to_string(),
+                description: "EPD128x250 E-ink display (native: 128×250 portrait, mounted: 250×128 landscape)".to_string(),
             },
         }
     }

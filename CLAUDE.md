@@ -182,7 +182,10 @@ Detection priority:
 
 ### E-ink Display Architecture
 The display system uses ctypes bindings to a Rust-compiled shared library (`libdistiller_display_sdk_shared.so`):
-- **Firmware types**: EPD128x250 (250×128), EPD240x416 (240×416)
+- **Firmware types**:
+  - **EPD128x250**: Native 128×250 (portrait), mounted 250×128 (landscape, rotated 90°); vendor firmware requires width=128, height=250 internally
+  - **EPD240x416**: 240×416 (dimensions match physical orientation)
+- **Critical**: EPD128x250 dimensions (128×250) are CORRECT as required by vendor firmware; using 250×128 causes byte alignment issues
 - **Configuration priority**: 1) `DISTILLER_EINK_FIRMWARE` env var, 2) config files, 3) default EPD128x250
 - **Image processing**: Supports PNG/JPEG/GIF/BMP/TIFF/WebP with auto-scaling, dithering, and transformations
 - **Bitpacking**: 1-bit packed data with standalone transformation functions for rotation/flipping
@@ -291,10 +294,12 @@ led.turn_off_all()
 ### Transformation Chaining
 For e-ink display transformations, note that dimensions swap after 90/270° rotations:
 ```python
-# Original: 250x128, after 90° rotation: 128x250
+# For EPD128x250: native 128×250 (portrait), mounted 250×128 (landscape, rotated 90°)
+# Vendor firmware requires 128×250 internally for proper bit packing
+# Example showing dimension swap after rotation
 result = flip_bitpacked_vertical(
-    rotate_bitpacked_ccw_90(data, 250, 128),
-    128, 250  # Swapped dimensions
+    rotate_bitpacked_ccw_90(data, 128, 250),
+    250, 128  # Dimensions swapped after 90° rotation
 )
 ```
 
@@ -419,7 +424,7 @@ git push && git push --tags
 
 ## Common Pitfalls
 
-1. **Display firmware mismatch**: EPD128x250 firmware name represents 250×128 display (width×height), not 128×250
+1. **EPD128x250 dimension specification**: The vendor hardware is natively 128×250 (portrait), but is mounted as 250×128 (landscape, rotated 90°). The vendor firmware REQUIRES width=128, height=250 for proper bit packing. Using width=250, height=128 causes byte alignment issues and produces garbled output. This is a vendor firmware requirement, not an error.
 2. **Platform detection during build**: Armbian builds must detect platform via kernel patterns in `/lib/modules/` before `/etc/armbian-release` exists
 3. **uv installation**: `postinst` script handles multiple uv installation paths via PATH export including root/user `.local/bin` and `.cargo/bin`
 4. **Audio permissions**: Recording/playback requires user in `audio` group
