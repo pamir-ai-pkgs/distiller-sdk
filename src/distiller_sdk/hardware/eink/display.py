@@ -2,19 +2,57 @@
 """
 Display module for CM5 SDK.
 Provides functionality for e-ink display control and image display.
+
+Logging:
+    This module uses the logging module for debug and error messages.
+    Enable detailed Rust-level logging with RUST_LOG environment variable:
+        RUST_LOG=debug python script.py
 """
 
 import os
 import ctypes
+import logging
 from ctypes import c_bool, c_char_p, c_uint32, c_int, c_float, POINTER
 from enum import IntEnum
 from typing import Optional, Tuple, Union
+
+# Set up module logger
+logger = logging.getLogger(__name__)
 
 
 class DisplayError(Exception):
     """Custom exception for Display-related errors."""
 
     pass
+
+
+class DisplayErrorCode(IntEnum):
+    """Error codes returned by FFI functions."""
+
+    SUCCESS = 1
+    GPIO = -1
+    SPI = -2
+    CONFIG = -3
+    TIMEOUT = -4
+    NOT_INITIALIZED = -5
+    INVALID_DATA = -6
+    PNG = -7
+    IO = -8
+    UNKNOWN = -99
+
+
+# Error code to human-readable message mapping
+ERROR_MESSAGES = {
+    DisplayErrorCode.GPIO: "GPIO hardware error - check /dev/gpiochipX device exists and is accessible",
+    DisplayErrorCode.SPI: "SPI device error - check /dev/spidevX.Y device exists and SPI is enabled",
+    DisplayErrorCode.CONFIG: "Configuration error - check /opt/distiller-sdk/eink.conf exists and is valid",
+    DisplayErrorCode.TIMEOUT: "Hardware timeout - display not responding (check connections and power)",
+    DisplayErrorCode.NOT_INITIALIZED: "Display not initialized - call initialize() first",
+    DisplayErrorCode.INVALID_DATA: "Invalid data - check image dimensions and data format",
+    DisplayErrorCode.PNG: "PNG processing error - check file exists and is a valid PNG",
+    DisplayErrorCode.IO: "I/O error - check file permissions and disk space",
+    DisplayErrorCode.UNKNOWN: "Unknown error - check RUST_LOG=debug for details",
+}
 
 
 class DisplayMode(IntEnum):
@@ -27,14 +65,21 @@ class DisplayMode(IntEnum):
 class FirmwareType:
     """Supported e-ink display firmware types.
 
-    Note: The naming convention follows the firmware's internal naming,
-    which may differ from the actual display dimensions:
-    - EPD128x250: Actually represents a 250×128 display (default for backward compatibility)
-    - EPD240x416: Represents a 240×416 display
+    EPD128x250 Dimension Clarification:
+    - Vendor firmware name: EPD128x250
+    - Native orientation: 128×250 (portrait: 128 wide, 250 tall)
+    - Mounted orientation: 250×128 (landscape - rotated 90° from native)
+    - Internal dimensions: width=128, height=250 (REQUIRED by vendor firmware)
+    - Why: Vendor bit packing logic requires 128×250; using 250×128 causes byte alignment
+      issues and produces garbled output
+    - These dimensions are CORRECT - do not change them
+
+    EPD240x416:
+    - Dimensions: width=240, height=416 (matches physical orientation)
     """
 
-    EPD128x250 = "EPD128x250"  # 250×128 display (width×height)
-    EPD240x416 = "EPD240x416"  # 240×416 display (width×height)
+    EPD128x250 = "EPD128x250"  # Native: 128×250 (portrait), mounted: 250×128 (landscape)
+    EPD240x416 = "EPD240x416"  # 240×416 display
 
 
 class ScalingMethod(IntEnum):
@@ -80,17 +125,23 @@ class Display:
     - Text rendering and overlay capabilities
 
     Firmware Support:
-    - EPD128x250: 250×128 display (default for backward compatibility)
-    - EPD240x416: 240×416 display
+    - EPD128x250: Native orientation 128×250 (portrait), mounted as 250×128 (landscape, rotated 90°).
+      Vendor firmware requires width=128, height=250 internally for proper bit packing.
+    - EPD240x416: 240×416 display (dimensions match physical orientation)
 
     Configuration:
     - Set via environment variable: DISTILLER_EINK_FIRMWARE
     - Config files: /opt/distiller-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf
+
+    Important: For EPD128x250, the internal representation (128×250) is REQUIRED by the
+    vendor firmware. Do not attempt to use 250×128 as it causes byte alignment issues.
     """
 
     # Display constants (firmware-specific, updated after initialization)
-    WIDTH = 128  # Default width for EPD128x250 firmware (actually 250 pixels)
-    HEIGHT = 250  # Default height for EPD128x250 firmware (actually 128 pixels)
+    # For EPD128x250: Native orientation is 128×250 (portrait), mounted as 250×128 (landscape)
+    # Vendor firmware REQUIRES width=128, height=250 for proper bit packing
+    WIDTH = 128  # Native width (vendor firmware requirement)
+    HEIGHT = 250  # Native height (vendor firmware requirement)
     ARRAY_SIZE = (128 * 250) // 8  # Buffer size in bytes for 1-bit packed data
 
     def __init__(self, library_path: Optional[str] = None, auto_init: bool = True):
@@ -105,21 +156,32 @@ class Display:
             DisplayError: If library can't be loaded or display can't be initialized
         """
         self._initialized = False
+        self._library_path = library_path
 
         # Find and load the shared library
         if library_path is None:
             library_path = self._find_library()
 
+        logger.debug(f"Loading display library from: {library_path}")
+
         if not os.path.exists(library_path):
+            logger.error(f"Display library not found at: {library_path}")
             raise DisplayError(f"Display library not found: {library_path}")
 
         try:
             self._lib: ctypes.CDLL = ctypes.CDLL(library_path)
+            logger.debug("Display library loaded successfully")
         except OSError as e:
+            logger.error(f"Failed to load display library: {e}")
             raise DisplayError(f"Failed to load display library: {e}")
 
         # Set up function signatures
         self._setup_function_signatures()
+
+        # Initialize Rust logger if RUST_LOG is set
+        if os.environ.get("RUST_LOG"):
+            logger.debug("Initializing Rust logger (RUST_LOG is set)")
+            self._init_rust_logger()
 
         if auto_init:
             self.initialize()
@@ -308,6 +370,48 @@ class Display:
             # Configuration functions not available in this library version
             self._config_available = False
 
+        # Logger initialization (optional - may not exist in older libraries)
+        try:
+            # display_init_logger() -> void
+            self._lib.display_init_logger.restype = None
+            self._lib.display_init_logger.argtypes = []
+            self._logger_available = True
+        except AttributeError:
+            self._logger_available = False
+
+    def _init_rust_logger(self) -> None:
+        """Initialize the Rust logger if available."""
+        if hasattr(self, "_logger_available") and self._logger_available:
+            try:
+                self._lib.display_init_logger()
+                logger.debug("Rust logger initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Rust logger: {e}")
+
+    def _check_result(self, result: int, operation: str) -> None:
+        """
+        Check FFI function result and raise DisplayError on failure.
+
+        Args:
+            result: Return value from FFI function (1=success, negative=error code)
+            operation: Description of the operation for error message
+
+        Raises:
+            DisplayError: If result indicates an error
+        """
+        if result == DisplayErrorCode.SUCCESS:
+            return
+
+        try:
+            error_code = DisplayErrorCode(result)
+            base_msg = ERROR_MESSAGES.get(error_code, f"Unknown error (code: {error_code})")
+            logger.error(f"{operation} failed: {base_msg}")
+            raise DisplayError(f"{operation}: {base_msg}")
+        except ValueError:
+            # Invalid error code
+            logger.error(f"{operation} failed with unknown error code: {result}")
+            raise DisplayError(f"{operation}: Unknown error code {result}")
+
     def initialize(self) -> None:
         """
         Initialize the display hardware.
@@ -316,26 +420,40 @@ class Display:
             DisplayError: If initialization fails
         """
         if self._initialized:
+            logger.debug("Display already initialized, skipping")
             return
+
+        logger.debug("Initializing display hardware...")
 
         # Initialize configuration system first (if available)
         if hasattr(self, "_config_available") and self._config_available:
+            logger.debug("Initializing configuration system")
             try:
                 config_success = self._lib.display_initialize_config()
                 if not config_success:
                     # Config initialization failed, but continue with defaults
-                    print("Warning: Failed to initialize config system, using defaults")
+                    logger.warning("Failed to initialize config system, using defaults")
             except Exception as e:
-                print(f"Warning: Config system error: {e}")
+                logger.warning(f"Config system error: {e}")
 
-        success = self._lib.display_init()
-        if not success:
-            raise DisplayError("Failed to initialize display hardware")
+        result = self._lib.display_init()
+        try:
+            self._check_result(result, "Display initialization")
+        except DisplayError:
+            # Provide additional helpful hints for initialization failures
+            logger.error("Common initialization issues:")
+            logger.error("  - GPIO chip not accessible (check /dev/gpiochipX permissions)")
+            logger.error("  - SPI device not accessible (check /dev/spidevX.Y permissions)")
+            logger.error("  - Configuration file missing (/opt/distiller-sdk/eink.conf)")
+            logger.error("  - Hardware not connected or powered")
+            logger.error("For detailed Rust-level errors, run with: RUST_LOG=debug")
+            raise
 
         # Update dimensions based on current firmware
         self._update_dimensions()
 
         self._initialized = True
+        logger.info(f"Display initialized successfully ({self.WIDTH}x{self.HEIGHT})")
 
     def _update_dimensions(self) -> None:
         """Update display dimensions from the library."""
@@ -353,8 +471,11 @@ class Display:
             Display.HEIGHT = self.HEIGHT
             Display.ARRAY_SIZE = self.ARRAY_SIZE
 
+            logger.debug(f"Display dimensions updated: {self.WIDTH}x{self.HEIGHT}")
+
         except Exception as e:
-            print(f"Warning: Could not get dimensions from library: {e}")
+            logger.warning(f"Could not get dimensions from library: {e}")
+            logger.debug(f"Using default dimensions: {self.WIDTH}x{self.HEIGHT}")
             # Keep default values
 
     def get_dimensions(self) -> Tuple[int, int]:
@@ -456,7 +577,10 @@ class Display:
     ) -> None:
         """Display a PNG image file."""
         if not os.path.exists(filename):
+            logger.error(f"PNG file not found: {filename}")
             raise DisplayError(f"PNG file not found: {filename}")
+
+        logger.debug(f"Displaying PNG: {filename} (mode={mode.name})")
 
         # Handle backward compatibility for boolean rotate parameter
         if isinstance(rotate, bool):
@@ -465,6 +589,9 @@ class Display:
             rotation_degrees = rotate
 
         if rotation_degrees != 0 or flip_horizontal or flip_vertical or invert_colors:
+            logger.debug(
+                f"Applying transformations: rotate={rotation_degrees}°, flip_h={flip_horizontal}, flip_v={flip_vertical}, invert={invert_colors}"
+            )
             # For PNG transformations, convert to raw data first
             raw_data = self.convert_png_to_raw(filename)
             # Use actual display dimensions for transformations
@@ -486,21 +613,25 @@ class Display:
         else:
             # Direct PNG display (must be 128x250)
             filename_bytes = filename.encode("utf-8")
-            success = self._lib.display_image_png(filename_bytes, int(mode))
-            if not success:
-                raise DisplayError(f"Failed to display PNG image: {filename}")
+            result = self._lib.display_image_png(filename_bytes, int(mode))
+            self._check_result(result, f"Display PNG image '{filename}'")
+
+        logger.debug("PNG displayed successfully")
 
     def _display_raw(self, data: bytes, mode: DisplayMode) -> None:
         """Display raw 1-bit image data."""
+        logger.debug(f"Displaying raw image data ({len(data)} bytes, mode={mode.name})")
+
         if len(data) != self.ARRAY_SIZE:
+            logger.error(f"Invalid data size: expected {self.ARRAY_SIZE} bytes, got {len(data)}")
             raise DisplayError(f"Data must be exactly {self.ARRAY_SIZE} bytes, got {len(data)}")
 
         # Convert bytes to ctypes array
         data_array = (ctypes.c_ubyte * len(data))(*data)
 
-        success = self._lib.display_image_raw(data_array, int(mode))
-        if not success:
-            raise DisplayError("Failed to display raw image data")
+        result = self._lib.display_image_raw(data_array, int(mode))
+        self._check_result(result, "Display raw image")
+        logger.debug("Raw image displayed successfully")
 
     def display_image_file(
         self,
@@ -529,10 +660,11 @@ class Display:
         if not os.path.exists(filename):
             raise DisplayError(f"Image file not found: {filename}")
 
+        logger.debug(f"Displaying image file: {filename} (mode={mode.name})")
         filename_bytes = filename.encode("utf-8")
-        success = self._lib.display_image_file(filename_bytes, int(mode))
-        if not success:
-            raise DisplayError(f"Failed to display image file: {filename}")
+        result = self._lib.display_image_file(filename_bytes, int(mode))
+        self._check_result(result, f"Display image file '{filename}'")
+        logger.debug("Image file displayed successfully")
 
     def display_image_auto(
         self,
@@ -564,12 +696,15 @@ class Display:
         if not os.path.exists(filename):
             raise DisplayError(f"Image file not found: {filename}")
 
+        logger.debug(
+            f"Auto-displaying image: {filename} (scale={scaling.name}, dither={dithering.name})"
+        )
         filename_bytes = filename.encode("utf-8")
-        success = self._lib.display_image_auto(
+        result = self._lib.display_image_auto(
             filename_bytes, int(mode), int(scaling), int(dithering)
         )
-        if not success:
-            raise DisplayError(f"Failed to auto-display image: {filename}")
+        self._check_result(result, f"Auto-display image '{filename}'")
+        logger.debug("Image auto-displayed successfully")
 
     def clear(self) -> None:
         """
@@ -579,15 +714,18 @@ class Display:
             DisplayError: If clear operation fails
         """
         if not self._initialized:
+            logger.error("Attempted to clear display before initialization")
             raise DisplayError("Display not initialized. Call initialize() first.")
 
-        success = self._lib.display_clear()
-        if not success:
-            raise DisplayError("Failed to clear display")
+        logger.debug("Clearing display")
+        result = self._lib.display_clear()
+        self._check_result(result, "Clear display")
+        logger.debug("Display cleared successfully")
 
     def sleep(self) -> None:
         """Put display to sleep for power saving."""
         if self._initialized:
+            logger.debug("Putting display to sleep")
             self._lib.display_sleep()
 
     def convert_png_to_raw(self, filename: str) -> bytes:
@@ -606,15 +744,16 @@ class Display:
         if not os.path.exists(filename):
             raise DisplayError(f"PNG file not found: {filename}")
 
+        logger.debug(f"Converting PNG to raw: {filename}")
         # Create output buffer
         output_data = (ctypes.c_ubyte * self.ARRAY_SIZE)()
         filename_bytes = filename.encode("utf-8")
 
-        success = self._lib.convert_png_to_1bit(filename_bytes, output_data)
-        if not success:
-            raise DisplayError(f"Failed to convert PNG: {filename}")
+        result = self._lib.convert_png_to_1bit(filename_bytes, output_data)
+        self._check_result(result, f"Convert PNG '{filename}' to raw")
 
         # Convert ctypes array to bytes
+        logger.debug("PNG conversion successful")
         return bytes(output_data)
 
     def is_initialized(self) -> bool:
@@ -624,8 +763,10 @@ class Display:
     def close(self) -> None:
         """Cleanup display resources."""
         if self._initialized:
+            logger.debug("Cleaning up display resources")
             self._lib.display_cleanup()
             self._initialized = False
+            logger.debug("Display closed successfully")
 
     def render_text(
         self, text: str, x: int = 0, y: int = 0, scale: int = 1, invert: bool = False
@@ -819,6 +960,8 @@ class Display:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.close()
+        # Return False to propagate any exceptions that occurred
+        return False
 
     def _get_display_dimensions(self) -> Tuple[int, int]:
         """Get current display dimensions."""
@@ -899,7 +1042,7 @@ class Display:
         brightness = -999
         contrast = -999.0
 
-        success = self._lib.image_process(
+        result = self._lib.image_process(
             image_path_bytes,
             int(scaling),
             int(dithering),
@@ -910,8 +1053,7 @@ class Display:
             output_data,
         )
 
-        if not success:
-            raise DisplayError(f"Failed to process image: {image_path}")
+        self._check_result(result, f"Process image '{image_path}' with auto-conversion")
 
         result = bytes(output_data)
 
@@ -1109,18 +1251,14 @@ class Display:
         Raises:
             DisplayError: If display operation fails
         """
-        try:
-            # Convert image to raw 1-bit data
-            raw_data = self._convert_png_auto(
-                image_path, scaling, dithering, rotate, flop, flip, crop_x, crop_y
-            )
+        # Convert image to raw 1-bit data
+        raw_data = self._convert_png_auto(
+            image_path, scaling, dithering, rotate, flop, flip, crop_x, crop_y
+        )
 
-            # Display the raw data
-            self._display_raw(raw_data, mode)
-            return True
-
-        except Exception as e:
-            raise DisplayError(f"Failed to auto-display PNG: {e}")
+        # Display the raw data
+        self._display_raw(raw_data, mode)
+        return True
 
 
 # Convenience functions for simple usage (following SDK pattern)

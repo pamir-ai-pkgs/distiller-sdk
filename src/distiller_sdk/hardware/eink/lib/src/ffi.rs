@@ -4,7 +4,33 @@ use std::{
     ptr,
 };
 
-use crate::{config, display, protocol::DisplayMode};
+use crate::{config, display, protocol::DisplayMode, error::DisplayError};
+
+// Error code constants for FFI
+const SUCCESS: c_int = 1;
+const ERR_GPIO: c_int = -1;
+const ERR_SPI: c_int = -2;
+const ERR_CONFIG: c_int = -3;
+const ERR_TIMEOUT: c_int = -4;
+const ERR_NOT_INITIALIZED: c_int = -5;
+const ERR_INVALID_DATA: c_int = -6;
+const ERR_PNG: c_int = -7;
+const ERR_IO: c_int = -8;
+const ERR_UNKNOWN: c_int = -99;
+
+/// Map DisplayError to error code
+fn error_to_code(e: &DisplayError) -> c_int {
+    match e {
+        DisplayError::Gpio(_) => ERR_GPIO,
+        DisplayError::Spi(_) => ERR_SPI,
+        DisplayError::Png(_) => ERR_PNG,
+        DisplayError::NotInitialized => ERR_NOT_INITIALIZED,
+        DisplayError::InvalidDataSize { .. } => ERR_INVALID_DATA,
+        DisplayError::Timeout => ERR_TIMEOUT,
+        DisplayError::Io(_) => ERR_IO,
+        DisplayError::Config(_) => ERR_CONFIG,
+    }
+}
 
 // C FFI exports
 
@@ -18,14 +44,15 @@ use crate::{config, display, protocol::DisplayMode};
 ///
 /// # Returns
 ///
-/// 1 on success, 0 on failure
+/// - 1 on success
+/// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub extern "C" fn display_init() -> c_int {
     match display::display_init() {
-        Ok(()) => 1, // true
+        Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Display init failed: {e}");
-            0 // false
+            error_to_code(&e)
         },
     }
 }
@@ -46,11 +73,12 @@ pub extern "C" fn display_init() -> c_int {
 ///
 /// # Returns
 ///
-/// 1 on success, 0 on failure
+/// - 1 on success
+/// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn display_image_raw(data: *const u8, mode: c_int) -> c_int {
     if data.is_null() {
-        return 0;
+        return ERR_INVALID_DATA;
     }
 
     // Get the configured firmware array size
@@ -58,21 +86,21 @@ pub unsafe extern "C" fn display_image_raw(data: *const u8, mode: c_int) -> c_in
         Ok(spec) => spec.array_size(),
         Err(e) => {
             log::error!("Failed to get default firmware spec: {e}");
-            return 0; // Return error instead of using fallback
+            return error_to_code(&e);
         },
     };
     let data_slice = unsafe { std::slice::from_raw_parts(data, array_size) };
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
-        _ => return 0,
+        _ => return ERR_INVALID_DATA,
     };
 
     match display::display_image_raw(data_slice, display_mode) {
-        Ok(()) => 1,
+        Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Display image raw failed: {e}");
-            0
+            error_to_code(&e)
         },
     }
 }
@@ -92,28 +120,29 @@ pub unsafe extern "C" fn display_image_raw(data: *const u8, mode: c_int) -> c_in
 ///
 /// # Returns
 ///
-/// 1 on success, 0 on failure
+/// - 1 on success
+/// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn display_image_png(filename: *const c_char, mode: c_int) -> c_int {
     if filename.is_null() {
-        return 0;
+        return ERR_INVALID_DATA;
     }
 
     let Ok(filename_str) = unsafe { CStr::from_ptr(filename) }.to_str() else {
-        return 0;
+        return ERR_INVALID_DATA;
     };
 
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
-        _ => return 0,
+        _ => return ERR_INVALID_DATA,
     };
 
     match display::display_image_png(filename_str, display_mode) {
-        Ok(()) => 1,
+        Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Display image PNG failed: {e}");
-            0
+            error_to_code(&e)
         },
     }
 }
@@ -133,28 +162,29 @@ pub unsafe extern "C" fn display_image_png(filename: *const c_char, mode: c_int)
 ///
 /// # Returns
 ///
-/// 1 on success, 0 on failure
+/// - 1 on success
+/// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn display_image_file(filename: *const c_char, mode: c_int) -> c_int {
     if filename.is_null() {
-        return 0;
+        return ERR_INVALID_DATA;
     }
 
     let Ok(filename_str) = unsafe { CStr::from_ptr(filename) }.to_str() else {
-        return 0;
+        return ERR_INVALID_DATA;
     };
 
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
-        _ => return 0,
+        _ => return ERR_INVALID_DATA,
     };
 
     match display::display_image_file(filename_str, display_mode) {
-        Ok(()) => 1,
+        Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Display image file failed: {e}");
-            0
+            error_to_code(&e)
         },
     }
 }
@@ -177,7 +207,8 @@ pub unsafe extern "C" fn display_image_file(filename: *const c_char, mode: c_int
 ///
 /// # Returns
 ///
-/// 1 on success, 0 on failure
+/// - 1 on success
+/// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn display_image_auto(
     filename: *const c_char,
@@ -186,38 +217,38 @@ pub unsafe extern "C" fn display_image_auto(
     dither_mode: c_int,
 ) -> c_int {
     if filename.is_null() {
-        return 0;
+        return ERR_INVALID_DATA;
     }
 
     let Ok(filename_str) = unsafe { CStr::from_ptr(filename) }.to_str() else {
-        return 0;
+        return ERR_INVALID_DATA;
     };
 
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
-        _ => return 0,
+        _ => return ERR_INVALID_DATA,
     };
 
     let scale = match scale_mode {
         0 => crate::image_processing::ScaleMode::Letterbox,
         1 => crate::image_processing::ScaleMode::CropCenter,
         2 => crate::image_processing::ScaleMode::Stretch,
-        _ => return 0,
+        _ => return ERR_INVALID_DATA,
     };
 
     let dither = match dither_mode {
         0 => crate::image_processing::DitherMode::Threshold,
         1 => crate::image_processing::DitherMode::FloydSteinberg,
         2 => crate::image_processing::DitherMode::Ordered,
-        _ => return 0,
+        _ => return ERR_INVALID_DATA,
     };
 
     match display::display_image_auto(filename_str, display_mode, scale, dither) {
-        Ok(()) => 1,
+        Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Display image auto failed: {e}");
-            0
+            error_to_code(&e)
         },
     }
 }
@@ -231,14 +262,15 @@ pub unsafe extern "C" fn display_image_auto(
 ///
 /// # Returns
 ///
-/// 1 on success, 0 on failure
+/// - 1 on success
+/// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub extern "C" fn display_clear() -> c_int {
     match display::display_clear() {
-        Ok(()) => 1,
+        Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Display clear failed: {e}");
-            0
+            error_to_code(&e)
         },
     }
 }
@@ -309,18 +341,19 @@ pub unsafe extern "C" fn display_get_dimensions(width: *mut c_uint, height: *mut
 ///
 /// # Returns
 ///
-/// 1 on success, 0 on failure
+/// - 1 on success
+/// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn convert_png_to_1bit(
     filename: *const c_char,
     output_data: *mut u8,
 ) -> c_int {
     if filename.is_null() || output_data.is_null() {
-        return 0;
+        return ERR_INVALID_DATA;
     }
 
     let Ok(filename_str) = unsafe { CStr::from_ptr(filename) }.to_str() else {
-        return 0;
+        return ERR_INVALID_DATA;
     };
 
     match display::convert_png_to_1bit(filename_str) {
@@ -330,17 +363,17 @@ pub unsafe extern "C" fn convert_png_to_1bit(
                 Ok(spec) => spec.array_size(),
                 Err(e) => {
                     log::error!("Failed to get default firmware spec: {e}");
-                    return 0; // Return error instead of using fallback
+                    return error_to_code(&e);
                 },
             };
             unsafe {
                 ptr::copy_nonoverlapping(data.as_ptr(), output_data, array_size);
             }
-            1
+            SUCCESS
         },
         Err(e) => {
             log::error!("Convert PNG to 1bit failed: {e}");
-            0
+            error_to_code(&e)
         },
     }
 }
@@ -361,25 +394,26 @@ pub unsafe extern "C" fn convert_png_to_1bit(
 ///
 /// # Returns
 ///
-/// 1 on success, 0 on failure
+/// - 1 on success
+/// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn display_set_firmware(firmware_str: *const c_char) -> c_int {
     if firmware_str.is_null() {
-        return 0;
+        return ERR_INVALID_DATA;
     }
 
     let firmware_str = unsafe {
         match CStr::from_ptr(firmware_str).to_str() {
             Ok(s) => s,
-            Err(_) => return 0,
+            Err(_) => return ERR_INVALID_DATA,
         }
     };
 
     match config::set_default_firmware_from_str(firmware_str) {
-        Ok(()) => 1,
+        Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Failed to set firmware: {e}");
-            0
+            error_to_code(&e)
         },
     }
 }
@@ -400,11 +434,12 @@ pub unsafe extern "C" fn display_set_firmware(firmware_str: *const c_char) -> c_
 ///
 /// # Returns
 ///
-/// 1 on success, 0 on failure
+/// - 1 on success
+/// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn display_get_firmware(firmware_str: *mut c_char, max_len: c_uint) -> c_int {
     if firmware_str.is_null() || max_len == 0 {
-        return 0;
+        return ERR_INVALID_DATA;
     }
 
     match config::get_default_firmware() {
@@ -413,7 +448,7 @@ pub unsafe extern "C" fn display_get_firmware(firmware_str: *mut c_char, max_len
             let name_bytes = firmware_name.as_bytes();
 
             if name_bytes.len() + 1 > max_len as usize {
-                return 0; // Buffer too small
+                return ERR_INVALID_DATA; // Buffer too small
             }
 
             unsafe {
@@ -424,11 +459,11 @@ pub unsafe extern "C" fn display_get_firmware(firmware_str: *mut c_char, max_len
                 );
                 *firmware_str.add(name_bytes.len()) = 0; // Null terminator
             }
-            1
+            SUCCESS
         },
         Err(e) => {
             log::error!("Failed to get firmware: {e}");
-            0
+            error_to_code(&e)
         },
     }
 }
@@ -442,14 +477,27 @@ pub unsafe extern "C" fn display_get_firmware(firmware_str: *mut c_char, max_len
 ///
 /// # Returns
 ///
-/// 1 on success, 0 on failure
+/// - 1 on success
+/// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub extern "C" fn display_initialize_config() -> c_int {
     match config::initialize_config() {
-        Ok(()) => 1,
+        Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Failed to initialize config: {e}");
-            0
+            error_to_code(&e)
         },
     }
+}
+
+/// Initialize the Rust logger for this library.
+///
+/// # Safety
+///
+/// This function is safe to call from C code. It initializes the env_logger
+/// for Rust code, allowing RUST_LOG environment variable to control logging.
+/// Can be called multiple times safely (subsequent calls are no-ops).
+#[unsafe(no_mangle)]
+pub extern "C" fn display_init_logger() {
+    let _ = env_logger::try_init();
 }
