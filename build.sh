@@ -145,9 +145,6 @@ else
 			elif [ -f "$RUST_LIB_DIR/Cargo.toml" ] && [ "$RUST_LIB_DIR/Cargo.toml" -nt "$RUST_LIB_FILE" ]; then
 				echo "[INFO] Cargo.toml has changed, rebuilding..."
 				rebuild_needed=true
-			elif [ -f "$RUST_LIB_DIR/Cargo.lock" ] && [ "$RUST_LIB_DIR/Cargo.lock" -nt "$RUST_LIB_FILE" ]; then
-				echo "[INFO] Cargo.lock has changed, rebuilding..."
-				rebuild_needed=true
 			else
 				echo "[INFO] Rust library is up-to-date, skipping rebuild"
 			fi

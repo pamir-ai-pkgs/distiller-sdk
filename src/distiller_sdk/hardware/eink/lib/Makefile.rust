@@ -17,7 +17,7 @@ CARGO = cargo
 
 # Find all Rust source files
 RUST_SOURCES := $(shell find src -name "*.rs" 2>/dev/null)
-CARGO_FILES := Cargo.toml Cargo.lock
+CARGO_FILES := Cargo.toml
 
 .PHONY: all clean build install-target target-info check-rebuild
 
@@ -43,7 +43,7 @@ check-rebuild:
 		echo "Library does not exist, rebuild needed"; \
 	elif [ -n "$$(find src -name '*.rs' -newer libdistiller_display_sdk_shared.so 2>/dev/null)" ]; then \
 		echo "Source files changed, rebuild needed"; \
-	elif [ Cargo.toml -nt libdistiller_display_sdk_shared.so ] || [ Cargo.lock -nt libdistiller_display_sdk_shared.so ]; then \
+	elif [ Cargo.toml -nt libdistiller_display_sdk_shared.so ]; then \
 		echo "Cargo files changed, rebuild needed"; \
 	else \
 		echo "Library is up-to-date"; \
