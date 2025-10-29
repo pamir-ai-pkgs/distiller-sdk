@@ -192,7 +192,7 @@ Note: Whisper models are not included by default due to their size.
 ```bash
 # Build SDK with Whisper models
 ./build.sh --whisper
-just build whisper
+just build
 ```
 
 ### Features
@@ -377,9 +377,12 @@ Models are located in:
 │   ├── piper/models/
 │   │   └── en_US-amy-medium.onnx
 │   └── whisper/models/  # Optional
-│       ├── tiny.bin
-│       ├── base.bin
-│       └── small.bin
+│       └── faster-distil-whisper-small.en/
+│           ├── model.bin
+│           ├── config.json
+│           ├── preprocessor_config.json
+│           ├── tokenizer.json
+│           └── vocabulary.json
 ```
 
 ## Troubleshooting AI Models

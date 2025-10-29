@@ -315,8 +315,8 @@ print(f"WAV file: {wav_path}")
 cd /path/to/distiller-sdk
 ./build.sh --whisper
 
-# Rebuild package with Whisper
-just build whisper
+# Rebuild package
+just build
 
 # Verify models exist
 ls -la /opt/distiller-sdk/src/distiller_sdk/whisper/models/
@@ -397,7 +397,7 @@ env | grep -E "(PYTHON|LD_LIBRARY|DISTILLER)"
 
 If issues persist:
 
-1. Check [GitHub Issues](https://github.com/Pamir-AI/distiller-sdk/issues)
+1. Check [GitHub Issues](https://github.com/pamir-ai-pkgs/distiller-sdk/issues)
 2. Provide system information:
 
    ```bash

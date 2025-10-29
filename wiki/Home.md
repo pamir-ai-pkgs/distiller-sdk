@@ -1,7 +1,7 @@
 # Distiller SDK Wiki
 
 Welcome to the Distiller SDK documentation! This SDK provides comprehensive hardware control and
-AI capabilities for the CM5 ARM64 platform.
+AI capabilities for multiple ARM64 platforms.
 
 ## Quick Links
 
@@ -20,8 +20,8 @@ The Distiller SDK is a Python package that provides:
 
 - **Audio** - ALSA-based recording and playback with hardware volume control
 - **Camera** - rpicam-apps-based image/video capture
-- **E-ink Display** - Native driver for EPD128x250 (250×128) and EPD240x416 displays
-- **RGB LEDs** - Control via sysfs interface
+- **E-ink Display** - Native driver for EPD128x250 (native 128×250, mounted 250×128) and EPD240x416 displays
+- **RGB LEDs** - Kernel-based animation modes with Linux LED trigger support
 
 ### AI Capabilities
 
@@ -39,7 +39,7 @@ The Distiller SDK is a Python package that provides:
 
 ## Requirements
 
-- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, or compatible ARM64 system
+- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO (experimental), or compatible ARM64 system
 - **OS**: ARM64 Linux (Debian/Ubuntu-based)
 - **Python**: 3.11 or higher
 - **RAM**: 2GB minimum, 4GB recommended
@@ -49,7 +49,7 @@ The Distiller SDK is a Python package that provides:
 
 ```python
 from distiller_sdk.hardware.audio import Audio
-from distiller_sdk.hardware.eink import Display
+from distiller_sdk.hardware.eink import Display, DisplayMode
 from distiller_sdk.parakeet import Parakeet
 from distiller_sdk.piper import Piper
 
@@ -65,7 +65,8 @@ for text in asr.record_and_transcribe_ptt():
 
     # Display on E-ink
     display.clear()
-    display.render_text(text, font_size=20, x=10, y=10, mode=DisplayMode.FULL)
+    buffer = display.render_text(text, x=10, y=10, scale=2)
+    display.display_image(buffer, mode=DisplayMode.FULL)
 
     # Speak response
     tts.speak_stream(f"You said: {text}")
@@ -84,6 +85,6 @@ This wiki is organized into the following sections:
 
 ## Getting Help
 
-- **Issues**: [GitHub Issues](https://github.com/Pamir-AI/distiller-sdk/issues)
-- **Source Code**: [GitHub Repository](https://github.com/Pamir-AI/distiller-sdk)
-- **License**: See [LICENSE](https://github.com/Pamir-AI/distiller-sdk/blob/main/LICENSE)
+- **Issues**: [GitHub Issues](https://github.com/pamir-ai-pkgs/distiller-sdk/issues)
+- **Source Code**: [GitHub Repository](https://github.com/pamir-ai-pkgs/distiller-sdk)
+- **License**: See [LICENSE](https://github.com/pamir-ai-pkgs/distiller-sdk/blob/main/LICENSE)

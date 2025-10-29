@@ -185,6 +185,29 @@ class LED:
 
     def get_available_leds(self) -> List[int]:
         """List available LED IDs."""
+
+    # Animation Control
+    def set_animation_mode(self, led_id: int, mode: str, timing: Optional[int] = None) -> None:
+        """Set animation mode. Modes: static, blink, fade, rainbow. Timings: 100, 200, 500, 1000ms."""
+
+    def blink_led(self, led_id: int, red: int, green: int, blue: int, timing: int = 500) -> None:
+        """Set LED to blink mode with color and timing."""
+
+    def fade_led(self, led_id: int, red: int, green: int, blue: int, timing: int = 1000) -> None:
+        """Set LED to fade mode with color and timing."""
+
+    def rainbow_led(self, led_id: int, timing: int = 1000) -> None:
+        """Set LED to rainbow cycle mode with timing."""
+
+    # Linux LED Triggers
+    def set_trigger(self, led_id: int, trigger: str) -> None:
+        """Set Linux LED trigger (heartbeat-rgb, breathing-rgb, rainbow-rgb, none)."""
+
+    def get_trigger(self, led_id: int) -> str:
+        """Get current trigger."""
+
+    def get_available_triggers(self, led_id: int) -> List[str]:
+        """Get available triggers for LED."""
 ```
 
 ## AI APIs
@@ -267,8 +290,9 @@ class DisplayMode(Enum):
 ### FirmwareType
 
 ```python
-class FirmwareType(Enum):
-    EPD128x250 = "EPD128x250"  # 250×128 display
+class FirmwareType:
+    """String constants for firmware types."""
+    EPD128x250 = "EPD128x250"  # Native: 128×250, Mounted: 250×128 landscape
     EPD240x416 = "EPD240x416"  # 240×416 display
 ```
 
@@ -322,18 +346,21 @@ All SDK methods may raise the following exceptions:
 
 ```python
 # Hardware errors
-RuntimeError  # Hardware initialization failed
-IOError      # Device I/O error
-ValueError   # Invalid parameter
+DisplayError     # E-ink display errors (see DisplayErrorCode for codes)
+LEDError         # LED control errors
+CameraError      # Camera initialization/operation errors
+RuntimeError     # Hardware initialization failed
+IOError          # Device I/O error
+ValueError       # Invalid parameter
 
 # File errors
 FileNotFoundError  # File doesn't exist
-PermissionError   # Insufficient permissions
+PermissionError    # Insufficient permissions
 
 # AI model errors
 ModelNotFoundError  # Model files missing
 TranscriptionError  # ASR failed
-SynthesisError     # TTS failed
+SynthesisError      # TTS failed
 ```
 
 Example error handling:

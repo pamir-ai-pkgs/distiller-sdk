@@ -6,7 +6,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Distiller SDK - Python SDK for the Distiller platform providing hardware control for e-ink displays, audio I/O, camera, LED control, and AI capabilities (ASR/TTS) using uv package management. Built as a Debian package targeting ARM64 Linux systems (Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO).
 
-**Important Context**: This is a sub-project within a larger Google Repo-based multi-repository structure (parent: `/home/utsav/dev/pamir-ai/`). Git operations work normally within this directory, but the `.git` is a symlink to `.repo/projects/distiller-sdk.git`.
+**Important Context**: This is a sub-project within a larger Google Repo-based multi-repository structure (parent: `/home/utsav/dev/pamir-ai/`). Git operations work normally within this directory, but the `.git` is a symlink to `.repo/projects/distiller-sdk.git`. See parent repo's CLAUDE.md for multi-repo commands.
+
+## Quick Reference
+
+```bash
+# Most common development commands
+just setup                    # Install dependencies (first time setup)
+just lint                     # Check code quality
+just fix                      # Auto-fix formatting
+./build.sh                    # Download models and build Rust library
+just build                    # Build Debian package
+just verify                   # Verify installed package works
+
+# Testing individual modules (requires hardware)
+python -m distiller_sdk.hardware.audio._audio_test
+python -m distiller_sdk.hardware.camera._camera_unit_test
+python -m distiller_sdk.hardware.eink._display_test
+
+# Quick sanity checks
+python -c "import distiller_sdk; print('SDK imported successfully!')"
+source /opt/distiller-sdk/activate.sh  # After dpkg -i installation
+```
 
 ## Build Commands
 
@@ -31,50 +52,141 @@ source /opt/distiller-sdk/activate.sh
 python -c "import distiller_sdk; print('SDK imported successfully!')"
 ```
 
+### Build Process Flow
+Understanding what happens during the build:
+
+1. **`./build.sh`** (Preparation phase):
+   - Downloads Parakeet ASR models from HuggingFace (~150MB)
+   - Downloads Piper TTS models and binary from GitHub releases (~50MB)
+   - Optionally downloads Whisper models if `--whisper` flag used (~300-500MB)
+   - Builds Rust e-ink library (`libdistiller_display_sdk_shared.so`) for ARM64
+   - Places models in `src/distiller_sdk/parakeet/models/`, `src/distiller_sdk/piper/models/`, etc.
+
+2. **`just build`** (Package creation phase):
+   - Calls `./build.sh` automatically (via `prepare` recipe)
+   - Runs `debuild` to create Debian package
+   - Copies all Python source, models, and Rust library into package
+   - Runs lintian checks for Debian policy compliance
+   - Outputs `.deb` package to `dist/` directory
+
+3. **`sudo dpkg -i`** (Installation phase):
+   - Extracts package to `/opt/distiller-sdk/`
+   - Runs `debian/postinst` script which:
+     - Detects platform (CM5, Radxa, etc.)
+     - Creates uv virtual environment at `/opt/distiller-sdk/.venv`
+     - Installs Python dependencies via `uv sync`
+     - Sets up platform-specific e-ink config
+     - Verifies hardware devices are present
+     - Generates `activate.sh` script
+
+**Key insight**: Models and Rust library are downloaded/built ONCE during `./build.sh`, then packaged into the `.deb`. The installed package at `/opt/distiller-sdk` is self-contained with its own venv.
+
 ## Development Setup
 
-```bash
-# Local development with uv
-just setup                    # Install dependencies (creates .venv via uv sync)
-source .venv/bin/activate     # Activate virtual environment
+There are two modes of development:
+1. **Local development** - Using local `.venv` for quick iteration on Python code
+2. **Package testing** - Testing the installed Debian package at `/opt/distiller-sdk`
 
-# Set up Python path for imports (when not using installed package)
-export PYTHONPATH="/opt/distiller-sdk:$PYTHONPATH"
-export LD_LIBRARY_PATH="/opt/distiller-sdk/lib:$LD_LIBRARY_PATH"
-source /opt/distiller-sdk/activate.sh
+### Local Development (Recommended for Python changes)
+```bash
+# Initial setup (creates .venv via uv sync)
+just setup
+source .venv/bin/activate     # Activate virtual environment
 
 # Code quality checks
 just lint                     # Run ruff check + format check + mypy
 just fix                      # Auto-fix formatting issues
 
 # Development workflow for quick iteration
-# Edit Python code in src/distiller_sdk/
-# No rebuild needed - changes take effect immediately when using local .venv
-python -m distiller_sdk.hardware.eink._display_test  # Test your changes
+# 1. Edit Python code in src/distiller_sdk/
+# 2. Test immediately (no rebuild needed - changes take effect immediately)
+python -m distiller_sdk.hardware.eink._display_test
+python -m distiller_sdk.hardware.audio._audio_test
+
+# When done with changes
+just lint                     # Check code quality before building
+just build                    # Build Debian package
+```
+
+### Testing Installed Package
+```bash
+# After installing with: sudo dpkg -i dist/distiller-sdk_*_arm64.deb
+source /opt/distiller-sdk/activate.sh
+
+# Or set up Python path manually
+export PYTHONPATH="/opt/distiller-sdk:$PYTHONPATH"
+export LD_LIBRARY_PATH="/opt/distiller-sdk/lib:$LD_LIBRARY_PATH"
+
+# Verify installation
+just verify                   # Quick import check
+python -c "import distiller_sdk; print('SDK imported successfully!')"
 ```
 
 ## Testing
 
+### Quick Import Tests (No hardware required)
 ```bash
-# Test hardware modules (requires actual hardware)
-python -m distiller_sdk.hardware.audio._audio_test
-python -m distiller_sdk.hardware.camera._camera_unit_test
-python -m distiller_sdk.hardware.eink._display_test
-
-# Note: For comprehensive test suite, use distiller-test-harness repository
-# cd ../distiller-test-harness
-# uv run pytest                          # Run all tests
-# uv run pytest -m hardware              # Hardware-only tests
-# uv run pytest sdk_tests/test_audio.py  # Specific module tests
-
-# Verify SDK imports (quick sanity check)
+# Sanity check - verify imports work
 python -c "import distiller_sdk; print('SDK imported successfully!')"
+
+# Test all major module imports
 python -c "from distiller_sdk.hardware.audio import Audio; from distiller_sdk.hardware.camera import Camera; from distiller_sdk.hardware.eink import Display; from distiller_sdk.parakeet import Parakeet; from distiller_sdk.piper import Piper; print('All imports successful!')"
 
-# Verify installed package (after dpkg -i)
+# After dpkg installation
 source /opt/distiller-sdk/activate.sh
-python -c "import distiller_sdk; print('SDK imported successfully!')"
+just verify  # Convenience command for import check
 ```
+
+### Hardware Module Tests (Requires physical hardware)
+```bash
+# These tests require actual Distiller hardware
+python -m distiller_sdk.hardware.audio._audio_test      # Audio I/O test
+python -m distiller_sdk.hardware.camera._camera_unit_test  # Camera test
+python -m distiller_sdk.hardware.eink._display_test     # E-ink display test
+python -m distiller_sdk.hardware.sam.led_interactive_demo  # LED control demo
+
+# Note: These tests will fail gracefully with error messages if hardware is not present
+```
+
+### Comprehensive Test Suite
+For the full test suite with 66+ test cases, use the `distiller-test-harness` repository:
+```bash
+cd ../distiller-test-harness
+just setup                             # Install test dependencies
+just test                              # Run all tests (verbose)
+just test-quick                        # Skip slow and hardware tests
+uv run pytest -m hardware              # Hardware-only tests
+uv run pytest sdk_tests/test_audio.py  # Specific module tests
+```
+
+## Dependency Management
+
+### Adding/Removing Python Dependencies
+```bash
+# Add a new dependency (updates pyproject.toml and uv.lock)
+uv add <package-name>
+
+# Add development dependency
+uv add --dev <package-name>
+
+# Remove a dependency
+uv remove <package-name>
+
+# Update dependencies to latest compatible versions
+uv sync
+
+# Show dependency tree
+uv tree
+
+# After modifying dependencies, update Debian control file if needed
+# Edit debian/control to add system-level dependencies
+```
+
+### Important Dependency Notes
+- Python dependencies are managed in `pyproject.toml`
+- System-level dependencies (ALSA, V4L2, etc.) are in `debian/control`
+- The SDK installation creates a uv-managed venv at `/opt/distiller-sdk/.venv`
+- Some dependencies require system libraries (e.g., pyaudio needs portaudio19-dev)
 
 ## Package Inspection & Debugging
 
@@ -165,7 +277,7 @@ debian/                 # Debian packaging files
 Multi-platform support via `platform-detect.sh` helper script:
 - **Raspberry Pi CM5** (BCM2712): `/dev/spidev0.0`, `/dev/gpiochip0`, GPIO pins: dc=7, rst=13, busy=9
 - **Radxa Zero 3/3W** (RK3566): `/dev/spidev3.0`, `/dev/gpiochip3`, GPIO pins: dc=8, rst=2, busy=1
-- **ArmSom CM5 IO** (RK3576): `/dev/spidev3.0`, `/dev/gpiochip4`, GPIO pins: TBD
+- **ArmSom CM5 IO** (RK3576) [Experimental - E-ink incomplete]: `/dev/spidev3.0`, `/dev/gpiochip4`, GPIO pins: TBD (dc/rst/busy pins not configured)
 - **Armbian** builds: Kernel pattern detection via `/lib/modules/` patterns
 - Override with `DISTILLER_PLATFORM=cm5|radxa|armsom-rk3576|armbian` environment variable
 
@@ -206,12 +318,12 @@ V4L2 camera interface via OpenCV:
 - Frame callback mechanism for processing
 
 ### LED System
-sysfs-based RGB LED control with advanced features:
+sysfs-based RGB LED control with kernel-driven animations:
 - **Basic control**: Per-LED RGB color setting, brightness control (0-255)
-- **Animation modes**: Non-blocking animations (blink, fade, rainbow) with configurable timing
-- **Linux LED triggers**: Hardware-accelerated effects (heartbeat-rgb, breathing-rgb)
+- **Animation modes**: Kernel-based looping animations (static, blink, fade, rainbow) with timing control (100/200/500/1000ms)
+- **Linux LED triggers**: Hardware-accelerated system-driven effects (heartbeat-rgb, breathing-rgb, rainbow-rgb)
 - **Multi-LED support**: Control individual LEDs or all LEDs simultaneously
-- Thread-safe animation management
+- **Hardware-accelerated**: Animations loop continuously in kernel driver, no Python threading
 
 ### AI Integration
 - **Parakeet**: Streaming ASR with VAD (Voice Activity Detection) using sherpa-onnx
@@ -273,21 +385,23 @@ with Display() as display:
 All hardware modules raise custom exceptions (`DisplayError`, `LEDError`, etc.) for error conditions. Always handle hardware initialization failures gracefully as devices may not be present.
 
 ### LED Animation Management
-LED animations run in background threads and are non-blocking:
+LED animations use kernel-based looping (hardware-accelerated, no Python threading):
 ```python
-# Start animation (returns immediately)
+# Set animation mode (loops continuously in kernel driver)
 led.blink_led(led_id=0, red=255, green=0, blue=0, timing=500)
+led.fade_led(led_id=1, red=0, green=255, blue=0, timing=1000)
+led.rainbow_led(led_id=2, timing=1000)
 
-# Do other work while LED blinks
-# ...
+# Or use animation mode directly
+led.set_animation_mode(led_id=0, mode="blink", timing=500)  # Modes: static, blink, fade, rainbow
 
-# Stop animation when done
-led.stop_animation(led_id=0)
+# Use Linux LED triggers for system-driven effects
+led.set_trigger(led_id=0, trigger="heartbeat-rgb")  # Triggers: heartbeat-rgb, breathing-rgb, rainbow-rgb
 
-# Or stop all animations at once
-led.stop_all_animations()
+# Stop animation by setting to static mode
+led.set_rgb_color(led_id=0, red=0, green=0, blue=0)  # Returns to static mode
 
-# Always stop animations before cleanup
+# Turn off all LEDs
 led.turn_off_all()
 ```
 
@@ -402,7 +516,7 @@ get_platform_description new-platform
 ### Version Bumping and Release
 ```bash
 # 1. Update version in pyproject.toml
-# Edit version = "3.0.0" -> "3.1.0"
+# Edit version = "3.2.0" -> "3.3.0"
 
 # 2. Update Debian changelog
 just changelog                     # Opens editor with dch -i
@@ -417,8 +531,8 @@ just verify                        # Verify installation
 
 # 4. Commit and tag (within this repo)
 git add pyproject.toml debian/changelog
-git commit -m "chore: bump version to 3.1.0"
-git tag v3.1.0
+git commit -m "chore: bump version to 3.3.0"
+git tag v3.3.0
 git push && git push --tags
 ```
 

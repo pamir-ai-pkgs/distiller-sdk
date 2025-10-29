@@ -1,6 +1,6 @@
 # Distiller SDK
 
-Python SDK for the Distiller platform (Raspberry Pi CM5, Radxa Zero 3/3W), providing hardware control,
+Python SDK for the Distiller platform (Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO), providing hardware control,
 audio processing, computer vision, and AI capabilities using **uv** package management.
 
 ## Quick Start
@@ -8,7 +8,7 @@ audio processing, computer vision, and AI capabilities using **uv** package mana
 ### Prerequisites
 
 - **Python 3.11+** (automatically installed with package)
-- **ARM64 Linux system** (Raspberry Pi CM5, Radxa Zero 3/3W)
+- **ARM64 Linux system** (Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO [Experimental - E-ink incomplete])
 - **uv package manager** (auto-installed during setup)
 
 ### Installation
@@ -36,15 +36,17 @@ python -c "import distiller_sdk; print('SDK imported successfully!')"
 
 ```text
 /opt/distiller-sdk/
-├── distiller_sdk/    # Python SDK modules
+├── src/distiller_sdk/    # Python SDK modules
 │   ├── hardware/         # Hardware control
-│   ├── parakeet/        # ASR + VAD
-│   ├── piper/           # TTS engine
-│   └── whisper/         # Whisper ASR (optional)
-├── models/              # AI model files
-├── lib/                 # Native libraries
+│   ├── parakeet/         # ASR + VAD
+│   │   └── models/       # Parakeet ASR models
+│   ├── piper/            # TTS engine
+│   │   └── models/       # Piper TTS models
+│   └── whisper/          # Whisper ASR (optional)
+│       └── models/       # Whisper models (optional)
+├── lib/                  # Native libraries
 ├── .venv/                # Virtual environment (uv-managed)
-└── activate.sh          # Environment activation
+└── activate.sh           # Environment activation
 ```
 
 ## Integration
@@ -85,9 +87,10 @@ uv tree                  # Show dependencies
 ./build.sh --whisper     # Include Whisper
 
 # Build Debian package
-just build               # Standard build
+just build               # Standard build (includes models from ./build.sh)
 just clean               # Clean artifacts
-just build whisper       # Include Whisper (via prepare recipe)
+
+# Note: To include Whisper models, run ./build.sh --whisper before just build
 ```
 
 ## SDK Modules
@@ -364,6 +367,8 @@ result = renderer.render(template)
 
 ### Camera
 
+rpicam-apps-based image capture with OpenCV processing for Raspberry Pi OS Bookworm and later.
+
 ```python
 from distiller_sdk.hardware.camera import Camera
 
@@ -419,14 +424,14 @@ led.set_color_all(red=0, green=255, blue=0)  # All green
 led.set_brightness_all(200)  # 0-255
 led.turn_off_all()
 
-# Animation modes (non-blocking)
+# Animation modes (kernel-based looping, hardware-accelerated)
 led.blink_led(led_id=0, red=255, green=0, blue=0, timing=500)  # Blink red at 500ms
 led.fade_led(led_id=0, red=0, green=255, blue=0, timing=1000)  # Fade green at 1000ms
 led.rainbow_led(led_id=0, timing=800)  # Rainbow cycle at 800ms
 
-# Stop any running animation
-led.stop_animation(led_id=0)
-led.stop_all_animations()
+# Stop animation by returning to static mode
+led.set_rgb_color(led_id=0, red=0, green=0, blue=0)  # Returns to static mode
+led.turn_off(led_id=0)  # Or turn off completely
 
 # Linux LED triggers (hardware-accelerated effects)
 led.set_trigger(0, "heartbeat-rgb")    # Heartbeat pattern
@@ -560,8 +565,7 @@ class HardwareManager:
             self.display.display_png_auto("/tmp/capture.png", DisplayMode.FULL)
 
             if self.led:
-                # Stop animation and show solid green for success
-                self.led.stop_animation(led_id=0)
+                # Return to static mode and show solid green for success
                 self.led.set_rgb_color(led_id=0, red=0, green=255, blue=0)
 
     def cleanup(self):
@@ -569,8 +573,7 @@ class HardwareManager:
         if self.display:
             self.display.clear()
         if self.led:
-            self.led.stop_all_animations()  # Stop any running animations
-            self.led.turn_off_all()
+            self.led.turn_off_all()  # Turn off all LEDs
         if self.camera:
             self.camera.close()
         if self.audio:
@@ -596,8 +599,9 @@ if manager.initialize():
 
 ```bash
 just build             # Build .deb package
-just clean             # Clean rebuild
-just build whisper     # Include Whisper models (via prepare recipe)
+just clean && just build  # Clean rebuild
+
+# Note: To include Whisper, run ./build.sh --whisper before just build
 ```
 
 ### Installation
@@ -695,7 +699,7 @@ python -m distiller_sdk.hardware.eink._display_test
 
 ### Hardware
 
-- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, or compatible ARM64 system
+- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO (experimental), or compatible ARM64 system
 - **RAM**: 2GB minimum, 4GB recommended
 - **Storage**: 2GB for full installation with models
 - **Peripherals**: E-ink display (SPI), Camera (V4L2), Audio (ALSA)
@@ -709,7 +713,7 @@ python -m distiller_sdk.hardware.eink._display_test
 
 ## Platform Information
 
-- **Supported Platforms**: Raspberry Pi CM5, Radxa Zero 3/3W
+- **Supported Platforms**: Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO (experimental - e-ink incomplete)
 - **Python**: 3.11+
 - **Package Manager**: uv (latest)
 - **Architecture**: ARM64

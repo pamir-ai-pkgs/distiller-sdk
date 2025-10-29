@@ -17,21 +17,20 @@ sudo apt-get install -y \
     libcamera-dev
 
 # Clone repository
-git clone https://github.com/Pamir-AI/distiller-sdk.git
+git clone https://github.com/pamir-ai-pkgs/distiller-sdk.git
 cd distiller-sdk
 ```
 
 ### Environment Activation
 
 ```bash
-# Always activate the SDK environment first
+# For testing installed package
 source /opt/distiller-sdk/activate.sh
 
-# OR if developing locally
+# For local development (recommended)
 cd distiller-sdk
-python -m venv venv
-source venv/bin/activate
-pip install -e .
+just setup              # Creates .venv via uv sync
+source .venv/bin/activate
 ```
 
 ## Package Management with uv
@@ -171,12 +170,14 @@ __all__ = [..., "NewDevice"]
 
 ### E-ink Display Library
 
+The e-ink display uses a Rust-based library. The library is automatically built by `./build.sh`, but you can rebuild it manually:
+
 ```bash
 cd src/distiller_sdk/hardware/eink/lib
 
 # Clean build
-make clean
-make
+make -f Makefile.rust clean
+make -f Makefile.rust build
 
 # Verify library
 ldd libdistiller_display_sdk_shared.so
@@ -309,10 +310,9 @@ ignore = ["E501"]  # Line too long
 just build
 
 # Clean rebuild
-just build clean
+just clean && just build
 
-# Include Whisper
-just build whisper
+# Note: To include Whisper, run ./build.sh --whisper before just build
 
 # Test package
 sudo dpkg -i dist/distiller-sdk_*.deb
@@ -379,7 +379,7 @@ tracemalloc.stop()
 # Fork on GitHub, then:
 git clone https://github.com/YOUR_USERNAME/distiller-sdk.git
 cd distiller-sdk
-git remote add upstream https://github.com/Pamir-AI/distiller-sdk.git
+git remote add upstream https://github.com/pamir-ai-pkgs/distiller-sdk.git
 ```
 
 ### 2. Create Feature Branch
@@ -417,18 +417,18 @@ git push origin feature/your-feature-name
 # Update version in pyproject.toml
 # Update debian/changelog
 # Tag release
-git tag -a v2.0.1 -m "Release version 2.0.1"
-git push origin v2.0.1
+git tag -a v3.3.0 -m "Release version 3.3.0"
+git push origin v3.3.0
 ```
 
 ### Building Release
 
 ```bash
 # Clean build
-just build clean
+just clean && just build
 
 # Upload to releases
-gh release create v2.0.1 dist/*.deb
+gh release create v3.3.0 dist/*.deb
 ```
 
 ## Best Practices
@@ -463,8 +463,8 @@ gh release create v2.0.1 dist/*.deb
 
 ## Getting Help
 
-- [GitHub Issues](https://github.com/Pamir-AI/distiller-sdk/issues)
-- [Wiki](https://github.com/Pamir-AI/distiller-sdk/wiki)
+- [GitHub Issues](https://github.com/pamir-ai-pkgs/distiller-sdk/issues)
+- [Wiki](https://github.com/pamir-ai-pkgs/distiller-sdk/wiki)
 - Review existing code for patterns
 - Test on actual CM5 hardware
 

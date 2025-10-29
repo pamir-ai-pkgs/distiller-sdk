@@ -242,6 +242,9 @@ The LED module controls RGB LEDs via the sysfs interface.
 - Batch control for all LEDs
 - RGB color setting
 - Brightness adjustment
+- Kernel-based animation modes (static, blink, fade, rainbow)
+- Linux LED triggers (heartbeat-rgb, breathing-rgb, rainbow-rgb)
+- Hardware-accelerated continuous looping
 - State queries
 
 ### Basic Usage
@@ -262,28 +265,40 @@ led.set_brightness_all(200)
 led.turn_off_all()
 ```
 
-### LED Patterns
+### LED Animation Modes
+
+Kernel-based animations loop continuously in hardware (no Python threads):
 
 ```python
-import time
+# Animation modes (hardware-accelerated, continuous looping)
+led.blink_led(led_id=0, red=255, green=0, blue=0, timing=500)   # Blink red
+led.fade_led(led_id=1, red=0, green=255, blue=0, timing=1000)   # Fade green
+led.rainbow_led(led_id=2, timing=800)                           # Rainbow cycle
 
-# Breathing effect
-for i in range(3):  # 3 cycles
-    # Fade in
-    for brightness in range(0, 256, 5):
-        led.set_brightness(led_id=0, brightness=brightness)
-        time.sleep(0.02)
-    # Fade out
-    for brightness in range(255, -1, -5):
-        led.set_brightness(led_id=0, brightness=brightness)
-        time.sleep(0.02)
+# Or set animation mode directly
+led.set_animation_mode(led_id=0, mode="blink", timing=500)
+# Available modes: "static", "blink", "fade", "rainbow"
+# Available timings: 100, 200, 500, 1000 (milliseconds)
 
-# Color cycle
-colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]  # R, G, B
-for r, g, b in colors:
-    led.set_rgb_color(led_id=0, red=r, green=g, blue=b)
-    time.sleep(1)
+# Note: Invalid timing values will raise LEDError
+# led.blink_led(led_id=0, red=255, green=0, blue=0, timing=300)  # ERROR: Invalid timing
+
+# Use Linux LED triggers for system-driven effects
+led.set_trigger(led_id=0, trigger="heartbeat-rgb")  # Heartbeat pattern
+led.set_trigger(led_id=1, trigger="breathing-rgb")  # Breathing effect
+led.set_trigger(led_id=2, trigger="rainbow-rgb")    # Rainbow effect
+
+# Return to static mode
+led.set_rgb_color(led_id=0, red=255, green=255, blue=0)  # Yellow, static
+led.turn_off(led_id=0)  # Or turn off
 ```
+
+### Platform-Specific Notes
+
+**ArmSom CM5 IO (RK3576)**:
+- LED control fully supported via sysfs
+- All animation modes and triggers work
+- E-ink display GPIO pins incomplete (experimental platform)
 
 ### Query LED State
 
@@ -308,7 +323,7 @@ Coordinate multiple hardware components efficiently:
 ```python
 from distiller_sdk.hardware.audio import Audio
 from distiller_sdk.hardware.camera import Camera
-from distiller_sdk.hardware.eink import Display, DisplayMode
+from distiller_sdk.hardware.eink import Display, DisplayMode, ScalingMethod
 from distiller_sdk.hardware.sam import LED
 
 class HardwareManager:

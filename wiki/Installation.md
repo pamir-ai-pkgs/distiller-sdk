@@ -8,7 +8,7 @@ Before installing the SDK, ensure your system meets these requirements:
 
 ### System Requirements
 
-- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, or compatible ARM64 system
+- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO (experimental), or compatible ARM64 system
 - **OS**: ARM64 Linux (Debian/Ubuntu-based)
 - **Python**: 3.11 or higher
 - **RAM**: 2GB minimum, 4GB recommended
@@ -45,7 +45,7 @@ sudo apt-get install -y \
 
 ```bash
 # Download latest version
-wget https://github.com/Pamir-AI/distiller-sdk/releases/latest/download/distiller-sdk_arm64.deb
+wget https://github.com/pamir-ai-pkgs/distiller-sdk/releases/latest/download/distiller-sdk_arm64.deb
 ```
 
 2. **Install the package**:
@@ -67,7 +67,7 @@ python -c "import distiller_sdk; print('SDK installed successfully!')"
 1. **Clone the repository**:
 
 ```bash
-git clone https://github.com/Pamir-AI/distiller-sdk.git
+git clone https://github.com/pamir-ai-pkgs/distiller-sdk.git
 cd distiller-sdk
 ```
 
@@ -93,11 +93,10 @@ chmod +x build.sh
 # Standard build
 just build
 
-# Include Whisper models
-just build whisper
-
 # Clean rebuild
-just build clean
+just clean && just build
+
+# Note: To include Whisper models, run ./build.sh --whisper before just build
 ```
 
 5. **Install the package**:
@@ -129,7 +128,7 @@ source ~/.bashrc
 Set the display firmware type:
 
 ```bash
-# For EPD128x250 (250×128 display) - default
+# For EPD128x250 display (native: 128×250, mounted: 250×128 landscape) - default
 export DISTILLER_EINK_FIRMWARE=EPD128x250
 
 # For EPD240x416 display
@@ -211,7 +210,7 @@ Type=simple
 User=your-username
 Environment="PYTHONPATH=/opt/distiller-sdk"
 Environment="LD_LIBRARY_PATH=/opt/distiller-sdk/lib"
-ExecStart=/opt/distiller-sdk/venv/bin/python /path/to/your/script.py
+ExecStart=/opt/distiller-sdk/.venv/bin/python /path/to/your/script.py
 Restart=on-failure
 
 [Install]
