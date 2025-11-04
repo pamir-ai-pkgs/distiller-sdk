@@ -1,8 +1,16 @@
 default:
     @just --list
 
-setup:
-    uv sync
+build arch="arm64": prepare
+    #!/usr/bin/env bash
+    set -e
+    export DEB_BUILD_OPTIONS="parallel=$(nproc)"
+    debuild -us -uc -b -a{{ arch }} -d --lintian-opts --profile=debian
+    mkdir -p dist && mv ../*.deb dist/ 2>/dev/null || true
+    rm -f ../*.{dsc,tar.*,changes,buildinfo,build}
+
+changelog:
+    gbp dch -R --ignore-branch --release
 
 clean:
     rm -rf debian/.debhelper debian/files debian/*.log debian/*.substvars debian/distiller-sdk debian/debhelper-build-stamp dist
@@ -12,19 +20,9 @@ clean:
     find . -type f -name "*.pyc" -delete 2>/dev/null || true
     rm -rf src/distiller_sdk/hardware/eink/lib/target
 
-prepare whisper="":
-    ./build.sh {{whisper}}
-
-build arch="arm64": prepare
-    #!/usr/bin/env bash
-    set -e
-    export DEB_BUILD_OPTIONS="parallel=$(nproc)"
-    debuild -us -uc -b -a{{arch}} -d --lintian-opts --profile=debian
-    mkdir -p dist && mv ../*.deb dist/ 2>/dev/null || true
-    rm -f ../*.{dsc,tar.*,changes,buildinfo,build}
-
-changelog:
-    dch -i
+# Python project recipes
+setup:
+    uv sync
 
 lint:
     uv run ruff check .
@@ -35,5 +33,6 @@ fix:
     uv run ruff check --fix .
     uv run ruff format .
 
-verify:
-    source /opt/distiller-sdk/activate.sh && python -c "import distiller_sdk"
+# SDK-specific recipes
+prepare whisper="":
+    ./build.sh {{ whisper }}

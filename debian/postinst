@@ -108,3 +108,7 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 
 	echo "INFO: Distiller SDK installed successfully!"
 fi
+
+#DEBHELPER#
+
+exit 0

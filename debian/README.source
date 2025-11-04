@@ -1,0 +1,71 @@
+Distiller SDK for Debian
+========================
+
+This package has special build requirements that differ from typical Python packages.
+
+Build Requirements
+------------------
+
+1. **Rust Toolchain**: Required for building the e-ink display library
+   - Install: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+   - Add target: `rustup target add aarch64-unknown-linux-gnu`
+
+2. **AI Models**: Downloaded from HuggingFace and GitHub releases
+   - Parakeet ASR models (~150MB)
+   - Piper TTS models (~50MB)
+   - Optional: Whisper ASR models (~300-500MB with --whisper flag)
+
+3. **uv Package Manager**: Modern Python package manager
+   - Install: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+   - Much faster than pip for dependency management
+
+Build Process
+-------------
+
+The build process has two phases:
+
+**Phase 1: Preparation (./build.sh)**
+- Downloads AI models from HuggingFace/GitHub
+- Builds Rust e-ink library (libdistiller_display_sdk_shared.so)
+- Places models in src/distiller_sdk/{parakeet,piper,whisper}/models/
+
+**Phase 2: Package Creation (just build or debuild)**
+- Runs build.sh automatically via debian/rules override
+- Packages Python source, models, and Rust library
+- Creates self-contained .deb with uv-managed virtual environment
+
+Build Commands
+--------------
+
+Standard build:
+    ./build.sh && just build
+
+With Whisper models:
+    ./build.sh --whisper && just build
+
+Cross-build for amd64 (from arm64 host):
+    just build amd64
+
+Installation
+------------
+
+The package installs to /opt/distiller-sdk/ with its own isolated virtual
+environment created via uv during postinst. All dependencies are self-contained.
+
+Special Considerations
+----------------------
+
+- Build time: 5-10 minutes (model downloads + Rust compilation)
+- Disk space: ~500MB for build artifacts, models, and dependencies
+- Network: Required for model downloads (cached after first build)
+- Rust library is ARM64-specific (aarch64-unknown-linux-gnu)
+
+Platform Support
+----------------
+
+Supports multiple ARM64 platforms:
+- Raspberry Pi CM5 (BCM2712)
+- Radxa Zero 3/3W (RK3566)
+- ArmSom CM5 IO (RK3576)
+
+Platform detection occurs during postinst via /opt/distiller-sdk/platform-detect.sh
