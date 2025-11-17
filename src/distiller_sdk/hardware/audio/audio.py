@@ -28,6 +28,11 @@ class Audio:
     - Play audio from streams
     - Adjust microphone volume/gain (Optional)
     - Adjust speaker volume (Optional)
+
+    Supports context manager usage for automatic resource cleanup:
+        with Audio() as audio:
+            audio.record("/tmp/recording.wav", duration=5)
+        # Resources automatically cleaned up
     """
 
     # Default hardware paths for PamirAI soundcard controls
@@ -114,6 +119,35 @@ class Audio:
         if self._has_hw_controls:
             self.set_mic_gain(self._mic_gain)
             self.set_speaker_volume(self._speaker_volume)
+
+    def __enter__(self):
+        """
+        Context manager entry point.
+
+        Returns:
+            Audio: The Audio instance for use in with statements
+
+        Example:
+            with Audio() as audio:
+                audio.record("/tmp/recording.wav", duration=5)
+            # Automatic cleanup on exit
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Context manager exit point. Ensures proper cleanup of resources.
+
+        Args:
+            exc_type: Exception type if an exception occurred
+            exc_val: Exception value if an exception occurred
+            exc_tb: Exception traceback if an exception occurred
+
+        Returns:
+            bool: False to propagate exceptions, does not suppress them
+        """
+        self.close()
+        return False  # Don't suppress exceptions
 
     def check_system_config(self) -> bool:
         """
