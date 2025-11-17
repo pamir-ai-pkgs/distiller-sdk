@@ -62,7 +62,7 @@ pub struct ImageProcessor {
 impl ImageProcessor {
     /// Create a new image processor for the given display specification
     #[must_use]
-    pub fn new(spec: DisplaySpec) -> Self {
+    pub const fn new(spec: DisplaySpec) -> Self {
         Self { spec }
     }
 
@@ -476,7 +476,7 @@ pub struct TextRenderer {
 impl TextRenderer {
     /// Create a new text renderer for the given dimensions
     #[must_use]
-    pub fn new(width: u32, height: u32) -> Self {
+    pub const fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
 
@@ -579,7 +579,7 @@ pub struct ShapeDrawer {
 impl ShapeDrawer {
     /// Create a new shape drawer for the given dimensions
     #[must_use]
-    pub fn new(width: u32, height: u32) -> Self {
+    pub const fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
 

@@ -82,7 +82,7 @@ pub struct GenericEinkProtocol<G: GpioController, S: SpiController, F: DisplayFi
 impl<G: GpioController, S: SpiController, F: DisplayFirmware> GenericEinkProtocol<G, S, F> {
     /// Create a new generic e-ink protocol with the given hardware and firmware
     #[must_use]
-    pub fn new(hardware: HardwareInterface<G, S>, firmware: F) -> Self {
+    pub const fn new(hardware: HardwareInterface<G, S>, firmware: F) -> Self {
         Self { hardware, firmware }
     }
 
@@ -214,71 +214,71 @@ pub enum ConfigurableProtocol {
 impl EinkProtocol for ConfigurableProtocol {
     fn init_hardware(&mut self) -> Result<(), DisplayError> {
         match self {
-            ConfigurableProtocol::EPD128x250(p) => p.init_hardware(),
-            ConfigurableProtocol::EPD240x416(p) => p.init_hardware(),
+            Self::EPD128x250(p) => p.init_hardware(),
+            Self::EPD240x416(p) => p.init_hardware(),
         }
     }
 
     fn init_partial(&mut self) -> Result<(), DisplayError> {
         match self {
-            ConfigurableProtocol::EPD128x250(p) => p.init_partial(),
-            ConfigurableProtocol::EPD240x416(p) => p.init_partial(),
+            Self::EPD128x250(p) => p.init_partial(),
+            Self::EPD240x416(p) => p.init_partial(),
         }
     }
 
     fn write_cmd(&mut self, cmd: u8) -> Result<(), DisplayError> {
         match self {
-            ConfigurableProtocol::EPD128x250(p) => p.write_cmd(cmd),
-            ConfigurableProtocol::EPD240x416(p) => p.write_cmd(cmd),
+            Self::EPD128x250(p) => p.write_cmd(cmd),
+            Self::EPD240x416(p) => p.write_cmd(cmd),
         }
     }
 
     fn write_data(&mut self, data: u8) -> Result<(), DisplayError> {
         match self {
-            ConfigurableProtocol::EPD128x250(p) => p.write_data(data),
-            ConfigurableProtocol::EPD240x416(p) => p.write_data(data),
+            Self::EPD128x250(p) => p.write_data(data),
+            Self::EPD240x416(p) => p.write_data(data),
         }
     }
 
     fn write_image_data(&mut self, data: &[u8]) -> Result<(), DisplayError> {
         match self {
-            ConfigurableProtocol::EPD128x250(p) => p.write_image_data(data),
-            ConfigurableProtocol::EPD240x416(p) => p.write_image_data(data),
+            Self::EPD128x250(p) => p.write_image_data(data),
+            Self::EPD240x416(p) => p.write_image_data(data),
         }
     }
 
     fn check_status(&mut self) -> Result<(), DisplayError> {
         match self {
-            ConfigurableProtocol::EPD128x250(p) => p.check_status(),
-            ConfigurableProtocol::EPD240x416(p) => p.check_status(),
+            Self::EPD128x250(p) => p.check_status(),
+            Self::EPD240x416(p) => p.check_status(),
         }
     }
 
     fn update_display(&mut self, mode: DisplayMode) -> Result<(), DisplayError> {
         match self {
-            ConfigurableProtocol::EPD128x250(p) => p.update_display(mode),
-            ConfigurableProtocol::EPD240x416(p) => p.update_display(mode),
+            Self::EPD128x250(p) => p.update_display(mode),
+            Self::EPD240x416(p) => p.update_display(mode),
         }
     }
 
     fn sleep(&mut self) -> Result<(), DisplayError> {
         match self {
-            ConfigurableProtocol::EPD128x250(p) => p.sleep(),
-            ConfigurableProtocol::EPD240x416(p) => p.sleep(),
+            Self::EPD128x250(p) => p.sleep(),
+            Self::EPD240x416(p) => p.sleep(),
         }
     }
 
     fn get_spec(&self) -> &crate::firmware::DisplaySpec {
         match self {
-            ConfigurableProtocol::EPD128x250(p) => p.get_spec(),
-            ConfigurableProtocol::EPD240x416(p) => p.get_spec(),
+            Self::EPD128x250(p) => p.get_spec(),
+            Self::EPD240x416(p) => p.get_spec(),
         }
     }
 
     fn get_write_ram_command(&self) -> u8 {
         match self {
-            ConfigurableProtocol::EPD128x250(p) => p.get_write_ram_command(),
-            ConfigurableProtocol::EPD240x416(p) => p.get_write_ram_command(),
+            Self::EPD128x250(p) => p.get_write_ram_command(),
+            Self::EPD240x416(p) => p.get_write_ram_command(),
         }
     }
 }

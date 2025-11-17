@@ -25,7 +25,7 @@ pub struct DisplaySpec {
 impl DisplaySpec {
     /// Calculate the required array size in bytes for 1-bit image data
     #[must_use]
-    pub fn array_size(&self) -> usize {
+    pub const fn array_size(&self) -> usize {
         ((self.width * self.height) / 8) as usize
     }
 }

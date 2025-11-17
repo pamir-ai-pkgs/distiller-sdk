@@ -96,7 +96,7 @@ pub fn convert_png_to_1bit(filename: &str) -> Result<Vec<u8>, DisplayError> {
 
 /// Get display dimensions from a display spec
 #[must_use]
-pub fn get_dimensions_from_spec(spec: &DisplaySpec) -> (u32, u32) {
+pub const fn get_dimensions_from_spec(spec: &DisplaySpec) -> (u32, u32) {
     (spec.width, spec.height)
 }
 

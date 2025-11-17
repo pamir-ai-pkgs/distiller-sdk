@@ -24,25 +24,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize configuration system
     println!("1. Initializing configuration...");
     if let Err(e) = config::initialize_config() {
-        println!("Warning: Config initialization failed: {}", e);
+        println!("Warning: Config initialization failed: {e}");
         println!("Using default configuration");
     }
 
     // Get current firmware
     match config::get_default_firmware() {
-        Ok(firmware) => println!("Current firmware: {}", firmware),
-        Err(e) => println!("Error getting firmware: {}", e),
+        Ok(firmware) => println!("Current firmware: {firmware}"),
+        Err(e) => println!("Error getting firmware: {e}"),
     }
 
     // Check for environment variable override
     if let Ok(firmware_env) = env::var("DISTILLER_EINK_FIRMWARE") {
-        println!("Setting firmware from environment: {}", firmware_env);
+        println!("Setting firmware from environment: {firmware_env}");
         if let Err(e) = config::set_default_firmware_from_str(&firmware_env) {
-            println!("Error setting firmware: {}", e);
+            println!("Error setting firmware: {e}");
         } else {
             match config::get_default_firmware() {
-                Ok(firmware) => println!("Updated firmware: {}", firmware),
-                Err(e) => println!("Error getting updated firmware: {}", e),
+                Ok(firmware) => println!("Updated firmware: {firmware}"),
+                Err(e) => println!("Error getting updated firmware: {e}"),
             }
         }
     }
@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let array_size = (dimensions.0 * dimensions.1 / 8) as usize;
-    println!("Required data size: {} bytes", array_size);
+    println!("Required data size: {array_size} bytes");
 
     // Test image creation
     println!("\n3. Testing image creation...");
@@ -88,7 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Display white image
             println!("Displaying white image...");
             if let Err(e) = display_image_raw(&white_image, DisplayMode::Full) {
-                println!("Error displaying white image: {}", e);
+                println!("Error displaying white image: {e}");
             } else {
                 println!("✓ White image displayed");
             }
@@ -98,7 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Display black image
             println!("Displaying black image...");
             if let Err(e) = display_image_raw(&black_image, DisplayMode::Full) {
-                println!("Error displaying black image: {}", e);
+                println!("Error displaying black image: {e}");
             } else {
                 println!("✓ Black image displayed");
             }
@@ -108,7 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Clear display
             println!("Clearing display...");
             if let Err(e) = display_clear() {
-                println!("Error clearing display: {}", e);
+                println!("Error clearing display: {e}");
             } else {
                 println!("✓ Display cleared");
             }
@@ -116,7 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Sleep display
             println!("Putting display to sleep...");
             if let Err(e) = display_sleep() {
-                println!("Error putting display to sleep: {}", e);
+                println!("Error putting display to sleep: {e}");
             } else {
                 println!("✓ Display sleeping");
             }
@@ -124,13 +124,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Cleanup
             println!("Cleaning up...");
             if let Err(e) = display_cleanup() {
-                println!("Error during cleanup: {}", e);
+                println!("Error during cleanup: {e}");
             } else {
                 println!("✓ Cleanup completed");
             }
         },
         Err(e) => {
-            println!("✗ Display initialization failed: {}", e);
+            println!("✗ Display initialization failed: {e}");
             println!("This could be due to:");
             println!("  - Hardware not connected");
             println!("  - Insufficient permissions (try with sudo)");

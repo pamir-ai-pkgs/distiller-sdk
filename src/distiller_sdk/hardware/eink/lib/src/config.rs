@@ -26,8 +26,8 @@ impl FirmwareType {
     #[must_use]
     pub fn create_firmware(&self) -> Box<dyn DisplayFirmware> {
         match self {
-            FirmwareType::EPD128x250 => Box::new(EPD128x250Firmware::new()),
-            FirmwareType::EPD240x416 => Box::new(EPD240x416Firmware::new()),
+            Self::EPD128x250 => Box::new(EPD128x250Firmware::new()),
+            Self::EPD240x416 => Box::new(EPD240x416Firmware::new()),
         }
     }
 
@@ -45,8 +45,8 @@ impl FirmwareType {
     /// Returns `DisplayError::Config` if the firmware type is not recognized
     pub fn parse(s: &str) -> Result<Self, DisplayError> {
         match s.to_lowercase().as_str() {
-            "epd128x250" | "128x250" => Ok(FirmwareType::EPD128x250),
-            "epd240x416" | "240x416" => Ok(FirmwareType::EPD240x416),
+            "epd128x250" | "128x250" => Ok(Self::EPD128x250),
+            "epd240x416" | "240x416" => Ok(Self::EPD240x416),
             _ => Err(DisplayError::Config(format!(
                 "Unknown firmware type: {s}. Supported types: EPD128x250, EPD240x416"
             ))),
@@ -55,10 +55,10 @@ impl FirmwareType {
 
     /// Get string representation
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            FirmwareType::EPD128x250 => "EPD128x250",
-            FirmwareType::EPD240x416 => "EPD240x416",
+            Self::EPD128x250 => "EPD128x250",
+            Self::EPD240x416 => "EPD240x416",
         }
     }
 }
@@ -250,19 +250,19 @@ pub fn parse_ini_config(content: &str) -> Result<DisplayConfig, DisplayError> {
                 },
                 "gpio_pins" => match key {
                     "dc_pin" => {
-                        config.hardware.dc_pin = value
-                            .parse()
-                            .map_err(|_| DisplayError::Config(format!("Invalid dc_pin: {value}")))?
+                        config.hardware.dc_pin = value.parse().map_err(|_| {
+                            DisplayError::Config(format!("Invalid dc_pin: {value}"))
+                        })?;
                     },
                     "rst_pin" => {
                         config.hardware.rst_pin = value.parse().map_err(|_| {
                             DisplayError::Config(format!("Invalid rst_pin: {value}"))
-                        })?
+                        })?;
                     },
                     "busy_pin" => {
                         config.hardware.busy_pin = value.parse().map_err(|_| {
                             DisplayError::Config(format!("Invalid busy_pin: {value}"))
-                        })?
+                        })?;
                     },
                     _ => {},
                 },
