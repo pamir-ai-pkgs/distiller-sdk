@@ -126,7 +126,7 @@ ScalingMethod.STRETCH       # Stretch to fill display (may distort image)
 from distiller_sdk.hardware.eink import DitheringMethod
 
 DitheringMethod.FLOYD_STEINBERG  # High quality dithering (default)
-DitheringMethod.SIMPLE           # Fast threshold conversion
+DitheringMethod.THRESHOLD        # Fast threshold conversion
 ```
 
 ### Auto-Conversion Examples
@@ -141,7 +141,7 @@ display_png_auto("vacation_photo_4000x3000.png")
 display_png_auto("banner_1920x400.png", scaling=ScalingMethod.CROP_CENTER)
 
 # Display with simple dithering for faster processing
-display_png_auto("image.png", dithering=DitheringMethod.SIMPLE)
+display_png_auto("image.png", dithering=DitheringMethod.THRESHOLD)
 
 # Combine scaling and dithering options
 display_png_auto("portrait.png",
@@ -441,7 +441,7 @@ display_png_auto("my_photo.png")
 display_png_auto("wide_image.png", scaling=ScalingMethod.CROP_CENTER)
 
 # Display with fast dithering
-display_png_auto("image.png", dithering=DitheringMethod.SIMPLE)
+display_png_auto("image.png", dithering=DitheringMethod.THRESHOLD)
 
 # Use enhanced display_png with auto-conversion
 display_png("any_image.png", auto_convert=True)
