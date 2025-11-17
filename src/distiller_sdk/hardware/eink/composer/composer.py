@@ -70,7 +70,9 @@ class EinkComposer:
     E-ink display composer for creating layered templates.
     """
 
-    def __init__(self, width: int = 250, height: int = 128):
+    def __init__(
+        self, width: int = 250, height: int = 128
+    ):  # Default: 250×128 landscape (physical mounting, users create in landscape)
         """
         Initialize composer with display dimensions.
 
@@ -372,12 +374,12 @@ class EinkComposer:
 
         # Composite onto canvas
         h, w = img.shape
-        y_end = min(layer.y + h, self.height)
-        x_end = min(layer.x + w, self.width)
+        y_end = int(min(layer.y + h, self.height))
+        x_end = int(min(layer.x + w, self.width))
 
-        if layer.y < self.height and layer.x < self.width:
-            self.canvas[layer.y : y_end, layer.x : x_end] = img[
-                : y_end - layer.y, : x_end - layer.x
+        if int(layer.y) < self.height and int(layer.x) < self.width:
+            self.canvas[int(layer.y) : y_end, int(layer.x) : x_end] = img[
+                : y_end - int(layer.y), : x_end - int(layer.x)
             ]
 
     def _render_text_layer(self, layer: TextLayer):
@@ -430,20 +432,20 @@ class EinkComposer:
 
         # Composite onto main canvas
         h, w = temp_canvas.shape
-        y_end = min(layer.y + h, self.height)
-        x_end = min(layer.x + w, self.width)
+        y_end = int(min(layer.y + h, self.height))
+        x_end = int(min(layer.x + w, self.width))
 
-        if layer.y < self.height and layer.x < self.width:
+        if int(layer.y) < self.height and int(layer.x) < self.width:
             # Only composite non-white pixels if no background, otherwise composite everything
             if layer.background:
-                self.canvas[layer.y : y_end, layer.x : x_end] = temp_canvas[
-                    : y_end - layer.y, : x_end - layer.x
+                self.canvas[int(layer.y) : y_end, int(layer.x) : x_end] = temp_canvas[
+                    : y_end - int(layer.y), : x_end - int(layer.x)
                 ]
             else:
                 # For no background, only composite non-white pixels (text only)
-                mask = temp_canvas[: y_end - layer.y, : x_end - layer.x] < 255
-                self.canvas[layer.y : y_end, layer.x : x_end][mask] = temp_canvas[
-                    : y_end - layer.y, : x_end - layer.x
+                mask = temp_canvas[: y_end - int(layer.y), : x_end - int(layer.x)] < 255
+                self.canvas[int(layer.y) : y_end, int(layer.x) : x_end][mask] = temp_canvas[
+                    : y_end - int(layer.y), : x_end - int(layer.x)
                 ][mask]
 
     def _render_rectangle_layer(self, layer: RectangleLayer):
@@ -451,10 +453,10 @@ class EinkComposer:
         if not layer.visible:
             return
 
-        x1 = max(0, layer.x)
-        y1 = max(0, layer.y)
-        x2 = min(self.width, layer.x + layer.width)
-        y2 = min(self.height, layer.y + layer.height)
+        x1 = int(max(0, layer.x))
+        y1 = int(max(0, layer.y))
+        x2 = int(min(self.width, layer.x + layer.width))
+        y2 = int(min(self.height, layer.y + layer.height))
 
         if x1 >= x2 or y1 >= y2:
             return
