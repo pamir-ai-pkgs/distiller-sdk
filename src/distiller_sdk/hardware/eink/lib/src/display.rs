@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use crate::{
     error::DisplayError,
     image,
+    image_processing::Transform,
     protocol::{DisplayMode, EinkProtocol, create_default_protocol},
 };
 
@@ -46,6 +47,7 @@ pub trait DisplayDriver {
         mode: DisplayMode,
         scale_mode: crate::image_processing::ScaleMode,
         dither_mode: crate::image_processing::DitherMode,
+        transform: Option<Transform>,
     ) -> Result<(), DisplayError>;
     /// Clear the display to white
     ///
@@ -78,7 +80,7 @@ pub struct GenericDisplay<P: EinkProtocol> {
 impl<P: EinkProtocol> GenericDisplay<P> {
     /// Create a new generic display with the given protocol
     #[must_use]
-    pub fn new(protocol: P) -> Self {
+    pub const fn new(protocol: P) -> Self {
         Self {
             protocol,
             initialized: false,
@@ -147,6 +149,7 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
         mode: DisplayMode,
         scale_mode: crate::image_processing::ScaleMode,
         dither_mode: crate::image_processing::DitherMode,
+        transform: Option<Transform>,
     ) -> Result<(), DisplayError> {
         let spec = self.protocol.get_spec();
         let processor = crate::image_processing::ImageProcessor::new(spec.clone());
@@ -156,9 +159,9 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
             filename,
             scale_mode,
             dither_mode,
-            None,  // brightness
-            None,  // contrast
-            None,  // transform
+            None, // brightness
+            None, // contrast
+            transform,
             false, // invert
         )?;
 
@@ -283,13 +286,14 @@ pub fn display_image_auto(
     mode: DisplayMode,
     scale_mode: crate::image_processing::ScaleMode,
     dither_mode: crate::image_processing::DitherMode,
+    transform: Option<Transform>,
 ) -> Result<(), DisplayError> {
     let mut state = GLOBAL_STATE
         .lock()
         .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
 
     if let Some(display) = &mut state.display {
-        display.display_image_auto(filename, mode, scale_mode, dither_mode)
+        display.display_image_auto(filename, mode, scale_mode, dither_mode, transform)
     } else {
         Err(DisplayError::NotInitialized)
     }

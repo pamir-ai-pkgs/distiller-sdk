@@ -33,41 +33,41 @@ def create_parser():
         epilog="""
 Examples:
   # IMPORTANT: Always create a composition first!
-  # Standard e-ink display: EPD128x250 native firmware (128x250)
-  # Note: Native 128×250 portrait, physically mounted as 250×128 landscape
-  
-  # Working example for e-ink hardware:
-  eink-compose create --size 128x250
-  eink-compose add-text hello "HELLO E-INK" --x 20 --y 120
-  eink-compose add-rect border --width 128 --height 250 --filled false
-  eink-compose display
-  
+  # Standard e-ink display: EPD128x250 (physically mounted as 250×128 landscape)
+  # Note: Create images in 250×128 landscape, use rotate=90 when displaying
+
+  # Working example for EPD128x250 hardware:
+  eink-compose create --size 250x128
+  eink-compose add-text hello "HELLO E-INK" --x 50 --y 60
+  eink-compose add-rect border --width 250 --height 128 --filled false
+  eink-compose display --rotate
+
   # More detailed example:
-  eink-compose create --size 128x250
-  eink-compose add-rect bg --width 128 --height 250 --filled true --color 255
-  eink-compose add-text title "E-INK DISPLAY" --x 15 --y 50
-  eink-compose add-text info "128 x 250 px" --x 25 --y 70
-  eink-compose add-rect frame --x 10 --y 100 --width 108 --height 50 --filled false
-  eink-compose display --save-preview preview.png
-  
+  eink-compose create --size 250x128
+  eink-compose add-rect bg --width 250 --height 128 --filled true --color 255
+  eink-compose add-text title "E-INK DISPLAY" --x 70 --y 40
+  eink-compose add-text info "250 x 128 px" --x 85 --y 60
+  eink-compose add-rect frame --x 50 --y 20 --width 150 --height 88 --filled false
+  eink-compose display --rotate --save-preview preview.png
+
   # Render to file
   eink-compose render --output display.png --format png
   eink-compose render --output display.bin --format binary --dither floyd-steinberg
-  
+
   # Display options
   eink-compose display                    # Full refresh
   eink-compose display --partial          # Fast refresh (may ghost)
   eink-compose display --rotate --flip-h  # With transformations
-  
+
   # Save/load compositions
   eink-compose save my_template.json
   eink-compose load my_template.json
   eink-compose load my_template.json --render --output final.png
-  
+
   # Session management
-  eink-compose reset                   # Clear session, create new 128x250
+  eink-compose reset                   # Clear session, create new 250x128
   eink-compose reset --size 240x416    # Clear session, create custom size
-  
+
   # Hardware control
   eink-compose hardware info   # Show display info
   eink-compose hardware clear  # Clear display
@@ -80,7 +80,9 @@ Examples:
     # Create command
     create_cmd = subparsers.add_parser("create", help="Create new composition")
     create_cmd.add_argument(
-        "--size", default="128x250", help="Display size WIDTHxHEIGHT (default: 128x250)"
+        "--size",
+        default="250x128",
+        help="Display size WIDTHxHEIGHT (default: 250x128 landscape for EPD128x250)",
     )
     create_cmd.add_argument("--output", help="Output file")
     create_cmd.add_argument(
@@ -181,7 +183,7 @@ Examples:
     # Reset session command
     reset_cmd = subparsers.add_parser("reset", help="Reset/clear the current session")
     reset_cmd.add_argument(
-        "--size", default="128x250", help="Display size for new session (default: 128x250)"
+        "--size", default="250x128", help="Display size for new session (default: 250x128)"
     )
 
     # List layers command
@@ -264,8 +266,8 @@ class ComposerSession:
         self.session_file = Path.home() / ".eink_composer_session.json"
         self.load_session()
 
-    def ensure_composer(self, default_width=128, default_height=250):
-        """Ensure a composer exists, creating a default one if needed."""
+    def ensure_composer(self, default_width=250, default_height=128):
+        """Ensure a composer exists, creating a default one if needed. Default is 250×128 landscape for EPD128x250."""
         if not self.composer:
             print(
                 f"No active composition found. Creating default {default_width}x{default_height} composition..."
@@ -621,12 +623,16 @@ def main():
 
                     firmware = get_default_firmware()
                     if firmware == FirmwareType.EPD240x416:
-                        size = "240x416 (large)"
+                        size = "240x416 (EPD240x416)"
                     else:
-                        size = "128x250 (standard)"
+                        size = (
+                            "128x250 vendor firmware (EPD128x250 - create 250x128 landscape images)"
+                        )
                     print(f"Display type: {size}")
                 except Exception:
-                    print("Display type: 128x250 (default)")
+                    print(
+                        "Display type: 128x250 vendor firmware (EPD128x250 - create 250x128 landscape images)"
+                    )
                 print("Hardware: E-ink display connected")
 
             else:

@@ -142,7 +142,7 @@ class Display:
     # For EPD128x250: Physical mounting is 250×128 landscape (default), vendor controller expects 128×250 portrait
     # Vendor controller REQUIRES width=128, height=250 for proper bit packing (portrait orientation)
     WIDTH = 128  # Vendor controller requirement (portrait data)
-    HEIGHT = 250  # Users create landscape (250×128), SDK transforms to portrait (128×250)
+    HEIGHT = 250  # Users create landscape (250×128), pass rotate=90 to display methods
     ARRAY_SIZE = (128 * 250) // 8  # Buffer size in bytes for 1-bit packed data
 
     def __init__(self, library_path: Optional[str] = None, auto_init: bool = True):
@@ -234,9 +234,15 @@ class Display:
         self._lib.display_image_file.restype = c_bool
         self._lib.display_image_file.argtypes = [c_char_p, ctypes.c_int]
 
-        # display_image_auto(const char* filename, display_mode_t mode, scale_mode, dither_mode) -> bool
+        # display_image_auto(const char* filename, display_mode_t mode, scale_mode, dither_mode, transform) -> bool
         self._lib.display_image_auto.restype = c_bool
-        self._lib.display_image_auto.argtypes = [c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+        self._lib.display_image_auto.argtypes = [
+            c_char_p,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
 
         # display_clear() -> bool
         self._lib.display_clear.restype = c_bool
@@ -673,6 +679,7 @@ class Display:
         mode: DisplayMode = DisplayMode.FULL,
         scaling: ScalingMethod = ScalingMethod.LETTERBOX,
         dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
+        rotate: Union[bool, int] = False,
     ) -> None:
         """
         Display any image with automatic scaling and dithering.
@@ -681,12 +688,17 @@ class Display:
         - Scales the image to fit the display using the specified method
         - Converts to 1-bit using the specified dithering algorithm
         - Handles any image size and format
+        - Applies rotation if specified
 
         Args:
             filename: Path to image file (any supported format, any size)
             mode: Display refresh mode (FULL or PARTIAL)
             scaling: How to scale the image to fit display
             dithering: Dithering method for 1-bit conversion
+            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
+                   If True, rotate 90 degrees counter-clockwise
+                   If False or 0, no rotation
+                   For EPD128x250 displays: create 250×128 landscape images and pass rotate=90
 
         Raises:
             DisplayError: If display operation fails
@@ -697,12 +709,27 @@ class Display:
         if not os.path.exists(filename):
             raise DisplayError(f"Image file not found: {filename}")
 
+        # Convert boolean rotate to degrees for backward compatibility
+        if isinstance(rotate, bool):
+            rotation_degrees = 90 if rotate else 0
+        else:
+            rotation_degrees = rotate % 360
+
+        # Map rotation to transform type
+        transform = TransformType.NONE
+        if rotation_degrees == 90:
+            transform = TransformType.ROTATE_90
+        elif rotation_degrees == 180:
+            transform = TransformType.ROTATE_180
+        elif rotation_degrees == 270:
+            transform = TransformType.ROTATE_270
+
         logger.debug(
-            f"Auto-displaying image: {filename} (scale={scaling.name}, dither={dithering.name})"
+            f"Auto-displaying image: {filename} (scale={scaling.name}, dither={dithering.name}, rotate={rotation_degrees}°)"
         )
         filename_bytes = filename.encode("utf-8")
         result = self._lib.display_image_auto(
-            filename_bytes, int(mode), int(scaling), int(dithering)
+            filename_bytes, int(mode), int(scaling), int(dithering), int(transform)
         )
         self._check_result(result, f"Auto-display image '{filename}'")
         logger.debug("Image auto-displayed successfully")

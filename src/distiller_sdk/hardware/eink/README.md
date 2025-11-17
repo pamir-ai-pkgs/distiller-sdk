@@ -156,16 +156,16 @@ display_png_auto("portrait.png",
 - **EPD128x250**:
   - **Physical mounting**: 250×128 landscape (default orientation - how display is mounted and viewed)
   - **Vendor controller quirk**: Expects 128×250 portrait data (firmware logic is portrait-oriented)
-  - **User workflow**: Create content in 250×128 landscape, SDK transforms to 128×250 portrait for vendor
+  - **User workflow**: Create content in 250×128 landscape, pass `rotate=90` to display methods
   - **Critical**: Vendor firmware requires width=128, height=250 internally for proper bit packing
-  - **Important**: Sending 250×128 directly causes byte alignment issues and garbled output
+  - **Important**: Using _auto() methods without rotation on 250×128 images causes distortion/cropping
   - **Firmware name**: EPD128x250 (vendor naming - refers to controller portrait orientation)
 
 - **EPD240x416**: 240 × 416 pixels (dimensions match physical orientation)
 
 - **Auto-Detection**: Firmware automatically detected at runtime
 
-**Critical Note**: For EPD128x250, the display is physically mounted as 250×128 landscape (default orientation), but the vendor controller expects 128×250 portrait data due to firmware logic. Users create content in landscape (250×128), and the SDK automatically transforms it to portrait (128×250) for the vendor controller. Do NOT send 250×128 directly to the hardware.
+**Critical Note**: For EPD128x250, the display is physically mounted as 250×128 landscape (default orientation), but the vendor controller expects 128×250 portrait data due to firmware logic. Users should create content in landscape (250×128) and pass `rotate=90` to `display_image_auto()` or `display_png_auto()` for proper orientation. Without rotation, the scaling algorithms will try to fit 250×128 into 128×250, causing severe distortion.
 
 ### Display Properties
 
@@ -223,7 +223,7 @@ Display any supported image file format on the e-ink screen.
 - `mode`: Display refresh mode (FULL or PARTIAL)
 - Note: Image must match display dimensions exactly (no automatic scaling)
 
-##### display_image_auto(filename, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG)
+##### display_image_auto(filename, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, rotate=0)
 
 Display any image with automatic scaling and dithering.
 
@@ -231,6 +231,8 @@ Display any image with automatic scaling and dithering.
 - `mode`: Display refresh mode
 - `scaling`: How to scale the image to fit display
 - `dithering`: Dithering method for 1-bit conversion
+- `rotate`: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
+  - **For EPD128x250**: Create 250×128 landscape images and pass `rotate=90`
 
 ##### display_png_auto(image_path, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, rotate=0, flip_horizontal=False, flip_vertical=False) -> bool
 

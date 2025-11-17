@@ -1,10 +1,18 @@
+#![allow(unused)]
+
 use std::{
     ffi::CStr,
     os::raw::{c_char, c_int, c_uint},
     ptr,
 };
 
-use crate::{config, display, protocol::DisplayMode, error::DisplayError};
+use crate::{
+    config,
+    display,
+    error::DisplayError,
+    image_processing::Transform,
+    protocol::DisplayMode,
+};
 
 // Error code constants for FFI
 const SUCCESS: c_int = 1;
@@ -18,8 +26,8 @@ const ERR_PNG: c_int = -7;
 const ERR_IO: c_int = -8;
 const ERR_UNKNOWN: c_int = -99;
 
-/// Map DisplayError to error code
-fn error_to_code(e: &DisplayError) -> c_int {
+/// Map `DisplayError` to error code
+const fn error_to_code(e: &DisplayError) -> c_int {
     match e {
         DisplayError::Gpio(_) => ERR_GPIO,
         DisplayError::Spi(_) => ERR_SPI,
@@ -204,6 +212,8 @@ pub unsafe extern "C" fn display_image_file(filename: *const c_char, mode: c_int
 /// - `scale_mode`: Scale mode (0 = Letterbox, 1 = `CropCenter`, 2 = Stretch)
 /// - `dither_mode`: Dither mode (0 = Threshold, 1 = `FloydSteinberg`, 2 =
 ///   Ordered)
+/// - `transform`: Transform mode (0 = None, 1 = Rotate90, 2 = Rotate180, 3 =
+///   Rotate270, 4 = `FlipHorizontal`, 5 = `FlipVertical`)
 ///
 /// # Returns
 ///
@@ -215,6 +225,7 @@ pub unsafe extern "C" fn display_image_auto(
     mode: c_int,
     scale_mode: c_int,
     dither_mode: c_int,
+    transform: c_int,
 ) -> c_int {
     if filename.is_null() {
         return ERR_INVALID_DATA;
@@ -244,7 +255,17 @@ pub unsafe extern "C" fn display_image_auto(
         _ => return ERR_INVALID_DATA,
     };
 
-    match display::display_image_auto(filename_str, display_mode, scale, dither) {
+    let transform_opt = match transform {
+        0 => None,
+        1 => Some(Transform::Rotate90),
+        2 => Some(Transform::Rotate180),
+        3 => Some(Transform::Rotate270),
+        4 => Some(Transform::FlipHorizontal),
+        5 => Some(Transform::FlipVertical),
+        _ => return ERR_INVALID_DATA,
+    };
+
+    match display::display_image_auto(filename_str, display_mode, scale, dither, transform_opt) {
         Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Display image auto failed: {e}");
@@ -494,8 +515,8 @@ pub extern "C" fn display_initialize_config() -> c_int {
 ///
 /// # Safety
 ///
-/// This function is safe to call from C code. It initializes the env_logger
-/// for Rust code, allowing RUST_LOG environment variable to control logging.
+/// This function is safe to call from C code. It initializes the `env_logger`
+/// for Rust code, allowing `RUST_LOG` environment variable to control logging.
 /// Can be called multiple times safely (subsequent calls are no-ops).
 #[unsafe(no_mangle)]
 pub extern "C" fn display_init_logger() {
