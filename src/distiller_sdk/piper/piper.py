@@ -2,6 +2,7 @@ import subprocess
 import os
 import logging
 import re
+import tempfile
 
 from distiller_sdk.hardware.audio.audio import Audio
 from distiller_sdk import get_model_path
@@ -60,15 +61,19 @@ class Piper:
         logger.info(f"Piper: Available voices: {[v['name'] for v in voices]}")
         return voices
 
-    def get_wav_file_path(self, text):
-        output_file_path = os.path.join(os.getcwd(), "output.wav")
+    def get_wav_file_path(self, text, output_path=None):
+        if output_path is None:
+            # Create unique temp file in current directory
+            fd, output_path = tempfile.mkstemp(suffix=".wav", dir=os.getcwd())
+            os.close(fd)  # Close the file descriptor, we just want the path
+
         escaped_text = text.replace("'", "'\\''")
-        command = f"""echo '{escaped_text}' | {self.piper} --model {self.voice_onnx} --config {self.voice_json} --output_file {output_file_path}"""
+        command = f"""echo '{escaped_text}' | {self.piper} --model {self.voice_onnx} --config {self.voice_json} --output_file {output_path}"""
         logger.info(f"Piper exec command: {command}")
         try:
             subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
-            logger.info(f"Piper: Text '{text}' spoken successfully and saved to {output_file_path}")
-            return output_file_path
+            logger.info(f"Piper: Text '{text}' spoken successfully and saved to {output_path}")
+            return output_path
         except subprocess.CalledProcessError as e:
             logger.error(f"Piper: Error running piper command: {e.stderr}")
             raise ValueError(f"Piper: Error running piper command: {e.stderr}")
