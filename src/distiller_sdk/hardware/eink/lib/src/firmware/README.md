@@ -147,8 +147,9 @@ When creating a new firmware, pay attention to these register values:
 
 - Adjust width/height in DisplaySpec
 - Update Ram-X/Ram-Y address calculations in init sequence
-- **Note**: The EPD128x250 firmware name follows internal convention but actually represents a
-  250×128 (width×height) display
+- **Note**: The EPD128x250 firmware name refers to the controller's portrait orientation (128×250).
+  The display is physically mounted as 250×128 landscape, but the controller expects 128×250 portrait data.
+  The SDK transforms landscape content → portrait for the vendor controller.
 
 ### BorderWavefrom (0x3C)
 

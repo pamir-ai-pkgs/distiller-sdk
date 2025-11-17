@@ -150,11 +150,12 @@ audio.close()
 Supports EPD128x250 and EPD240x416 displays with comprehensive image processing capabilities.
 
 **EPD128x250 Display**:
-- **Native orientation**: 128×250 (portrait: 128 wide, 250 tall)
-- **Mounted orientation**: 250×128 (landscape - rotated 90° from native)
-- **Vendor firmware requirement**: Uses width=128, height=250 internally (REQUIRED for proper bit packing)
-- **Important**: Using 250×128 causes byte alignment issues and garbled output
-- **Firmware name**: EPD128x250 (vendor naming convention)
+- **Physical mounting**: 250×128 landscape (default orientation - how the display is mounted and viewed)
+- **Vendor controller quirk**: Expects 128×250 portrait data (firmware logic is portrait-oriented)
+- **User workflow**: Create content in 250×128 landscape, SDK transforms to 128×250 portrait for vendor
+- **Critical**: Vendor firmware requires width=128, height=250 internally for proper bit packing
+- **Important**: Sending 250×128 directly causes byte alignment issues and garbled output
+- **Firmware name**: EPD128x250 (vendor naming convention - refers to portrait controller orientation)
 
 **EPD240x416 Display**:
 - Dimensions: 240×416 pixels (matches physical orientation)
@@ -170,7 +171,7 @@ from distiller_sdk.hardware.eink import (
 
 # Configure firmware type (persists across sessions)
 set_default_firmware(FirmwareType.EPD240x416)  # 240×416 display
-set_default_firmware(FirmwareType.EPD128x250)  # Native: 128×250 (portrait), mounted: 250×128 (landscape) (default)
+set_default_firmware(FirmwareType.EPD128x250)  # Physical: 250×128 landscape, vendor expects: 128×250 portrait (default)
 current_fw = get_default_firmware()
 
 # Configuration priority:
@@ -296,9 +297,9 @@ display.display_image(with_rect, mode=DisplayMode.FULL)
 
 #### Bitpacking Transformations (Standalone Functions)
 
-**Note**: For EPD128x250, the native orientation is 128×250 (portrait), but the display is mounted as 250×128 (landscape).
-The vendor firmware requires width=128, height=250 internally for proper bit packing.
-When working with bitpacked data, ensure your dimensions match the firmware requirements.
+**Note**: For EPD128x250, the display is physically mounted as 250×128 landscape (default orientation).
+However, the vendor controller expects 128×250 portrait data due to firmware logic.
+When working with bitpacked data, you create content in landscape (250×128), then transform to portrait (128×250) for the vendor.
 
 ```python
 from distiller_sdk.hardware.eink import (
@@ -307,10 +308,10 @@ from distiller_sdk.hardware.eink import (
     invert_bitpacked_colors
 )
 
-# 1-bit packed data matching physical display orientation (user-facing)
-# For EPD128x250: native 128×250 (portrait), mounted 250×128 (landscape, rotated 90°)
-# Firmware uses 128×250 internally
-data = bytes([0xAA] * 4000)  # Alternating pattern
+# 1-bit packed data matching physical display mounting (user creates content in landscape)
+# EPD128x250: Physical 250×128 landscape, vendor controller expects 128×250 portrait
+# SDK handles transformation: landscape content → portrait for vendor controller
+data = bytes([0xAA] * 4000)  # Alternating pattern (250×128 landscape)
 
 # Rotation transformations
 rotated_90_ccw = rotate_bitpacked(data, 90, 250, 128)  # Counter-clockwise

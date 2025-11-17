@@ -67,18 +67,19 @@ class FirmwareType:
 
     EPD128x250 Dimension Clarification:
     - Vendor firmware name: EPD128x250
-    - Native orientation: 128×250 (portrait: 128 wide, 250 tall)
-    - Mounted orientation: 250×128 (landscape - rotated 90° from native)
-    - Internal dimensions: width=128, height=250 (REQUIRED by vendor firmware)
-    - Why: Vendor bit packing logic requires 128×250; using 250×128 causes byte alignment
-      issues and produces garbled output
-    - These dimensions are CORRECT - do not change them
+    - Physical mounting: 250×128 landscape (default orientation - how display is mounted/viewed)
+    - Vendor controller quirk: Expects 128×250 portrait data (firmware logic is portrait-oriented)
+    - User workflow: Create content in 250×128 landscape, SDK transforms to 128×250 portrait
+    - Internal dimensions: width=128, height=250 (REQUIRED by vendor controller)
+    - Why: Vendor controller bit packing requires 128×250; sending 250×128 directly causes
+      byte alignment issues and garbled output
+    - SDK handles transformation automatically - users work in landscape (250×128)
 
     EPD240x416:
     - Dimensions: width=240, height=416 (matches physical orientation)
     """
 
-    EPD128x250 = "EPD128x250"  # Native: 128×250 (portrait), mounted: 250×128 (landscape)
+    EPD128x250 = "EPD128x250"  # Physical: 250×128 landscape, vendor expects: 128×250 portrait
     EPD240x416 = "EPD240x416"  # 240×416 display
 
 
@@ -138,10 +139,10 @@ class Display:
     """
 
     # Display constants (firmware-specific, updated after initialization)
-    # For EPD128x250: Native orientation is 128×250 (portrait), mounted as 250×128 (landscape)
-    # Vendor firmware REQUIRES width=128, height=250 for proper bit packing
-    WIDTH = 128  # Native width (vendor firmware requirement)
-    HEIGHT = 250  # Native height (vendor firmware requirement)
+    # For EPD128x250: Physical mounting is 250×128 landscape (default), vendor controller expects 128×250 portrait
+    # Vendor controller REQUIRES width=128, height=250 for proper bit packing (portrait orientation)
+    WIDTH = 128  # Vendor controller requirement (portrait data)
+    HEIGHT = 250  # Users create landscape (250×128), SDK transforms to portrait (128×250)
     ARRAY_SIZE = (128 * 250) // 8  # Buffer size in bytes for 1-bit packed data
 
     def __init__(self, library_path: Optional[str] = None, auto_init: bool = True):

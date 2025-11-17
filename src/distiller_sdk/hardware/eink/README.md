@@ -5,8 +5,8 @@ multiple e-ink display types with intelligent image conversion capabilities.
 
 ## Features
 
-- **Multi-Display Support**: Supports EPD128x250 (native 128×250 portrait, mounted 250×128
-  landscape) and EPD240x416 (240×416 pixels) displays
+- **Multi-Display Support**: Supports EPD128x250 (physical 250×128 landscape, vendor expects
+  128×250 portrait) and EPD240x416 (240×416 pixels) displays
 - **Multi-Format Image Support**: Display PNG, JPEG, GIF, BMP, TIFF, WebP and more formats
 - **Intelligent Auto-Conversion**: Display any image regardless of size or format
 - **Smart Scaling**: Multiple scaling algorithms (letterbox, crop, stretch) with aspect ratio
@@ -154,17 +154,18 @@ display_png_auto("portrait.png",
 ### Supported Display Types
 
 - **EPD128x250**:
-  - **Native orientation**: 128×250 (portrait: 128 wide, 250 tall)
-  - **Mounted orientation**: 250×128 (landscape - rotated 90° from native)
-  - **Vendor firmware requirement**: width=128, height=250 internally (REQUIRED for proper bit packing)
-  - **Important**: Using 250×128 causes byte alignment issues and garbled output
-  - **Firmware name**: EPD128x250 (vendor naming convention)
+  - **Physical mounting**: 250×128 landscape (default orientation - how display is mounted and viewed)
+  - **Vendor controller quirk**: Expects 128×250 portrait data (firmware logic is portrait-oriented)
+  - **User workflow**: Create content in 250×128 landscape, SDK transforms to 128×250 portrait for vendor
+  - **Critical**: Vendor firmware requires width=128, height=250 internally for proper bit packing
+  - **Important**: Sending 250×128 directly causes byte alignment issues and garbled output
+  - **Firmware name**: EPD128x250 (vendor naming - refers to controller portrait orientation)
 
 - **EPD240x416**: 240 × 416 pixels (dimensions match physical orientation)
 
 - **Auto-Detection**: Firmware automatically detected at runtime
 
-**Critical Note**: For EPD128x250, the vendor hardware is natively 128×250 (portrait), but is mounted as 250×128 (landscape, rotated 90°). The vendor firmware requires 128×250 dimensions for proper bit packing. Do NOT attempt to change these dimensions.
+**Critical Note**: For EPD128x250, the display is physically mounted as 250×128 landscape (default orientation), but the vendor controller expects 128×250 portrait data due to firmware logic. Users create content in landscape (250×128), and the SDK automatically transforms it to portrait (128×250) for the vendor controller. Do NOT send 250×128 directly to the hardware.
 
 ### Display Properties
 
