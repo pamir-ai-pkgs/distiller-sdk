@@ -258,6 +258,7 @@ class TemplateRenderer:
         """
         temp_path = None
         composer = None
+        display = None
 
         try:
             from distiller_sdk.hardware.eink import Display, DisplayMode
@@ -274,11 +275,9 @@ class TemplateRenderer:
             # Get the image and transform it for hardware orientation (same as web UI)
             img_array = composer.render()  # Get numpy array
 
-            # Apply flip vertical (same as web UI)
-            img_array = np.flipud(img_array)  # Flip up-down
-
-            # Rotate 90° counterclockwise (same as web UI)
-            rotated_array = np.rot90(img_array, k=1)  # k=1 means 90° counterclockwise
+            # Hardware transform: flipud + rot90 converts 128×250 portrait to vendor format
+            img_array = np.flipud(img_array)
+            rotated_array = np.rot90(img_array, k=1)
 
             # Save rotated image using OpenCV (same as web UI)
             cv2.imwrite(temp_path, rotated_array)
@@ -306,7 +305,11 @@ class TemplateRenderer:
                     pass
             if composer:
                 self._cleanup_temp_files(composer)
-            display.close()
+            if display is not None:
+                try:
+                    display.close()
+                except Exception:
+                    pass
 
 
 def create_template_from_dict(template_dict: dict, output_path: str) -> str:
