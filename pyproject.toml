@@ -38,6 +38,10 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = [ "src" ]
+exclude = [ "*.tests", "*.tests.*", "tests.*", "tests" ]
+
+[tool.setuptools.exclude-package-data]
+"*" = [ "__pycache__", "*.pyc", "*.pyo", ".git*", "target/*", "*.egg-info" ]
 
 [tool.setuptools.package-data]
 "distiller_sdk" = [

@@ -17,16 +17,22 @@ override_dh_auto_build:
 	rm -f src/distiller_sdk/hardware/eink/lib/target-build
 
 override_dh_auto_install:
-	dh_auto_install
+	# Skip automatic Python package installation entirely
+	# This package installs source files to /opt/distiller-sdk/ (non-standard location)
+	# and uses uv for dependency management in postinst, not setuptools/pip
+	# All file installation is handled by debian/install
+	true
 
-	# Clean up setuptools build artifacts that shouldn't be packaged
-	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/build
-	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/src/distiller_sdk.egg-info
-	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/bin
-	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/models
+override_dh_install:
+	dh_install
+	# Remove build artifacts that shouldn't be packaged
+	find $(CURDIR)/debian/distiller-sdk -type d -name __pycache__ -exec rm -rf {} + || true
+	find $(CURDIR)/debian/distiller-sdk -type f -name "*.pyc" -delete || true
+	find $(CURDIR)/debian/distiller-sdk -type d -name "*.egg-info" -exec rm -rf {} + || true
+	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/build || true
 
 	# Post-install cleanup and library linking
-	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/src/distiller_sdk/hardware/eink/lib
+	rm -rf $(CURDIR)/debian/distiller-sdk/opt/distiller-sdk/src/distiller_sdk/hardware/eink/lib || true
 	mkdir -p $(CURDIR)/debian/distiller-sdk/usr/lib
 	ln -sf /opt/distiller-sdk/lib/libdistiller_display_sdk_shared.so \
 		$(CURDIR)/debian/distiller-sdk/usr/lib/libdistiller_display_sdk_shared.so
@@ -37,7 +43,15 @@ override_dh_python3:
 
 override_dh_fixperms:
 	dh_fixperms
-	find $(CURDIR)/debian/distiller-sdk -name .gitignore -delete
+	# Remove development artifacts
+	find $(CURDIR)/debian/distiller-sdk -name .gitignore -delete || true
+	find $(CURDIR)/debian/distiller-sdk -type d -name __pycache__ -exec rm -rf {} + || true
+	find $(CURDIR)/debian/distiller-sdk -type f -name "*.pyc" -delete || true
+	find $(CURDIR)/debian/distiller-sdk -type f -name "*.pyo" -delete || true
+	# Remove any Rust build artifacts
+	find $(CURDIR)/debian/distiller-sdk -type d -name target -exec rm -rf {} + || true
+	# Remove egg-info if present
+	find $(CURDIR)/debian/distiller-sdk -type d -name "*.egg-info" -exec rm -rf {} + || true
 
 override_dh_strip:
 	# Strip locally-built Rust library
