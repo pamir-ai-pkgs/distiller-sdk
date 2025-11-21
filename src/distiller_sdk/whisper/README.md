@@ -1,17 +1,17 @@
 # Whisper ASR Module
 
-The Whisper module provides robust Automatic Speech Recognition (ASR) using OpenAI's Whisper models
+The Whisper module implements Automatic Speech Recognition (ASR) using OpenAI's Whisper models
 through the Faster Whisper implementation. It offers high-accuracy transcription with support for
-multiple languages and is optimized for the Raspberry Pi CM5 platform.
+multiple languages and uses CTranslate2 INT8 quantization for ARM64.
 
 ## Overview
 
 Whisper is an advanced ASR engine that:
 
-- Uses OpenAI's Whisper models optimized with CTranslate2
+- Uses OpenAI's Whisper models with CTranslate2 INT8 quantization
 - Supports multiple languages with automatic detection
-- Provides word-level timestamps
-- Optimized for CPU inference on ARM64
+- Includes word-level timestamps
+- Uses CTranslate2 INT8 quantization for ARM64 CPU inference
 - Works with various audio formats and sample rates
 
 ## Prerequisites
@@ -51,15 +51,12 @@ Model options:
 ```python
 from distiller_sdk.whisper import Whisper
 
-# Initialize Whisper with default model
-whisper = Whisper()
-
-# Transcribe an audio file
-for text in whisper.transcribe("audio.wav"):
-    print(f"Transcribed: {text}")
-
-# Clean up resources
-whisper.cleanup()
+# Use context manager for automatic cleanup
+with Whisper() as whisper:
+    # Transcribe an audio file
+    for text in whisper.transcribe("audio.wav"):
+        print(f"Transcribed: {text}")
+# Automatic cleanup
 ```
 
 ### Push-to-Talk Recording
@@ -67,13 +64,11 @@ whisper.cleanup()
 ```python
 from distiller_sdk.whisper import Whisper
 
-whisper = Whisper()
-
-# Interactive push-to-talk
-for text in whisper.record_and_transcribe_ptt():
-    print(f"You said: {text}")
-
-whisper.cleanup()
+with Whisper() as whisper:
+    # Interactive push-to-talk
+    for text in whisper.record_and_transcribe_ptt():
+        print(f"You said: {text}")
+# Automatic cleanup
 ```
 
 ### Custom Configuration
@@ -81,8 +76,8 @@ whisper.cleanup()
 ```python
 from distiller_sdk.whisper import Whisper
 
-# Configure model and audio settings
-whisper = Whisper(
+# Configure model and audio settings with context manager
+with Whisper(
     model_config={
         "model_size": "faster-whisper-base",
         "device": "cpu",
@@ -93,12 +88,14 @@ whisper = Whisper(
         "rate": 48000,
         "channels": 1
     }
-)
-
-# Use the configured instance
-audio_data = whisper.stop_recording()
-for text in whisper.transcribe_buffer(audio_data):
-    print(text)
+) as whisper:
+    # Use the configured instance
+    whisper.start_recording()
+    # ... recording ...
+    audio_data = whisper.stop_recording()
+    for text in whisper.transcribe_buffer(audio_data):
+        print(text)
+# Automatic cleanup
 ```
 
 ## API Reference
@@ -134,17 +131,21 @@ Initialize the Whisper ASR engine.
 
 ```python
 # English-only model for faster processing
-whisper = Whisper(
+with Whisper(
     model_config={"model_size": "faster-distil-whisper-small.en"}
-)
+) as whisper:
+    for text in whisper.transcribe("audio.wav"):
+        print(text)
 
 # Multilingual model with auto language detection
-whisper = Whisper(
+with Whisper(
     model_config={
         "model_size": "faster-whisper-base",
         "language": None  # Auto-detect
     }
-)
+) as whisper:
+    for text in whisper.transcribe("multilingual.wav"):
+        print(text)
 ```
 
 #### `transcribe(audio_path: str) -> Generator[str, None, None]`
@@ -162,8 +163,9 @@ Transcribe audio from a file.
 **Example:**
 
 ```python
-for segment in whisper.transcribe("recording.wav"):
-    print(segment)
+with Whisper() as whisper:
+    for segment in whisper.transcribe("recording.wav"):
+        print(segment)
 ```
 
 #### `transcribe_buffer(audio_data: bytes) -> Generator[str, None, None]`
@@ -186,8 +188,9 @@ with open("audio.wav", "rb") as f:
     audio_data = f.read()
 
 # Transcribe
-for text in whisper.transcribe_buffer(audio_data):
-    print(text)
+with Whisper() as whisper:
+    for text in whisper.transcribe_buffer(audio_data):
+        print(text)
 ```
 
 #### `start_recording() -> bool`
@@ -201,10 +204,11 @@ Start recording audio (push-to-talk start).
 **Example:**
 
 ```python
-if whisper.start_recording():
-    print("Recording... Press Enter to stop")
-    input()
-    audio_data = whisper.stop_recording()
+with Whisper() as whisper:
+    if whisper.start_recording():
+        print("Recording... Press Enter to stop")
+        input()
+        audio_data = whisper.stop_recording()
 ```
 
 #### `stop_recording() -> bytes`
@@ -218,11 +222,14 @@ Stop recording and return audio data.
 **Example:**
 
 ```python
-audio_data = whisper.stop_recording()
-if audio_data:
-    # Save or process the audio
-    with open("recorded.wav", "wb") as f:
-        f.write(audio_data)
+with Whisper() as whisper:
+    whisper.start_recording()
+    # ... recording ...
+    audio_data = whisper.stop_recording()
+    if audio_data:
+        # Save or process the audio
+        with open("recorded.wav", "wb") as f:
+            f.write(audio_data)
 ```
 
 #### `record_and_transcribe_ptt() -> Generator[str, None, None]`
@@ -237,18 +244,139 @@ Interactive push-to-talk recording and transcription.
 
 ```python
 # Simple voice input
-for text in whisper.record_and_transcribe_ptt():
-    print(f"Transcription: {text}")
+with Whisper() as whisper:
+    for text in whisper.record_and_transcribe_ptt():
+        print(f"Transcription: {text}")
 ```
 
 #### `cleanup()`
 
 Release audio resources and clean up.
 
+**Note:** When using context manager (v3.0+), `cleanup()` is called automatically upon exiting the `with` block. Manual cleanup is only needed for legacy code not using context managers.
+
 **Example:**
 
 ```python
-whisper.cleanup()
+# Manual cleanup (legacy pattern)
+whisper = Whisper()
+try:
+    for text in whisper.transcribe("audio.wav"):
+        print(text)
+finally:
+    whisper.cleanup()
+
+# Preferred v3.0+ pattern (automatic cleanup)
+with Whisper() as whisper:
+    for text in whisper.transcribe("audio.wav"):
+        print(text)
+# Automatic cleanup
+```
+
+#### `__enter__()`
+
+Enter context manager.
+
+**Returns:**
+
+- Whisper instance for context manager usage
+
+**Example:**
+
+```python
+with Whisper() as whisper:
+    # Use whisper
+    pass
+```
+
+#### `__exit__(exc_type, exc_val, exc_tb)`
+
+Exit context manager and automatically cleanup resources.
+
+**Parameters:**
+
+- `exc_type`: Exception type (if any)
+- `exc_val`: Exception value (if any)
+- `exc_tb`: Exception traceback (if any)
+
+**Returns:**
+
+- False (does not suppress exceptions)
+
+**Note:** Automatically calls `cleanup()` to release audio resources.
+
+## Exception Handling
+
+The Whisper module uses specific exceptions for better error handling:
+
+```python
+from distiller_sdk.whisper import Whisper, WhisperError
+
+try:
+    with Whisper() as whisper:
+        for text in whisper.transcribe("audio.wav"):
+            print(text)
+except WhisperError as e:
+    print(f"Whisper error: {e}")
+    # Handle Whisper-specific errors (model loading, audio device, etc.)
+except ValueError as e:
+    print(f"Invalid value: {e}")
+    # Handle invalid parameters
+except FileNotFoundError as e:
+    print(f"File not found: {e}")
+    # Handle missing files
+except PermissionError:
+    print("Permission denied - add user to 'audio' group")
+    # Handle permission issues
+except Exception as e:
+    print(f"Unexpected error: {e}")
+    # Handle other errors
+# Automatic cleanup via context manager
+```
+
+### Common WhisperError Scenarios
+
+```python
+from distiller_sdk.whisper import Whisper, WhisperError
+
+try:
+    with Whisper() as whisper:
+        # This may raise WhisperError if models are missing
+        for text in whisper.transcribe("audio.wav"):
+            print(text)
+except WhisperError as e:
+    if "model" in str(e).lower():
+        print("Model files not found - run ./build.sh --whisper to download models")
+    elif "audio" in str(e).lower():
+        print("Audio device error - check microphone connection")
+    else:
+        print(f"Whisper error: {e}")
+```
+
+## Thread Safety
+
+All Whisper module operations are thread-safe. The module uses internal locks to protect shared resources:
+
+```python
+import threading
+from distiller_sdk.whisper import Whisper
+
+with Whisper() as whisper:
+    def transcribe_task(audio_file):
+        """Transcribe in background thread"""
+        for text in whisper.transcribe(audio_file):
+            print(f"{audio_file}: {text}")
+
+    # Multiple transcription tasks can run concurrently
+    threads = []
+    for audio_file in ["file1.wav", "file2.wav", "file3.wav"]:
+        t = threading.Thread(target=transcribe_task, args=(audio_file,))
+        threads.append(t)
+        t.start()
+
+    # Wait for all transcriptions to complete
+    for t in threads:
+        t.join()
 ```
 
 ## Advanced Usage
@@ -259,22 +387,20 @@ whisper.cleanup()
 from distiller_sdk.whisper import Whisper
 
 # Initialize with multilingual model
-whisper = Whisper(
+with Whisper(
     model_config={
         "model_size": "faster-whisper-base",
         "language": None  # Auto-detect language
     }
-)
+) as whisper:
+    # Transcribe will detect and report the language
+    audio_files = ["english.wav", "spanish.wav", "french.wav"]
 
-# Transcribe will detect and report the language
-audio_files = ["english.wav", "spanish.wav", "french.wav"]
-
-for audio_file in audio_files:
-    print(f"\nTranscribing {audio_file}:")
-    for text in whisper.transcribe(audio_file):
-        print(f"  {text}")
-
-whisper.cleanup()
+    for audio_file in audio_files:
+        print(f"\nTranscribing {audio_file}:")
+        for text in whisper.transcribe(audio_file):
+            print(f"  {text}")
+# Automatic cleanup
 ```
 
 ### Transcription with Timestamps
@@ -283,15 +409,14 @@ whisper.cleanup()
 from distiller_sdk.whisper import Whisper
 
 # The model provides timestamps for each segment
-whisper = Whisper()
-
-# Note: Timestamps are logged but not returned in the generator
-# Check logs for timing information
-for text in whisper.transcribe("long_audio.wav"):
-    # Timestamps appear in logs like:
-    # [0.00s -> 3.50s] First sentence
-    # [3.50s -> 7.20s] Second sentence
-    print(text)
+with Whisper() as whisper:
+    # Note: Timestamps are logged but not returned in the generator
+    # Check logs for timing information
+    for text in whisper.transcribe("long_audio.wav"):
+        # Timestamps appear in logs like:
+        # [0.00s -> 3.50s] First sentence
+        # [3.50s -> 7.20s] Second sentence
+        print(text)
 ```
 
 ### Batch Processing with Progress
@@ -301,8 +426,6 @@ from distiller_sdk.whisper import Whisper
 import os
 from pathlib import Path
 
-whisper = Whisper()
-
 audio_dir = Path("/path/to/audio/files")
 output_dir = Path("/path/to/transcripts")
 output_dir.mkdir(exist_ok=True)
@@ -310,21 +433,22 @@ output_dir.mkdir(exist_ok=True)
 audio_files = list(audio_dir.glob("*.wav"))
 total_files = len(audio_files)
 
-for i, audio_file in enumerate(audio_files, 1):
-    print(f"Processing {i}/{total_files}: {audio_file.name}")
+with Whisper() as whisper:
+    for i, audio_file in enumerate(audio_files, 1):
+        print(f"Processing {i}/{total_files}: {audio_file.name}")
 
-    transcript = []
-    for text in whisper.transcribe(str(audio_file)):
-        transcript.append(text)
+        transcript = []
+        for text in whisper.transcribe(str(audio_file)):
+            transcript.append(text)
 
-    # Save transcript
-    output_file = output_dir / f"{audio_file.stem}.txt"
-    with open(output_file, "w") as f:
-        f.write(" ".join(transcript))
+        # Save transcript
+        output_file = output_dir / f"{audio_file.stem}.txt"
+        with open(output_file, "w") as f:
+            f.write(" ".join(transcript))
 
-    print(f"  Saved to: {output_file}")
+        print(f"  Saved to: {output_file}")
+# Automatic cleanup
 
-whisper.cleanup()
 print(f"Completed {total_files} transcriptions")
 ```
 
@@ -334,36 +458,33 @@ print(f"Completed {total_files} transcriptions")
 from distiller_sdk.whisper import Whisper
 import time
 
-whisper = Whisper(
-    model_config={"beam_size": 1},  # Faster inference
-    audio_config={"rate": 16000}     # Lower sample rate
-)
-
 def continuous_transcription(duration_per_chunk=5):
     """Continuously record and transcribe in chunks"""
+    with Whisper(
+        model_config={"beam_size": 1},  # Faster inference
+        audio_config={"rate": 16000}     # Lower sample rate
+    ) as whisper:
+        print(f"Starting continuous transcription ({duration_per_chunk}s chunks)")
+        print("Press Ctrl+C to stop")
 
-    print(f"Starting continuous transcription ({duration_per_chunk}s chunks)")
-    print("Press Ctrl+C to stop")
+        try:
+            while True:
+                # Record for specified duration
+                print(f"Recording for {duration_per_chunk} seconds...")
+                whisper.start_recording()
+                time.sleep(duration_per_chunk)
+                audio_data = whisper.stop_recording()
 
-    try:
-        while True:
-            # Record for specified duration
-            print(f"Recording for {duration_per_chunk} seconds...")
-            whisper.start_recording()
-            time.sleep(duration_per_chunk)
-            audio_data = whisper.stop_recording()
+                # Transcribe the chunk
+                if audio_data:
+                    print("Transcribing...")
+                    for text in whisper.transcribe_buffer(audio_data):
+                        if text.strip():
+                            print(f"[{time.strftime('%H:%M:%S')}] {text}")
 
-            # Transcribe the chunk
-            if audio_data:
-                print("Transcribing...")
-                for text in whisper.transcribe_buffer(audio_data):
-                    if text.strip():
-                        print(f"[{time.strftime('%H:%M:%S')}] {text}")
-
-    except KeyboardInterrupt:
-        print("\nStopping...")
-    finally:
-        whisper.cleanup()
+        except KeyboardInterrupt:
+            print("\nStopping...")
+    # Automatic cleanup
 
 # Run continuous transcription
 continuous_transcription(duration_per_chunk=3)
@@ -385,53 +506,51 @@ for i in range(p.get_device_count()):
 p.terminate()
 
 # Use specific device by index
-whisper = Whisper(
+with Whisper(
     audio_config={"device": 2}  # Use device index 2
-)
+) as whisper:
+    for text in whisper.transcribe("audio.wav"):
+        print(text)
 
 # Or by name
-whisper = Whisper(
+with Whisper(
     audio_config={"device": "USB Audio Device"}
-)
+) as whisper:
+    for text in whisper.transcribe("audio.wav"):
+        print(text)
 ```
 
 ### Optimize for Speed vs Accuracy
 
 ```python
 from distiller_sdk.whisper import Whisper
+import time
+
+test_audio = "test.wav"
 
 # Fast configuration (lower accuracy)
-fast_whisper = Whisper(
+with Whisper(
     model_config={
         "model_size": "faster-distil-whisper-small.en",
         "compute_type": "int8",
         "beam_size": 1  # Greedy search
     }
-)
+) as fast_whisper:
+    start = time.time()
+    fast_result = list(fast_whisper.transcribe(test_audio))
+    fast_time = time.time() - start
 
 # Accurate configuration (slower)
-accurate_whisper = Whisper(
+with Whisper(
     model_config={
         "model_size": "faster-whisper-base",
         "compute_type": "float32",
         "beam_size": 10  # Wider beam search
     }
-)
-
-# Benchmark both
-import time
-
-test_audio = "test.wav"
-
-# Fast mode
-start = time.time()
-fast_result = list(fast_whisper.transcribe(test_audio))
-fast_time = time.time() - start
-
-# Accurate mode
-start = time.time()
-accurate_result = list(accurate_whisper.transcribe(test_audio))
-accurate_time = time.time() - start
+) as accurate_whisper:
+    start = time.time()
+    accurate_result = list(accurate_whisper.transcribe(test_audio))
+    accurate_time = time.time() - start
 
 print(f"Fast mode: {fast_time:.2f}s")
 print(f"Accurate mode: {accurate_time:.2f}s")
@@ -445,20 +564,18 @@ print(f"Accurate mode: {accurate_time:.2f}s")
 from distiller_sdk.whisper import Whisper
 from distiller_sdk.piper import Piper
 import re
+import time
 
-whisper = Whisper()
-piper = Piper()
-
-# Define voice commands
-commands = {
-    r"turn on (?:the )?light": lambda: print("Turning on light..."),
-    r"turn off (?:the )?light": lambda: print("Turning off light..."),
-    r"what time is it": lambda: piper.speak_stream(f"The time is {time.strftime('%I:%M %p')}"),
-    r"exit|quit|stop": lambda: "exit"
-}
-
-def process_command(text):
+def process_command(text, piper):
     """Match text against commands and execute"""
+    # Define voice commands
+    commands = {
+        r"turn on (?:the )?light": lambda: print("Turning on light..."),
+        r"turn off (?:the )?light": lambda: print("Turning off light..."),
+        r"what time is it": lambda: piper.speak_stream(f"The time is {time.strftime('%I:%M %p')}"),
+        r"exit|quit|stop": lambda: "exit"
+    }
+
     text_lower = text.lower().strip()
 
     for pattern, action in commands.items():
@@ -473,31 +590,31 @@ def process_command(text):
     return True
 
 # Main loop
-piper.speak_stream("Voice command system ready. Say 'exit' to quit.")
+with Whisper() as whisper, Piper() as piper:
+    piper.speak_stream("Voice command system ready. Say 'exit' to quit.")
 
-try:
-    while True:
-        print("\nListening for command...")
+    try:
+        while True:
+            print("\nListening for command...")
 
-        for text in whisper.record_and_transcribe_ptt():
-            print(f"Heard: {text}")
-            if not process_command(text):
-                piper.speak_stream("Goodbye!")
-                break
-        else:
-            continue
-        break
+            for text in whisper.record_and_transcribe_ptt():
+                print(f"Heard: {text}")
+                if not process_command(text, piper):
+                    piper.speak_stream("Goodbye!")
+                    break
+            else:
+                continue
+            break
 
-finally:
-    whisper.cleanup()
+    except KeyboardInterrupt:
+        pass
+# Automatic cleanup
 ```
 
 ### Transcription with Confidence Filtering
 
 ```python
 from distiller_sdk.whisper import Whisper
-
-whisper = Whisper()
 
 def is_valid_transcription(text):
     """Filter out low-confidence or noise transcriptions"""
@@ -519,11 +636,12 @@ def is_valid_transcription(text):
     return True
 
 # Transcribe with filtering
-for text in whisper.transcribe("noisy_audio.wav"):
-    if is_valid_transcription(text):
-        print(f"Valid: {text}")
-    else:
-        print(f"Filtered: {text}")
+with Whisper() as whisper:
+    for text in whisper.transcribe("noisy_audio.wav"):
+        if is_valid_transcription(text):
+            print(f"Valid: {text}")
+        else:
+            print(f"Filtered: {text}")
 ```
 
 ## Troubleshooting
@@ -628,24 +746,19 @@ whisper = Whisper(
 # Break them into smaller segments
 ```
 
-3. Clean up resources:
+3. Use context manager for automatic cleanup:
 
 ```python
-# Always call cleanup when done
-whisper.cleanup()
-
-# Use context manager pattern
-class WhisperContext:
-    def __enter__(self):
-        self.whisper = Whisper()
-        return self.whisper
-
-    def __exit__(self, *args):
-        self.whisper.cleanup()
-
-with WhisperContext() as w:
-    for text in w.transcribe("audio.wav"):
+# Always use context manager (v3.0+) for automatic cleanup
+with Whisper(
+    model_config={
+        "model_size": "faster-distil-whisper-small.en",
+        "compute_type": "int8"
+    }
+) as whisper:
+    for text in whisper.transcribe("audio.wav"):
         print(text)
+# Automatic cleanup
 ```
 
 ## Performance Considerations

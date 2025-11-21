@@ -230,7 +230,7 @@ jobs:
           echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY  
           echo "- **Package**: ${{ steps.version.outputs.package_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Architecture**: ARM64" >> $GITHUB_STEP_SUMMARY
-          echo "- **Build Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Status**: Success" >> $GITHUB_STEP_SUMMARY
           
           if [[ -f "dist/${{ steps.version.outputs.package_name }}" ]]; then
             PACKAGE_SIZE=$(du -h "dist/${{ steps.version.outputs.package_name }}" | cut -f1)

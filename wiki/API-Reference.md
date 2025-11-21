@@ -2,6 +2,48 @@
 
 Complete API documentation for the Distiller SDK modules.
 
+## Hardware Detection
+
+### HardwareStatus Class
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+
+class HardwareStatus:
+    """Check hardware availability without raising exceptions."""
+
+    @property
+    def eink_available(self) -> bool:
+        """Check if E-ink display is available."""
+
+    @property
+    def camera_available(self) -> bool:
+        """Check if camera is available."""
+
+    @property
+    def led_available(self) -> bool:
+        """Check if LED controller is available."""
+
+    @property
+    def audio_available(self) -> bool:
+        """Check if audio hardware is available."""
+```
+
+**Example Usage:**
+```python
+status = HardwareStatus()
+
+if status.eink_available:
+    from distiller_sdk.hardware.eink import Display
+    with Display() as display:
+        display.clear()
+
+if status.camera_available:
+    from distiller_sdk.hardware.camera import Camera
+    with Camera() as camera:
+        camera.capture_image("photo.jpg")
+```
+
 ## Hardware APIs
 
 ### Audio Class
@@ -12,6 +54,15 @@ from distiller_sdk.hardware.audio import Audio
 class Audio:
     def __init__(self):
         """Initialize audio system."""
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with automatic cleanup."""
+        self.close()
+        return False
 
     # Recording Methods
     def record(self, filepath: str, duration: float = None) -> None:
@@ -64,6 +115,14 @@ class Display:
 
     def __init__(self, firmware: FirmwareType = None):
         """Initialize display with optional firmware type."""
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with automatic cleanup."""
+        return False
 
     # Basic Display
     def display_image(self, image_data: Union[str, bytes],
@@ -123,6 +182,15 @@ class Camera:
     def __init__(self):
         """Initialize camera system."""
 
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with automatic cleanup."""
+        self.close()
+        return False
+
     def capture_image(self, filepath: str = None) -> np.ndarray:
         """Capture single image."""
 
@@ -156,6 +224,15 @@ from distiller_sdk.hardware.sam import LED
 class LED:
     def __init__(self, use_sudo: bool = False):
         """Initialize LED control."""
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with automatic LED turn-off."""
+        self.turn_off_all()
+        return False
 
     # Individual LED Control
     def set_rgb_color(self, led_id: int, red: int, green: int, blue: int) -> None:
@@ -223,6 +300,15 @@ class Parakeet:
                 max_silence_duration: float = 0.5):
         """Initialize ASR with VAD."""
 
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with automatic cleanup."""
+        self.cleanup()
+        return False
+
     def record_and_transcribe_ptt(self) -> Generator[str, None, None]:
         """Push-to-talk recording and transcription."""
 
@@ -251,6 +337,14 @@ class Piper:
     def __init__(self):
         """Initialize TTS engine."""
 
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with automatic cleanup."""
+        return False
+
     def speak_stream(self, text: str, volume: int = 50,
                     sound_card_name: str = None) -> None:
         """Stream speech to speakers."""
@@ -270,6 +364,15 @@ from distiller_sdk.whisper import Whisper
 class Whisper:
     def __init__(self, model_size: str = "base"):
         """Initialize Whisper ASR."""
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with automatic cleanup."""
+        self.cleanup()
+        return False
 
     def transcribe_file(self, filepath: str,
                        language: str = None,
@@ -342,42 +445,76 @@ get_default_firmware() -> FirmwareType
 
 ## Error Handling
 
-All SDK methods may raise the following exceptions:
+### Exception Hierarchy
+
+All SDK modules provide specific exception types for better error handling:
 
 ```python
-# Hardware errors
-DisplayError     # E-ink display errors (see DisplayErrorCode for codes)
-LEDError         # LED control errors
-CameraError      # Camera initialization/operation errors
-RuntimeError     # Hardware initialization failed
-IOError          # Device I/O error
-ValueError       # Invalid parameter
-
-# File errors
-FileNotFoundError  # File doesn't exist
-PermissionError    # Insufficient permissions
-
-# AI model errors
-ModelNotFoundError  # Model files missing
-TranscriptionError  # ASR failed
-SynthesisError      # TTS failed
+from distiller_sdk.exceptions import (
+    DistillerException,    # Base exception for all SDK errors
+    AudioError,            # Audio module errors
+    CameraError,           # Camera module errors
+    DisplayError,          # Display module errors
+    LEDError,              # LED module errors
+    ParakeetError,         # Parakeet ASR errors
+    PiperError,            # Piper TTS errors
+    WhisperError,          # Whisper ASR errors
+)
 ```
 
-Example error handling:
+### Hardware Exceptions
+
+**AudioError**: Audio recording/playback failures
+**CameraError**: Camera initialization or capture failures
+**DisplayError**: E-ink display errors (includes DisplayErrorCode enum)
+**LEDError**: LED control errors
+
+### AI Module Exceptions
+
+**ParakeetError**: Parakeet ASR transcription failures
+**PiperError**: Piper TTS synthesis failures
+**WhisperError**: Whisper ASR transcription failures
+
+### Standard Python Exceptions
+
+**FileNotFoundError**: File doesn't exist
+**PermissionError**: Insufficient permissions
+**ValueError**: Invalid parameter values
+**RuntimeError**: General runtime failures
+
+### Exception Handling Example
 
 ```python
-from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.audio import Audio, AudioError
 
 try:
-    audio = Audio()
-    audio.record("test.wav", duration=5)
-except RuntimeError as e:
-    print(f"Audio init failed: {e}")
-except IOError as e:
-    print(f"Recording failed: {e}")
-finally:
-    if audio:
-        audio.close()
+    with Audio() as audio:
+        audio.record("test.wav", duration=5)
+except AudioError as e:
+    print(f"Audio hardware error: {e}")
+except PermissionError:
+    print("Permission denied - add user to 'audio' group")
+except FileNotFoundError:
+    print("Output directory not found")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+# Automatic cleanup via context manager
+```
+
+### Display Error Codes
+
+```python
+from distiller_sdk.hardware.eink import Display, DisplayError, DisplayErrorCode
+
+try:
+    with Display() as display:
+        display.display_image("image.png")
+except DisplayError as e:
+    if hasattr(e, 'error_code'):
+        if e.error_code == DisplayErrorCode.INIT_FAILED:
+            print("Display initialization failed")
+        elif e.error_code == DisplayErrorCode.INVALID_IMAGE:
+            print("Invalid image format")
 ```
 
 ## Next Steps

@@ -88,9 +88,18 @@ Primary class that provides all camera functionality:
   - Returns list of setting names that can be adjusted
   - Note: Settings have limited effect with rpicam-still
 
-- `close()`: Releases camera resources
+- `close()`: Releases camera resources (automatically called by context manager)
   - Stops active stream
   - Releases camera objects
+
+- `__enter__()`: Enter context manager
+  - Returns self for context manager usage
+  - Enables automatic resource cleanup
+
+- `__exit__(exc_type, exc_val, exc_tb)`: Exit context manager
+  - Automatically calls `close()` to release resources
+  - Ensures cleanup even if exceptions occur
+  - Returns False (does not suppress exceptions)
 
 ## Implementation Details
 
@@ -135,14 +144,28 @@ The module uses custom CameraError exceptions with descriptive messages for:
 ```python
 from distiller_sdk.hardware.camera import Camera
 
-# Initialize with default settings
-camera = Camera()
+# Use context manager for automatic cleanup
+with Camera() as camera:
+    # Capture an image and save it
+    image = camera.capture_image("image.jpg")
+# Automatic cleanup
+```
 
-# Capture an image and save it
-image = camera.capture_image("image.jpg")
+### Hardware Detection
 
-# Close when done
-camera.close()
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+from distiller_sdk.hardware.camera import Camera
+
+# Check camera availability before initialization
+status = HardwareStatus()
+
+if status.camera_available:
+    with Camera() as camera:
+        image = camera.capture_image("image.jpg")
+else:
+    print("Camera not available")
+    # Graceful degradation
 ```
 
 ### Custom Configuration
@@ -150,19 +173,16 @@ camera.close()
 ```python
 from distiller_sdk.hardware.camera import Camera
 
-# Initialize with custom settings
-camera = Camera(
+# Use context manager with custom settings
+with Camera(
     resolution=(1920, 1080),
     framerate=30,
     rotation=180,
     format='rgb'
-)
-
-# Use the camera
-# ...
-
-# Close when done
-camera.close()
+) as camera:
+    # Use the camera
+    image = camera.capture_image("high_res.jpg")
+# Automatic cleanup
 ```
 
 ### Streaming with Callback
@@ -178,17 +198,16 @@ def process_frame(frame):
     cv2.imshow("Stream", frame)
     cv2.waitKey(1)
 
-camera = Camera(resolution=(1280, 720))
+with Camera(resolution=(1280, 720)) as camera:
+    # Start streaming with callback
+    camera.start_stream(callback=process_frame)
 
-# Start streaming with callback
-camera.start_stream(callback=process_frame)
+    # Do other work while streaming continues
+    time.sleep(10)
 
-# Do other work while streaming continues
-time.sleep(10)
-
-# Stop streaming
-camera.stop_stream()
-camera.close()
+    # Stop streaming
+    camera.stop_stream()
+# Automatic cleanup
 ```
 
 ### Adjusting Camera Settings
@@ -196,21 +215,97 @@ camera.close()
 ```python
 from distiller_sdk.hardware.camera import Camera
 
-camera = Camera()
+with Camera() as camera:
+    # Get available settings
+    settings = camera.get_available_settings()
+    print(f"Available settings: {settings}")
 
-# Get available settings
-settings = camera.get_available_settings()
-print(f"Available settings: {settings}")
+    # Get current brightness
+    brightness = camera.get_setting('brightness')
+    print(f"Current brightness: {brightness}")
 
-# Get current brightness
-brightness = camera.get_setting('brightness')
-print(f"Current brightness: {brightness}")
+    # Adjust brightness (limited effect with rpicam)
+    camera.adjust_setting('brightness', 70)
+# Automatic cleanup
+```
 
-# Adjust brightness (limited effect with rpicam)
-camera.adjust_setting('brightness', 70)
+## Exception Handling
 
-# Close when done
-camera.close()
+The Camera module uses specific exceptions for better error handling:
+
+```python
+from distiller_sdk.hardware.camera import Camera, CameraError
+
+try:
+    with Camera() as camera:
+        image = camera.capture_image("photo.jpg")
+        camera.adjust_setting('brightness', 70)
+except CameraError as e:
+    print(f"Camera error: {e}")
+    # Handle camera-specific errors (device not found, capture failure, etc.)
+except PermissionError:
+    print("Permission denied - add user to 'video' group")
+    # Handle permission issues
+except FileNotFoundError as e:
+    print(f"File or device not found: {e}")
+    # Handle missing devices or files
+except Exception as e:
+    print(f"Unexpected error: {e}")
+    # Handle other errors
+# Automatic cleanup via context manager
+```
+
+### Common CameraError Scenarios
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+from distiller_sdk.hardware.camera import Camera, CameraError
+
+# Check availability before initialization
+status = HardwareStatus()
+
+if not status.camera_available:
+    print("Camera hardware not available")
+    # Graceful degradation
+else:
+    try:
+        with Camera(resolution=(1920, 1080)) as camera:
+            image = camera.capture_image("photo.jpg")
+    except CameraError as e:
+        print(f"Camera operation failed: {e}")
+        # Handle camera errors
+```
+
+## Thread Safety
+
+All Camera module operations are thread-safe. The streaming functionality uses thread locks to protect shared resources:
+
+```python
+import threading
+from distiller_sdk.hardware.camera import Camera
+
+with Camera() as camera:
+    def capture_task():
+        """Capture images in background thread"""
+        for i in range(10):
+            camera.capture_image(f"photo_{i}.jpg")
+
+    def stream_task():
+        """Stream video in background thread"""
+        def process_frame(frame):
+            # Process frame
+            pass
+
+        camera.start_stream(callback=process_frame)
+
+    # Both operations are thread-safe
+    t1 = threading.Thread(target=capture_task)
+    t2 = threading.Thread(target=stream_task)
+    t1.start()
+    t2.start()
+    t1.join()
+    camera.stop_stream()
+    t2.join()
 ```
 
 ## System Requirements

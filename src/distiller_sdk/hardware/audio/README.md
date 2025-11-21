@@ -1,6 +1,6 @@
 # Audio Module
 
-The Audio module provides a comprehensive interface for interacting with the CM5 audio system. It
+The Audio module implements ALSA-based recording and playback for the CM5 audio system. It
 supports:
 
 - Recording audio to files with configurable duration
@@ -48,21 +48,18 @@ sudo apt-get install alsa-utils portaudio19-dev
 ```python
 from distiller_sdk.hardware.audio import Audio
 
-# Initialize audio
-audio = Audio()
+# Use context manager for automatic cleanup
+with Audio() as audio:
+    # Record 5 seconds of audio
+    audio.record("recording.wav", duration=5)
 
-# Record 5 seconds of audio
-audio.record("recording.wav", duration=5)
+    # Play the recording
+    audio.play("recording.wav")
 
-# Play the recording
-audio.play("recording.wav")
-
-# Adjust volume
-audio.set_speaker_volume(50)
-audio.set_mic_gain(75)
-
-# Clean up
-audio.close()
+    # Adjust volume
+    audio.set_speaker_volume(50)
+    audio.set_mic_gain(75)
+# Automatic cleanup - no need to call close()
 ```
 
 ### Using Static Methods (No Instance Required)
@@ -79,6 +76,23 @@ mic_level = Audio.get_mic_gain_static()
 speaker_level = Audio.get_speaker_volume_static()
 
 print(f"Mic: {mic_level}%, Speaker: {speaker_level}%")
+```
+
+### Hardware Detection
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+from distiller_sdk.hardware.audio import Audio
+
+# Check audio availability before initialization
+status = HardwareStatus()
+
+if status.audio_available:
+    with Audio() as audio:
+        audio.record("recording.wav", duration=5)
+else:
+    print("Audio hardware not available")
+    # Graceful degradation or alternative behavior
 ```
 
 ## API Reference
@@ -103,11 +117,49 @@ Initialize the Audio object.
 
 ```python
 # High-quality audio setup
-audio = Audio(
+with Audio(
     sample_rate=96000,
     channels=2,
     format_type="S24_LE"
-)
+) as audio:
+    audio.record("high_quality.wav", duration=10)
+```
+
+#### `__enter__()`
+
+Enter context manager.
+
+**Returns:**
+
+- Audio: Returns self for context manager usage
+
+**Example:**
+
+```python
+with Audio() as audio:
+    audio.record("recording.wav", duration=5)
+```
+
+#### `__exit__(exc_type, exc_val, exc_tb)`
+
+Exit context manager and automatically cleanup resources.
+
+**Parameters:**
+
+- `exc_type`: Exception type (if any)
+- `exc_val`: Exception value (if any)
+- `exc_tb`: Exception traceback (if any)
+
+**Returns:**
+
+- bool: False (does not suppress exceptions)
+
+**Example:**
+
+```python
+with Audio() as audio:
+    audio.record("recording.wav", duration=5)
+# Automatic cleanup via __exit__
 ```
 
 #### `check_system_config() -> bool`
@@ -125,9 +177,9 @@ Check if the system is properly configured for audio use.
 **Example:**
 
 ```python
-audio = Audio(auto_check_config=False)
-if audio.check_system_config():
-    print("Audio system ready")
+with Audio(auto_check_config=False) as audio:
+    if audio.check_system_config():
+        print("Audio system ready")
 ```
 
 #### `record(filepath: str, duration: Optional[float] = None) -> str`
@@ -147,13 +199,16 @@ Record audio to a file.
 **Example:**
 
 ```python
-# Record with fixed duration
-filepath = audio.record("recording.wav", duration=5)
+import time
 
-# Record until manually stopped
-audio.record("recording.wav")
-time.sleep(10)
-audio.stop_recording()
+with Audio() as audio:
+    # Record with fixed duration
+    filepath = audio.record("recording.wav", duration=5)
+
+    # Record until manually stopped
+    audio.record("long_recording.wav")
+    time.sleep(10)
+    audio.stop_recording()
 ```
 
 #### `stop_recording()`
@@ -163,9 +218,13 @@ Stop an ongoing recording.
 **Example:**
 
 ```python
-audio.record("long_recording.wav")
-# ... do other things ...
-audio.stop_recording()
+import time
+
+with Audio() as audio:
+    audio.record("long_recording.wav")
+    # ... do other things ...
+    time.sleep(5)
+    audio.stop_recording()
 ```
 
 #### `stream_record(callback: Callable[[bytes], None], buffer_size: int = 4096, stop_event: Optional[threading.Event] = None) -> threading.Thread`
@@ -186,17 +245,19 @@ Record audio with real-time streaming to a callback function.
 
 ```python
 import threading
+import time
 
 def process_audio(audio_data):
     print(f"Received {len(audio_data)} bytes")
 
-stop_event = threading.Event()
-thread = audio.stream_record(process_audio, buffer_size=4096, stop_event=stop_event)
+with Audio() as audio:
+    stop_event = threading.Event()
+    thread = audio.stream_record(process_audio, buffer_size=4096, stop_event=stop_event)
 
-# Stop after 10 seconds
-time.sleep(10)
-stop_event.set()
-thread.join()
+    # Stop after 10 seconds
+    time.sleep(10)
+    stop_event.set()
+    thread.join()
 ```
 
 #### `play(filepath: str)`
@@ -210,8 +271,9 @@ Play an audio file.
 **Example:**
 
 ```python
-audio.play("sound.wav")
-# Playback happens in background thread
+with Audio() as audio:
+    audio.play("sound.wav")
+    # Playback happens in background thread
 ```
 
 #### `stop_playback()`
@@ -221,9 +283,12 @@ Stop ongoing audio playback.
 **Example:**
 
 ```python
-audio.play("long_audio.wav")
-time.sleep(2)
-audio.stop_playback()  # Stop early
+import time
+
+with Audio() as audio:
+    audio.play("long_audio.wav")
+    time.sleep(2)
+    audio.stop_playback()  # Stop early
 ```
 
 #### `stream_play(audio_data: Union[bytes, BinaryIO], format_type: Optional[str] = None, sample_rate: Optional[int] = None, channels: Optional[int] = None)`
@@ -240,14 +305,15 @@ Play audio from bytes or a file-like object.
 **Example:**
 
 ```python
-# Play from bytes
-with open("audio.wav", "rb") as f:
-    audio_data = f.read()
-audio.stream_play(audio_data)
+with Audio() as audio:
+    # Play from bytes
+    with open("audio.wav", "rb") as f:
+        audio_data = f.read()
+    audio.stream_play(audio_data)
 
-# Play from file object
-with open("audio.wav", "rb") as f:
-    audio.stream_play(f)
+    # Play from file object
+    with open("audio.wav", "rb") as f:
+        audio.stream_play(f)
 ```
 
 #### `set_mic_gain(gain: int)`
@@ -261,7 +327,8 @@ Set the microphone gain/volume.
 **Example:**
 
 ```python
-audio.set_mic_gain(75)
+with Audio() as audio:
+    audio.set_mic_gain(75)
 ```
 
 #### `get_mic_gain() -> int`
@@ -275,8 +342,9 @@ Get the current microphone gain.
 **Example:**
 
 ```python
-gain = audio.get_mic_gain()
-print(f"Microphone gain: {gain}%")
+with Audio() as audio:
+    gain = audio.get_mic_gain()
+    print(f"Microphone gain: {gain}%")
 ```
 
 #### `set_mic_gain_static(gain: int) -> int` (Static Method)
@@ -324,7 +392,8 @@ Set the speaker volume.
 **Example:**
 
 ```python
-audio.set_speaker_volume(60)
+with Audio() as audio:
+    audio.set_speaker_volume(60)
 ```
 
 #### `get_speaker_volume() -> int`
@@ -338,8 +407,9 @@ Get the current speaker volume.
 **Example:**
 
 ```python
-volume = audio.get_speaker_volume()
-print(f"Speaker volume: {volume}%")
+with Audio() as audio:
+    volume = audio.get_speaker_volume()
+    print(f"Speaker volume: {volume}%")
 ```
 
 #### `set_speaker_volume_static(volume: int) -> int` (Static Method)
@@ -387,9 +457,10 @@ Check if audio is currently being recorded.
 **Example:**
 
 ```python
-if audio.is_recording():
-    print("Recording in progress")
-    audio.stop_recording()
+with Audio() as audio:
+    if audio.is_recording():
+        print("Recording in progress")
+        audio.stop_recording()
 ```
 
 #### `is_playing() -> bool`
@@ -403,19 +474,28 @@ Check if audio is currently playing.
 **Example:**
 
 ```python
-if audio.is_playing():
-    print("Playback in progress")
-    audio.stop_playback()
+with Audio() as audio:
+    if audio.is_playing():
+        print("Playback in progress")
+        audio.stop_playback()
 ```
 
 #### `close()`
 
-Clean up audio resources.
+Clean up audio resources. Automatically called when using context manager.
 
 **Example:**
 
 ```python
+# Manual cleanup
+audio = Audio()
+audio.record("test.wav", duration=5)
 audio.close()
+
+# Automatic cleanup
+with Audio() as audio:
+    audio.record("test.wav", duration=5)
+# Cleanup happens automatically
 ```
 
 ### Static Helper Methods
@@ -458,14 +538,13 @@ else:
 
 ```python
 # Initialize with custom parameters
-audio = Audio(
+with Audio(
     sample_rate=96000,  # 96kHz high-resolution audio
     channels=2,         # stereo
     format_type="S32_LE"  # 32-bit signed little-endian
-)
-
-# Record high-quality audio
-audio.record("/path/to/high_quality.wav", duration=10)
+) as audio:
+    # Record high-quality audio
+    audio.record("/path/to/high_quality.wav", duration=10)
 ```
 
 ### Real-time Audio Processing
@@ -473,10 +552,10 @@ audio.record("/path/to/high_quality.wav", duration=10)
 ```python
 import numpy as np
 import threading
+import time
 
 class AudioProcessor:
-    def __init__(self, audio):
-        self.audio = audio
+    def __init__(self):
         self.recording = False
 
     def process_audio_chunk(self, audio_data):
@@ -497,11 +576,11 @@ class AudioProcessor:
         # - Save chunks to file
         # - Send to speech recognition
 
-    def start_monitoring(self, duration=None):
+    def start_monitoring(self, audio, duration=None):
         """Start audio monitoring"""
         stop_event = threading.Event()
 
-        thread = self.audio.stream_record(
+        thread = audio.stream_record(
             self.process_audio_chunk,
             buffer_size=2048,
             stop_event=stop_event
@@ -515,9 +594,9 @@ class AudioProcessor:
         return thread, stop_event
 
 # Usage
-audio = Audio()
-processor = AudioProcessor(audio)
-thread, stop_event = processor.start_monitoring(duration=10)
+with Audio() as audio:
+    processor = AudioProcessor()
+    thread, stop_event = processor.start_monitoring(audio, duration=10)
 ```
 
 ### Volume Normalization
@@ -529,29 +608,30 @@ class VolumeController:
     """Automatic volume control based on environment"""
 
     def __init__(self):
-        self.audio = Audio()
         self.target_level = 50
 
     def normalize_mic_for_environment(self):
         """Adjust mic gain based on ambient noise"""
-        # Record a sample
-        self.audio.record("ambient_sample.wav", duration=2)
+        with Audio() as audio:
+            # Record a sample
+            audio.record("ambient_sample.wav", duration=2)
 
-        # Analyze the sample (simplified)
-        # In practice, you'd analyze the audio data
+            # Analyze the sample (simplified)
+            # In practice, you'd analyze the audio data
 
-        # Adjust mic gain accordingly
-        if self.is_noisy_environment():
-            Audio.set_mic_gain_static(85)
-            print("Noisy environment - increased mic gain")
-        else:
-            Audio.set_mic_gain_static(60)
-            print("Quiet environment - normal mic gain")
+            # Adjust mic gain accordingly
+            if self.is_noisy_environment():
+                Audio.set_mic_gain_static(85)
+                print("Noisy environment - increased mic gain")
+            else:
+                Audio.set_mic_gain_static(60)
+                print("Quiet environment - normal mic gain")
 
     def is_noisy_environment(self):
         # Implement noise detection logic
         return False  # Placeholder
 
+# Usage
 controller = VolumeController()
 controller.normalize_mic_for_environment()
 ```
@@ -578,8 +658,8 @@ def convert_audio_format(input_file, output_file, target_rate=16000, target_chan
     print(f"  Rate: {target_rate}Hz, Channels: {target_channels}")
 
 # Record in high quality
-audio = Audio(sample_rate=48000, channels=2)
-audio.record("high_quality.wav", duration=5)
+with Audio(sample_rate=48000, channels=2) as audio:
+    audio.record("high_quality.wav", duration=5)
 
 # Convert for speech recognition (typically needs 16kHz mono)
 convert_audio_format("high_quality.wav", "speech_ready.wav", 16000, 1)
@@ -596,17 +676,15 @@ from distiller_sdk.parakeet import Parakeet
 # Set optimal audio levels for speech recognition
 Audio.set_mic_gain_static(85)
 
-# Record audio
-audio = Audio()
-audio.record("speech.wav", duration=5)
+# Use context managers for automatic cleanup
+with Audio() as audio, Parakeet() as parakeet:
+    # Record audio
+    audio.record("speech.wav", duration=5)
 
-# Transcribe
-parakeet = Parakeet()
-for text in parakeet.transcribe("speech.wav"):
-    print(f"Transcribed: {text}")
-
-audio.close()
-parakeet.cleanup()
+    # Transcribe
+    for text in parakeet.transcribe("speech.wav"):
+        print(f"Transcribed: {text}")
+# Automatic cleanup
 ```
 
 ### With TTS Module
@@ -618,11 +696,10 @@ from distiller_sdk.piper import Piper
 # Set speaker volume for TTS
 Audio.set_speaker_volume_static(60)
 
-# Initialize TTS
-piper = Piper()
-
-# Speak with controlled volume
-piper.speak_stream("Hello from the audio system!", volume=50)
+# Use context manager for automatic cleanup (v3.0+)
+with Piper() as piper:
+    # Speak with controlled volume
+    piper.speak_stream("Hello from the audio system!", volume=50)
 ```
 
 ### Audio Monitoring System
@@ -681,6 +758,79 @@ class AudioMonitor:
 with AudioMonitor() as monitor:
     print("Monitoring for 10 seconds...")
     time.sleep(10)
+```
+
+## Exception Handling
+
+The Audio module uses specific exceptions for better error handling:
+
+```python
+from distiller_sdk.hardware.audio import Audio, AudioError
+
+try:
+    with Audio() as audio:
+        audio.record("recording.wav", duration=5)
+        audio.play("recording.wav")
+except AudioError as e:
+    print(f"Audio hardware error: {e}")
+    # Handle audio-specific errors (device not found, permissions, etc.)
+except PermissionError:
+    print("Permission denied - add user to 'audio' group")
+    # Handle permission issues
+except FileNotFoundError as e:
+    print(f"File not found: {e}")
+    # Handle missing files
+except Exception as e:
+    print(f"Unexpected error: {e}")
+    # Handle other errors
+# Automatic cleanup via context manager
+```
+
+### Common AudioError Scenarios
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+from distiller_sdk.hardware.audio import Audio, AudioError
+
+# Check availability before initialization
+status = HardwareStatus()
+
+if not status.audio_available:
+    print("Audio hardware not available")
+    # Graceful degradation
+else:
+    try:
+        with Audio() as audio:
+            audio.record("test.wav", duration=5)
+    except AudioError as e:
+        print(f"Audio operation failed: {e}")
+        # Handle audio errors
+```
+
+## Thread Safety
+
+All Audio module operations are thread-safe. You can safely use Audio instances from multiple threads:
+
+```python
+import threading
+from distiller_sdk.hardware.audio import Audio
+
+with Audio() as audio:
+    def record_task():
+        """Record in background thread"""
+        audio.record("recording.wav", duration=5)
+
+    def playback_task():
+        """Playback in background thread"""
+        audio.play("sound.wav")
+
+    # Both operations are thread-safe
+    t1 = threading.Thread(target=record_task)
+    t2 = threading.Thread(target=playback_task)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
 ```
 
 ## Troubleshooting
@@ -820,19 +970,53 @@ audio = Audio(sample_rate=48000)  # Good for music
 ## Best Practices
 
 1. **Resource Management**:
-   - Always call `close()` when done
-   - Use context managers where possible
+   - **Always use context managers** (`with` statements) for automatic cleanup
+   - Context managers ensure resources are released even if exceptions occur
+   - Alternatively, call `close()` manually when not using context managers
    - Stop recordings/playback before closing
 
-2. **Volume Settings**:
+```python
+# Best practice
+with Audio() as audio:
+    audio.record("recording.wav", duration=5)
+# Automatic cleanup
+
+# Legacy pattern (not recommended)
+audio = Audio()
+try:
+    audio.record("recording.wav", duration=5)
+finally:
+    audio.close()  # Manual cleanup
+```
+
+2. **Hardware Detection**:
+   - Check `HardwareStatus().audio_available` before initialization
+   - Gracefully handle unavailable hardware
+   - Avoid exception-based detection
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+
+status = HardwareStatus()
+if status.audio_available:
+    with Audio() as audio:
+        audio.record("test.wav", duration=5)
+```
+
+3. **Volume Settings**:
    - Use static methods for global settings
    - Set appropriate levels for your environment
    - Consider automatic gain control for varying conditions
 
-3. **Audio Quality**:
+4. **Audio Quality**:
    - Match sample rates to your use case
    - Use appropriate formats (S16_LE for most cases)
    - Consider mono for speech, stereo for music
+
+5. **Exception Handling**:
+   - Use specific exception types (AudioError) for better error handling
+   - Handle PermissionError for user group issues
+   - Context managers ensure cleanup even when exceptions occur
 
 ## License and Credits
 
