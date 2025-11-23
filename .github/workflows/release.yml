@@ -22,7 +22,7 @@ permissions:
 jobs:
   build-release:
     runs-on: ubuntu-22.04-arm
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -40,10 +40,10 @@ jobs:
             # For non-tag pushes, use default version
             VERSION="v1.0.0"
           fi
-          
+
           # Remove 'v' prefix if present and parse version format vX.Y.Z-A
           CLEAN_VERSION=${VERSION#v}
-          
+
           # Split version into semantic version and debian revision
           if [[ "$CLEAN_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+)$ ]]; then
             SEMANTIC_VERSION="${BASH_REMATCH[1]}"
@@ -53,13 +53,13 @@ jobs:
             SEMANTIC_VERSION="$CLEAN_VERSION"
             DEBIAN_REVISION="1"
           fi
-          
+
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "clean_version=${CLEAN_VERSION}" >> $GITHUB_OUTPUT
           echo "semantic_version=${SEMANTIC_VERSION}" >> $GITHUB_OUTPUT
           echo "debian_revision=${DEBIAN_REVISION}" >> $GITHUB_OUTPUT
           echo "package_name=distiller-sdk_${SEMANTIC_VERSION}-${DEBIAN_REVISION}_arm64.deb" >> $GITHUB_OUTPUT
-          
+
           echo "Building version: ${VERSION}"
           echo "Clean version: ${CLEAN_VERSION}"
 
@@ -93,7 +93,7 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source ~/.cargo/env
           rustup target add aarch64-unknown-linux-gnu
-          
+
       - name: Verify build environment
         run: |
           source ~/.cargo/env
@@ -107,12 +107,12 @@ jobs:
           # Update the changelog with proper timestamp
           CURRENT_DATE=$(date -R)
           sed -i "s|\$(date -R)|${CURRENT_DATE}|" debian/changelog
-          
+
           # Update version if different from default
           if [[ "${{ steps.version.outputs.semantic_version }}" != "1.0.0" ]] || [[ "${{ steps.version.outputs.debian_revision }}" != "1" ]]; then
             sed -i "s/1.0.0-1/${{ steps.version.outputs.semantic_version }}-${{ steps.version.outputs.debian_revision }}/" debian/changelog
           fi
-          
+
           echo "Updated changelog:"
           head -5 debian/changelog
 
@@ -124,7 +124,7 @@ jobs:
 
           # Build the Debian package (includes model download)
           just build
-          
+
           echo "Build completed. Checking artifacts:"
           ls -la dist/
 
@@ -132,18 +132,18 @@ jobs:
         run: |
           if [[ -f "dist/${{ steps.version.outputs.package_name }}" ]]; then
             echo "Package found: dist/${{ steps.version.outputs.package_name }}"
-            
+
             # Check package metadata
             dpkg -I "dist/${{ steps.version.outputs.package_name }}"
-            
+
             # Check package contents
             echo "Package contents:"
             dpkg -c "dist/${{ steps.version.outputs.package_name }}"
-            
+
             # Verify package architecture
             ARCH=$(dpkg -f "dist/${{ steps.version.outputs.package_name }}" Architecture)
             echo "Package architecture: $ARCH"
-            
+
           else
             echo "Error: Expected package not found"
             echo "Available files in dist/:"
@@ -170,29 +170,29 @@ jobs:
           name: Release ${{ steps.version.outputs.version }}
           body: |
             # Distiller SDK Release ${{ steps.version.outputs.version }}
-            
+
             ## Package Information
             - **Version**: ${{ steps.version.outputs.clean_version }}
             - **Architecture**: ARM64 (aarch64)
             - **Target Platform**: Raspberry Pi CM5, Distiller devices
-            
+
             ## Features
             - Hardware control (Audio, Camera, E-ink Display, LED)
             - AI capabilities (Parakeet ASR, Piper TTS)
             - Computer vision processing
             - Self-contained installation with all dependencies
-            
+
             ## Installation
             ```bash
             # Download the .deb package
             wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ steps.version.outputs.package_name }}
-            
+
             # Install the package
             sudo dpkg -i ${{ steps.version.outputs.package_name }}
-            
+
             # Install dependencies if needed
             sudo apt-get install -f
-            
+
             # Activate the SDK environment
             source /opt/distiller-sdk/activate.sh
 
@@ -205,16 +205,16 @@ jobs:
             from distiller_sdk.hardware.audio import Audio
             from distiller_sdk.parakeet import Parakeet
             from distiller_sdk.piper import Piper
-            
+
             # Initialize audio levels
             Audio.set_mic_gain_static(85)
             Audio.set_speaker_volume_static(70)
-            
+
             # Use ASR and TTS
             asr = Parakeet()
             tts = Piper()
             ```
-            
+
             Built automatically with GitHub Actions.
           files: |
             dist/${{ steps.version.outputs.package_name }}
@@ -227,16 +227,16 @@ jobs:
       - name: Build Summary
         run: |
           echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY  
+          echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Package**: ${{ steps.version.outputs.package_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Architecture**: ARM64" >> $GITHUB_STEP_SUMMARY
           echo "- **Build Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
-          
+
           if [[ -f "dist/${{ steps.version.outputs.package_name }}" ]]; then
             PACKAGE_SIZE=$(du -h "dist/${{ steps.version.outputs.package_name }}" | cut -f1)
             echo "- **Package Size**: $PACKAGE_SIZE" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Installation Commands" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY

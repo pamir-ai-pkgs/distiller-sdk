@@ -7,4 +7,4 @@ pyserial>=3.5
 sherpa-onnx>=1.12.4
 sounddevice>=0.5.2
 soundfile>=0.13.1
-spidev>=3.7 
+spidev>=3.7

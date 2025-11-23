@@ -129,11 +129,11 @@ else
 	echo "[INFO] Checking Rust library for e-ink display..."
 	RUST_LIB_DIR="src/distiller_sdk/hardware/eink/lib"
 	RUST_LIB_FILE="$RUST_LIB_DIR/libdistiller_display_sdk_shared.so"
-	
+
 	if [ -d "$RUST_LIB_DIR" ]; then
 		# Check if library exists and is up-to-date
 		rebuild_needed=false
-		
+
 		if [ ! -f "$RUST_LIB_FILE" ]; then
 			echo "[INFO] Rust library not found, building..."
 			rebuild_needed=true
@@ -149,7 +149,7 @@ else
 				echo "[INFO] Rust library is up-to-date, skipping rebuild"
 			fi
 		fi
-		
+
 		if [ "$rebuild_needed" = true ]; then
 			echo "[INFO] Entering $RUST_LIB_DIR"
 			cd "$RUST_LIB_DIR"

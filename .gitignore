@@ -45,7 +45,7 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
-nbproject/ 
+nbproject/
 
 # Debian packaging files
 debian/*.debhelper.*
