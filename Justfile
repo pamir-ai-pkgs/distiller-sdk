@@ -24,6 +24,21 @@ clean:
 setup:
     uv sync
 
+setup-hooks:
+    #!/usr/bin/env bash
+    set -e
+    echo "Installing pre-commit hooks..."
+    uv sync
+    uv run pre-commit install
+    echo ""
+    echo "✓ Pre-commit hooks installed successfully!"
+    echo ""
+    echo "To validate all files, run:"
+    echo "  uv run pre-commit run --all-files"
+    echo ""
+    echo "To bypass hooks on commit (emergency only), use:"
+    echo "  git commit --no-verify"
+
 lint:
     uv run ruff check .
     uv run ruff format --check .

@@ -79,6 +79,37 @@ uv sync                  # Update packages
 uv tree                  # Show dependencies
 ```
 
+### Setting up Pre-commit Hooks
+
+For contributors and developers, set up pre-commit hooks to automatically enforce code quality standards:
+
+```bash
+# One-time setup (run after cloning the repository)
+just setup-hooks
+
+# This installs pre-commit and configures hooks for:
+# - Code formatting (ruff format)
+# - Linting (ruff check)
+# - Type checking (mypy)
+# - Basic file hygiene (trailing whitespace, EOF, YAML/JSON syntax)
+```
+
+**How it works:**
+- Hooks run automatically on `git commit`
+- Auto-fixable issues (formatting, linting) are fixed and files re-staged
+- Type errors or non-fixable issues block the commit
+- To bypass hooks in emergencies: `git commit --no-verify`
+
+**Manual validation:**
+```bash
+# Run all hooks on all files (useful after setup)
+uv run pre-commit run --all-files
+
+# Run specific hook
+uv run pre-commit run ruff-format --all-files
+uv run pre-commit run mypy --all-files
+```
+
 ### Build from Source
 
 ```bash

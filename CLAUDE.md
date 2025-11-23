@@ -108,6 +108,63 @@ just lint                     # Check code quality before building
 just build                    # Build Debian package
 ```
 
+### Pre-commit Hooks (Recommended for Contributors)
+
+Pre-commit hooks ensure code quality standards are automatically enforced before commits reach the repository. This creates consistency across all developers and catches issues early.
+
+**One-time Setup:**
+```bash
+# Run after cloning the repository or running 'just setup'
+just setup-hooks
+
+# This installs pre-commit and configures hooks for:
+# - Code formatting (ruff format) - auto-fixes
+# - Linting (ruff check --fix) - auto-fixes fixable issues
+# - Type checking (mypy --strict) - blocks commit if errors exist
+# - File hygiene (trailing whitespace, EOF, YAML/JSON syntax) - auto-fixes
+```
+
+**How Pre-commit Works:**
+1. When you run `git commit`, hooks execute automatically
+2. Auto-fixable issues (formatting, linting, whitespace) are fixed and files re-staged
+3. If fixes were applied, the commit is blocked - you must `git add` the fixes and commit again
+4. Type errors or other non-fixable issues block the commit until manually resolved
+5. All hooks run only on staged files (fast, typically <3 seconds)
+
+**Manual Hook Operations:**
+```bash
+# Run all hooks on all files (useful after setup or before pushing)
+uv run pre-commit run --all-files
+
+# Run specific hook on all files
+uv run pre-commit run ruff-format --all-files
+uv run pre-commit run mypy --all-files
+
+# Update hook versions
+uv run pre-commit autoupdate
+
+# Bypass hooks for emergency commits (use sparingly)
+git commit --no-verify
+```
+
+**Integration with Existing Workflow:**
+- Pre-commit uses the same tools as `just lint` and `just fix`
+- Configuration is in `.pre-commit-config.yaml` (mirrors `pyproject.toml` settings)
+- Mypy hook uses `--strict --ignore-missing-imports` matching project standards
+- Hooks are compatible with Google Repo multi-repository structure
+
+**Troubleshooting:**
+```bash
+# If hooks aren't running
+just setup-hooks              # Reinstall hooks
+
+# Clean pre-commit cache
+uv run pre-commit clean
+
+# Manually install hooks
+uv run pre-commit install
+```
+
 ### Testing Installed Package
 ```bash
 # After installing with: sudo dpkg -i dist/distiller-sdk_*_arm64.deb
