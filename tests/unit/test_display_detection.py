@@ -39,23 +39,23 @@ class TestDisplayDetection:
     def test_get_status_unavailable_library(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test get_status when shared library is not found."""
 
-        # Mock library search to fail
-        def mock_find_library() -> str | None:
-            raise FileNotFoundError("Library not found")
+        # Mock os.path.exists to simulate library not found
+        def mock_exists(path: Any) -> bool:
+            # Return False for any library path
+            if "libdistiller_display_sdk_shared.so" in str(path):
+                return False
+            # Return True for other paths (SPI, GPIO devices)
+            return True
 
-        # We need to mock at the module level before import
-        # For this test, we'll simulate library not found
-        with monkeypatch.context() as m:
-            # Remove common library paths
-            m.setenv("LD_LIBRARY_PATH", "/nonexistent")
+        monkeypatch.setattr("os.path.exists", mock_exists)
 
-            status = Display.get_status()
+        status = Display.get_status()
 
-            assert status.state == HardwareState.UNAVAILABLE
-            assert status.available is False
-            assert status.error is not None
-            # Message should indicate library not found
-            assert "library" in status.message.lower() or "not found" in status.message.lower()
+        assert status.state == HardwareState.UNAVAILABLE
+        assert status.available is False
+        assert status.error is not None
+        # Message should indicate library not found
+        assert "library" in status.message.lower() or "not found" in status.message.lower()
 
     def test_get_status_unavailable_spi_device(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
@@ -168,8 +168,14 @@ class TestDisplayDetection:
 
     def test_is_available_false_when_hardware_absent(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test is_available returns False when hardware is absent."""
+
         # Mock library not found
-        monkeypatch.setenv("LD_LIBRARY_PATH", "/nonexistent")
+        def mock_exists(path: Any) -> bool:
+            if "libdistiller_display_sdk_shared.so" in str(path):
+                return False
+            return True
+
+        monkeypatch.setattr("os.path.exists", mock_exists)
 
         assert Display.is_available() is False
 
@@ -200,8 +206,14 @@ class TestDisplayDetection:
 
     def test_get_status_no_exceptions_on_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that get_status does not raise exceptions."""
-        # Should never raise, always returns HardwareStatus
-        monkeypatch.setenv("LD_LIBRARY_PATH", "/nonexistent")
+
+        # Mock library not found - should never raise, always returns HardwareStatus
+        def mock_exists(path: Any) -> bool:
+            if "libdistiller_display_sdk_shared.so" in str(path):
+                return False
+            return True
+
+        monkeypatch.setattr("os.path.exists", mock_exists)
 
         status = Display.get_status()
 
@@ -210,8 +222,14 @@ class TestDisplayDetection:
 
     def test_is_available_no_exceptions_on_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that is_available does not raise exceptions."""
-        # Should never raise, always returns bool
-        monkeypatch.setenv("LD_LIBRARY_PATH", "/nonexistent")
+
+        # Mock library not found - should never raise, always returns bool
+        def mock_exists(path: Any) -> bool:
+            if "libdistiller_display_sdk_shared.so" in str(path):
+                return False
+            return True
+
+        monkeypatch.setattr("os.path.exists", mock_exists)
 
         result = Display.is_available()
 
