@@ -12,18 +12,16 @@ Logging:
 import os
 import ctypes
 import logging
+import threading
 from ctypes import c_bool, c_char_p, c_uint32, c_int, c_float, POINTER
 from enum import IntEnum
 from typing import Optional, Tuple, Union
 
+from distiller_sdk.exceptions import DisplayError
+from distiller_sdk.hardware_status import HardwareStatus, HardwareState
+
 # Set up module logger
 logger = logging.getLogger(__name__)
-
-
-class DisplayError(Exception):
-    """Custom exception for Display-related errors."""
-
-    pass
 
 
 class DisplayErrorCode(IntEnum):
@@ -158,6 +156,9 @@ class Display:
         """
         self._initialized = False
         self._library_path = library_path
+
+        # Thread safety lock
+        self._lock = threading.Lock()
 
         # Find and load the shared library
         if library_path is None:
@@ -461,6 +462,247 @@ class Display:
 
         self._initialized = True
         logger.info(f"Display initialized successfully ({self.WIDTH}x{self.HEIGHT})")
+
+    @staticmethod
+    def get_status() -> HardwareStatus:
+        """Get detailed display hardware status without initializing.
+
+        This method probes display hardware availability and capabilities without
+        creating a Display instance or modifying system state. It never raises
+        exceptions - all errors are captured in the returned status.
+
+        Returns:
+            HardwareStatus: Detailed hardware status including state, capabilities,
+                          diagnostics, and error information
+
+        Example:
+            >>> status = Display.get_status()
+            >>> if status.available:
+            ...     display = Display()
+            >>> else:
+            ...     print(f"Display unavailable: {status.message}")
+        """
+        capabilities = {}
+        diagnostic_info = {}
+        error = None
+
+        try:
+            # Check for shared library existence
+            library_path = None
+            search_paths = [
+                "/opt/distiller-sdk/lib/libdistiller_display_sdk_shared.so",
+                os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "lib",
+                    "libdistiller_display_sdk_shared.so",
+                ),
+                "/usr/local/lib/libdistiller_display_sdk_shared.so",
+                "/usr/lib/libdistiller_display_sdk_shared.so",
+            ]
+
+            for path in search_paths:
+                if os.path.exists(path):
+                    library_path = path
+                    break
+
+            if library_path is None:
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError(
+                        "Display library not found (libdistiller_display_sdk_shared.so)"
+                    ),
+                    diagnostic_info={"searched_paths": search_paths},
+                    message="Display library not found - e-ink display SDK not installed",
+                )
+
+            diagnostic_info["library_path"] = library_path
+
+            # Check for SPI device (platform-dependent)
+            spi_devices = [
+                "/dev/spidev0.0",  # Raspberry Pi CM5
+                "/dev/spidev3.0",  # Radxa Zero 3/3W, ArmSom CM5 IO
+                "/dev/spidev1.0",  # Alternative
+            ]
+
+            has_spi = False
+            spi_device = None
+            for device in spi_devices:
+                if os.path.exists(device):
+                    has_spi = True
+                    spi_device = device
+                    # Check if we can access it
+                    try:
+                        if not os.access(device, os.R_OK | os.W_OK):
+                            return HardwareStatus(
+                                state=HardwareState.PERMISSION_DENIED,
+                                available=False,
+                                capabilities={},
+                                error=PermissionError(f"Cannot access SPI device {device}"),
+                                diagnostic_info={
+                                    "spi_device": device,
+                                    "required_permissions": "rw",
+                                    "hint": "Add user to 'spi' group or check udev rules",
+                                },
+                                message=f"Permission denied for SPI device {device}",
+                            )
+                    except Exception as e:
+                        error = e
+
+                    break
+
+            if not has_spi:
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError("SPI device not found"),
+                    diagnostic_info={"checked_devices": spi_devices},
+                    message="SPI device not found - check if SPI is enabled in device tree",
+                )
+
+            diagnostic_info["spi_device"] = spi_device
+
+            # Check for GPIO chip (platform-dependent)
+            gpio_chips = [
+                "/dev/gpiochip0",  # Raspberry Pi CM5
+                "/dev/gpiochip3",  # Radxa Zero 3/3W
+                "/dev/gpiochip4",  # ArmSom CM5 IO
+                "/dev/gpiochip1",  # Alternative
+            ]
+
+            has_gpio = False
+            gpio_chip = None
+            for chip in gpio_chips:
+                if os.path.exists(chip):
+                    has_gpio = True
+                    gpio_chip = chip
+                    # Check if we can access it
+                    try:
+                        if not os.access(chip, os.R_OK | os.W_OK):
+                            return HardwareStatus(
+                                state=HardwareState.PERMISSION_DENIED,
+                                available=False,
+                                capabilities={},
+                                error=PermissionError(f"Cannot access GPIO chip {chip}"),
+                                diagnostic_info={
+                                    "gpio_chip": chip,
+                                    "required_permissions": "rw",
+                                    "hint": "Add user to 'gpio' group or check udev rules",
+                                },
+                                message=f"Permission denied for GPIO chip {chip}",
+                            )
+                    except Exception as e:
+                        if error is None:
+                            error = e
+
+                    break
+
+            if not has_gpio:
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError("GPIO chip not found"),
+                    diagnostic_info={"checked_chips": gpio_chips},
+                    message="GPIO chip not found - check device tree configuration",
+                )
+
+            diagnostic_info["gpio_chip"] = gpio_chip
+
+            # Check for config file (optional, but good to know)
+            config_paths = [
+                "/opt/distiller-sdk/eink.conf",
+                "./eink.conf",
+                os.path.expanduser("~/.distiller/eink.conf"),
+            ]
+
+            config_file = None
+            for path in config_paths:
+                if os.path.exists(path):
+                    config_file = path
+                    break
+
+            if config_file:
+                diagnostic_info["config_file"] = config_file
+            else:
+                diagnostic_info["config"] = "Using defaults (no config file found)"
+
+            # Detect firmware type from environment or config
+            firmware_type = os.environ.get("DISTILLER_EINK_FIRMWARE", "EPD128x250")
+            capabilities["firmware_type"] = firmware_type
+
+            # Set dimensions based on firmware type
+            if firmware_type == "EPD128x250":
+                capabilities["width"] = 128
+                capabilities["height"] = 250
+            elif firmware_type == "EPD240x416":
+                capabilities["width"] = 240
+                capabilities["height"] = 416
+            else:
+                # Default to EPD128x250
+                capabilities["width"] = 128
+                capabilities["height"] = 250
+
+            # Display modes supported
+            capabilities["modes"] = ["FULL", "PARTIAL"]
+
+            # All checks passed
+            return HardwareStatus(
+                state=HardwareState.AVAILABLE,
+                available=True,
+                capabilities=capabilities,
+                error=None,
+                diagnostic_info=diagnostic_info,
+                message=f"Display hardware available ({firmware_type}, {capabilities['width']}x{capabilities['height']})",
+            )
+
+        except PermissionError as e:
+            return HardwareStatus(
+                state=HardwareState.PERMISSION_DENIED,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Permission denied accessing display hardware: {str(e)}",
+            )
+        except FileNotFoundError as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Display hardware not found: {str(e)}",
+            )
+        except Exception as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Error detecting display hardware: {str(e)}",
+            )
+
+    @staticmethod
+    def is_available() -> bool:
+        """Quick check if display hardware is available.
+
+        This is a convenience method that returns the available flag from get_status().
+        Use get_status() for detailed information about capabilities and errors.
+
+        Returns:
+            bool: True if display hardware is available and accessible
+
+        Example:
+            >>> if Display.is_available():
+            ...     display = Display()
+            ... else:
+            ...     print("Display hardware not available")
+        """
+        return Display.get_status().available
 
     def _update_dimensions(self) -> None:
         """Update display dimensions from the library."""

@@ -18,14 +18,11 @@ import shutil
 import logging
 from typing import Optional, Tuple, Union, List, Callable
 
+from distiller_sdk.exceptions import CameraError
+from distiller_sdk.hardware_status import HardwareStatus, HardwareState
+
 # Set up logging
 logger = logging.getLogger(__name__)
-
-
-class CameraError(Exception):
-    """Custom exception for Camera-related errors."""
-
-    pass
 
 
 class Camera:
@@ -98,6 +95,185 @@ class Camera:
             self._init_camera()
         except Exception as e:
             raise CameraError(f"Failed to initialize camera: {str(e)}")
+
+    @staticmethod
+    def get_status() -> HardwareStatus:
+        """Get detailed camera hardware status without initializing.
+
+        This method probes camera hardware availability and capabilities without
+        creating a Camera instance or modifying system state. It never raises
+        exceptions - all errors are captured in the returned status.
+
+        Returns:
+            HardwareStatus: Detailed hardware status including state, capabilities,
+                          diagnostics, and error information
+
+        Example:
+            >>> status = Camera.get_status()
+            >>> if status.available:
+            ...     camera = Camera()
+            >>> else:
+            ...     print(f"Camera unavailable: {status.message}")
+        """
+        capabilities = {}
+        diagnostic_info = {}
+
+        try:
+            # Check for rpicam-still availability
+            if not shutil.which("rpicam-still"):
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError("rpicam-still not found"),
+                    diagnostic_info={},
+                    message="rpicam-still not found - install rpicam-apps package",
+                )
+
+            capabilities["rpicam_available"] = True
+
+            # Check for OpenCV availability (optional, for some features)
+            try:
+                import cv2  # noqa: F401
+
+                capabilities["opencv_available"] = True
+            except ImportError:
+                capabilities["opencv_available"] = False
+
+            # List cameras using rpicam-still
+            try:
+                result = subprocess.run(
+                    ["rpicam-still", "--list-cameras"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=5,
+                )
+
+                if result.returncode == 0:
+                    diagnostic_info["rpicam_output"] = result.stdout
+
+                    # Check if cameras were detected
+                    if "Available cameras" in result.stdout:
+                        # Parse camera count from output
+                        lines = result.stdout.split("\n")
+                        camera_count = 0
+                        camera_list = []
+
+                        for line in lines:
+                            # Camera lines typically start with a number followed by colon
+                            # Example: "0 : imx219 [3280 x 2464] ..."
+                            stripped = line.strip()
+                            if stripped and stripped[0].isdigit() and ":" in stripped:
+                                camera_count += 1
+                                # Extract camera info
+                                camera_info = (
+                                    stripped.split(":", 1)[1].strip()
+                                    if ":" in stripped
+                                    else stripped
+                                )
+                                camera_list.append(camera_info)
+
+                        if camera_count > 0:
+                            capabilities["camera_count"] = camera_count
+                            diagnostic_info["cameras_detected"] = camera_list
+
+                            # All checks passed
+                            return HardwareStatus(
+                                state=HardwareState.AVAILABLE,
+                                available=True,
+                                capabilities=capabilities,
+                                error=None,
+                                diagnostic_info=diagnostic_info,
+                                message=f"Camera hardware available ({camera_count} camera(s) detected)",
+                            )
+                        else:
+                            return HardwareStatus(
+                                state=HardwareState.UNAVAILABLE,
+                                available=False,
+                                capabilities=capabilities,
+                                error=FileNotFoundError("No cameras detected"),
+                                diagnostic_info=diagnostic_info,
+                                message="No cameras detected by rpicam-still",
+                            )
+                    else:
+                        return HardwareStatus(
+                            state=HardwareState.UNAVAILABLE,
+                            available=False,
+                            capabilities=capabilities,
+                            error=FileNotFoundError("No cameras detected"),
+                            diagnostic_info=diagnostic_info,
+                            message="No cameras detected by rpicam-still",
+                        )
+                else:
+                    # rpicam-still command failed
+                    diagnostic_info["rpicam_stderr"] = result.stderr
+                    return HardwareStatus(
+                        state=HardwareState.UNAVAILABLE,
+                        available=False,
+                        capabilities=capabilities,
+                        error=subprocess.CalledProcessError(
+                            result.returncode, result.args, result.stdout, result.stderr
+                        ),
+                        diagnostic_info=diagnostic_info,
+                        message=f"rpicam-still failed: {result.stderr}",
+                    )
+
+            except subprocess.TimeoutExpired as e:
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities=capabilities,
+                    error=e,
+                    diagnostic_info=diagnostic_info,
+                    message="Timeout detecting camera hardware",
+                )
+
+        except PermissionError as e:
+            return HardwareStatus(
+                state=HardwareState.PERMISSION_DENIED,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Permission denied accessing camera: {str(e)}",
+            )
+        except FileNotFoundError as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Camera tools not found: {str(e)}",
+            )
+        except Exception as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Error detecting camera hardware: {str(e)}",
+            )
+
+    @staticmethod
+    def is_available() -> bool:
+        """Quick check if camera hardware is available.
+
+        This is a convenience method that returns the available flag from get_status().
+        Use get_status() for detailed information about capabilities and errors.
+
+        Returns:
+            bool: True if camera hardware is available and accessible
+
+        Example:
+            >>> if Camera.is_available():
+            ...     camera = Camera()
+            ... else:
+            ...     print("Camera hardware not available")
+        """
+        return Camera.get_status().available
 
     def check_system_config(self) -> bool:
         """
@@ -189,7 +365,7 @@ class Camera:
         except Exception as e:
             raise CameraError(f"Failed to initialize camera: {str(e)}")
 
-    def start_stream(self, callback: Optional[Callable] = None):
+    def start_stream(self, callback: Optional[Callable] = None) -> None:
         """
         Start streaming video from the camera.
 
@@ -266,7 +442,7 @@ class Camera:
         self._stream_thread.start()
         logger.info("Camera streaming started")
 
-    def stop_stream(self):
+    def stop_stream(self) -> None:
         """Stop the camera stream."""
         if not self._is_streaming:
             return
@@ -516,3 +692,12 @@ class Camera:
             self._camera = None
 
         logger.info("Camera closed")
+
+    def __enter__(self):
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager and cleanup resources."""
+        self.close()
+        return False

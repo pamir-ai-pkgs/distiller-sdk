@@ -9,18 +9,29 @@ import threading
 
 from distiller_sdk.hardware.audio.audio import Audio
 from distiller_sdk import get_model_path
+from distiller_sdk.hardware_status import HardwareStatus, HardwareState
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class Whisper:
-    def __init__(self, model_config=None, audio_config=None) -> None:
-        # Try to set mic gain if hardware supports it
-        if Audio.has_audio_controls():
-            logging.info("Setting microphone gain for optimal speech recognition")
-            Audio.set_mic_gain_static(85)
-        else:
-            logging.info("Hardware volume controls not available - using system defaults")
+    """Whisper ASR engine using faster-whisper.
+
+    Args:
+        model_config: Model configuration dictionary
+        audio_config: Audio configuration dictionary
+        configure_audio: Whether to set recommended audio levels (default: True)
+                        If True, sets microphone gain to 85 for optimal ASR
+    """
+
+    def __init__(self, model_config=None, audio_config=None, configure_audio: bool = True) -> None:
+        # Configure audio with recommended settings if requested
+        if configure_audio:
+            if Audio.has_audio_controls():
+                logging.info("Setting microphone gain for optimal speech recognition")
+                Audio.set_mic_gain_static(85)
+            else:
+                logging.info("Hardware volume controls not available - using system defaults")
 
         if audio_config is None:
             audio_config = dict()
@@ -49,13 +60,149 @@ class Whisper:
         }
 
         self.model = self.load_model()  # Load models once during initialization
+
+        # Recording state (protected by lock)
         self._is_recording = False
         self._audio_frames: list[bytes] = []
         self._audio_thread: Optional[threading.Thread] = None
         self._pyaudio: Optional[pyaudio.PyAudio] = None
         self._stream: Optional[pyaudio.Stream] = None
 
-    def load_model(self):
+        # Thread safety lock
+        self._lock = threading.Lock()
+
+    @staticmethod
+    def get_status(
+        model_path: Optional[str] = None, model_size: str = "faster-distil-whisper-small.en"
+    ) -> HardwareStatus:
+        """Get detailed Whisper model availability status.
+
+        This method checks for Whisper ASR model files without initializing
+        the model. It never raises exceptions - all errors are captured in
+        the returned status.
+
+        Args:
+            model_path: Path to model directory (default: from get_model_path("whisper"))
+            model_size: Model size/name (default: "faster-distil-whisper-small.en")
+
+        Returns:
+            HardwareStatus: Detailed status including model availability,
+                          capabilities, diagnostics, and error information
+
+        Example:
+            >>> status = Whisper.get_status()
+            >>> if status.available:
+            ...     whisper = Whisper()
+            >>> else:
+            ...     print(f"Whisper unavailable: {status.message}")
+        """
+        capabilities = {}
+        diagnostic_info = {}
+
+        try:
+            if model_path is None:
+                model_path = get_model_path("whisper")
+
+            diagnostic_info["model_path"] = model_path
+            diagnostic_info["model_size"] = model_size
+
+            # Check if model directory exists
+            if not os.path.exists(model_path):
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError(f"Whisper model directory not found: {model_path}"),
+                    diagnostic_info=diagnostic_info,
+                    message=f"Whisper model directory not found: {model_path}",
+                )
+
+            # Check for model subdirectory
+            model_size_path = os.path.join(model_path, model_size)
+            if not os.path.exists(model_size_path):
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError(
+                        f"Whisper model subdirectory not found: {model_size_path}"
+                    ),
+                    diagnostic_info=diagnostic_info,
+                    message=f"Whisper model '{model_size}' not found in {model_path}",
+                )
+
+            # Check for required model.bin file
+            model_file = os.path.join(model_size_path, "model.bin")
+            if not os.path.isfile(model_file):
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError(f"Whisper model.bin not found: {model_file}"),
+                    diagnostic_info=diagnostic_info,
+                    message=f"Whisper model.bin not found in {model_size_path}",
+                )
+
+            diagnostic_info["model_file"] = model_file
+
+            # ASR model available
+            capabilities["asr_available"] = True
+            capabilities["model_type"] = model_size
+
+            # All checks passed
+            return HardwareStatus(
+                state=HardwareState.AVAILABLE,
+                available=True,
+                capabilities=capabilities,
+                error=None,
+                diagnostic_info=diagnostic_info,
+                message=f"Whisper ASR available ({model_size})",
+            )
+
+        except PermissionError as e:
+            return HardwareStatus(
+                state=HardwareState.PERMISSION_DENIED,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Permission denied accessing Whisper models: {str(e)}",
+            )
+        except Exception as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Error detecting Whisper models: {str(e)}",
+            )
+
+    @staticmethod
+    def is_available(
+        model_path: Optional[str] = None, model_size: str = "faster-distil-whisper-small.en"
+    ) -> bool:
+        """Quick check if Whisper models are available.
+
+        This is a convenience method that returns the available flag from get_status().
+        Use get_status() for detailed information about model capabilities and errors.
+
+        Args:
+            model_path: Path to model directory (default: from get_model_path("whisper"))
+            model_size: Model size/name (default: "faster-distil-whisper-small.en")
+
+        Returns:
+            bool: True if Whisper models are available
+
+        Example:
+            >>> if Whisper.is_available():
+            ...     whisper = Whisper()
+            ... else:
+            ...     print("Whisper models not available")
+        """
+        return Whisper.get_status(model_path=model_path, model_size=model_size).available
+
+    def load_model(self) -> WhisperModel:  # type: ignore
         logging.info(f"Loading Whisper Model from {self.model_config['model_size_or_path']}")
         if not os.path.isfile(os.path.join(self.model_config["model_size_or_path"], "model.bin")):
             logging.error("Model not found")
@@ -151,35 +298,36 @@ class Whisper:
         Returns:
             True if recording started successfully, False otherwise
         """
-        if self._is_recording:
-            logging.warning("Already recording")
-            return False
+        with self._lock:
+            if self._is_recording:
+                logging.warning("Already recording")
+                return False
 
-        try:
-            self._init_audio()
-            assert self._pyaudio is not None  # Initialized by _init_audio()
+            try:
+                self._init_audio()
+                assert self._pyaudio is not None  # Initialized by _init_audio()
 
-            self._stream = self._pyaudio.open(
-                format=self.audio_config["format"],
-                channels=self.audio_config["channels"],
-                rate=self.audio_config["rate"],
-                input=True,
-                input_device_index=self.audio_config["device"],
-                frames_per_buffer=self.audio_config["chunk"],
-            )
+                self._stream = self._pyaudio.open(
+                    format=self.audio_config["format"],
+                    channels=self.audio_config["channels"],
+                    rate=self.audio_config["rate"],
+                    input=True,
+                    input_device_index=self.audio_config["device"],
+                    frames_per_buffer=self.audio_config["chunk"],
+                )
 
-            self._audio_frames = []
-            self._is_recording = True
-            self._audio_thread = threading.Thread(target=self._recording_thread)
-            self._audio_thread.daemon = True
-            self._audio_thread.start()
+                self._audio_frames = []
+                self._is_recording = True
+                self._audio_thread = threading.Thread(target=self._recording_thread)
+                self._audio_thread.daemon = True
+                self._audio_thread.start()
 
-            logging.info("Recording started")
-            return True
-        except Exception as e:
-            logging.error(f"Failed to start recording: {e}")
-            self._is_recording = False
-            return False
+                logging.info("Recording started")
+                return True
+            except Exception as e:
+                logging.error(f"Failed to start recording: {e}")
+                self._is_recording = False
+                return False
 
     def stop_recording(self) -> Optional[bytes]:
         """
@@ -188,11 +336,14 @@ class Whisper:
         Returns:
             Audio data as bytes in WAV format, or None if no audio was recorded
         """
-        if not self._is_recording:
-            logging.warning("Not recording")
-            return None
+        with self._lock:
+            if not self._is_recording:
+                logging.warning("Not recording")
+                return None
 
-        self._is_recording = False
+            self._is_recording = False
+
+        # Wait for thread outside the lock to avoid deadlock
         if self._audio_thread:
             self._audio_thread.join(timeout=1.0)
 
@@ -219,11 +370,20 @@ class Whisper:
 
         return buffer.getvalue()
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Release PyAudio resources"""
         if self._pyaudio:
             self._pyaudio.terminate()
             self._pyaudio = None
+
+    def __enter__(self):
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager and cleanup resources."""
+        self.cleanup()
+        return False
 
     def record_and_transcribe_ptt(self) -> Generator[str, None, None]:
         """

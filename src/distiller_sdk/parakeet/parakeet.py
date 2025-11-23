@@ -13,16 +13,33 @@ import sounddevice as sd  # type: ignore
 
 from distiller_sdk.hardware.audio.audio import Audio
 from distiller_sdk import get_model_path
+from distiller_sdk.hardware_status import HardwareStatus, HardwareState
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class Parakeet:
+    """Parakeet ASR engine with VAD support.
+
+    Args:
+        model_config: Model configuration dictionary
+        audio_config: Audio configuration dictionary
+        vad_silence_duration: VAD silence duration in seconds (default: 1.0)
+        configure_audio: Whether to set recommended audio levels (default: True)
+                        If True, sets microphone gain to 85 for optimal ASR
+    """
+
     def __init__(
-        self, model_config=None, audio_config=None, vad_silence_duration: float = 1.0
+        self,
+        model_config=None,
+        audio_config=None,
+        vad_silence_duration: float = 1.0,
+        configure_audio: bool = True,
     ) -> None:
-        # override mic gain
-        Audio.set_mic_gain_static(85)
+        # Configure audio with recommended settings if requested
+        if configure_audio:
+            Audio.set_mic_gain_static(85)
+
         if audio_config is None:
             audio_config = dict()
         if model_config is None:
@@ -51,13 +68,144 @@ class Parakeet:
         self.vad_windows_size = None
         self.vad_model = None
 
+        # Recording state (protected by lock)
         self._is_recording = False
         self._audio_frames: list[bytes] = []
         self._audio_thread: Optional[threading.Thread] = None
         self._pyaudio: Optional[pyaudio.PyAudio] = None
         self._stream: Optional[pyaudio.Stream] = None  # type: ignore
 
-    def load_vad_model(self):
+        # Thread safety lock
+        self._lock = threading.Lock()
+
+    @staticmethod
+    def get_status(model_path: Optional[str] = None) -> HardwareStatus:
+        """Get detailed Parakeet model availability status.
+
+        This method checks for Parakeet ASR model files without initializing
+        the model. It never raises exceptions - all errors are captured in
+        the returned status.
+
+        Args:
+            model_path: Path to model directory (default: from get_model_path("parakeet"))
+
+        Returns:
+            HardwareStatus: Detailed status including model availability,
+                          capabilities, diagnostics, and error information
+
+        Example:
+            >>> status = Parakeet.get_status()
+            >>> if status.available:
+            ...     parakeet = Parakeet()
+            >>> else:
+            ...     print(f"Parakeet unavailable: {status.message}")
+        """
+        capabilities = {}
+        diagnostic_info = {}
+
+        try:
+            if model_path is None:
+                model_path = get_model_path("parakeet")
+
+            diagnostic_info["model_path"] = model_path
+
+            # Check if model directory exists
+            if not os.path.exists(model_path):
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError(f"Parakeet model directory not found: {model_path}"),
+                    diagnostic_info=diagnostic_info,
+                    message=f"Parakeet model directory not found: {model_path}",
+                )
+
+            # Check for required ASR model files
+            required_files = ["encoder.onnx", "decoder.onnx", "joiner.onnx", "tokens.txt"]
+            missing_files = [
+                f for f in required_files if not os.path.isfile(os.path.join(model_path, f))
+            ]
+
+            if missing_files:
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError(
+                        f"Parakeet model files missing: {', '.join(missing_files)}"
+                    ),
+                    diagnostic_info={
+                        "model_path": model_path,
+                        "required_files": required_files,
+                        "missing_files": missing_files,
+                    },
+                    message=f"Parakeet model incomplete - missing files: {', '.join(missing_files)}",
+                )
+
+            # ASR model available
+            capabilities["asr_available"] = True
+            capabilities["model_type"] = "nemo_transducer"
+            diagnostic_info["model_files"] = required_files
+
+            # Check for optional VAD model
+            vad_file = "silero_vad.onnx"
+            has_vad = os.path.isfile(os.path.join(model_path, vad_file))
+            capabilities["vad_available"] = has_vad
+
+            if has_vad:
+                diagnostic_info["vad_model"] = vad_file
+
+            # All checks passed
+            return HardwareStatus(
+                state=HardwareState.AVAILABLE,
+                available=True,
+                capabilities=capabilities,
+                error=None,
+                diagnostic_info=diagnostic_info,
+                message=f"Parakeet ASR available (VAD: {has_vad})",
+            )
+
+        except PermissionError as e:
+            return HardwareStatus(
+                state=HardwareState.PERMISSION_DENIED,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Permission denied accessing Parakeet models: {str(e)}",
+            )
+        except Exception as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Error detecting Parakeet models: {str(e)}",
+            )
+
+    @staticmethod
+    def is_available(model_path: Optional[str] = None) -> bool:
+        """Quick check if Parakeet models are available.
+
+        This is a convenience method that returns the available flag from get_status().
+        Use get_status() for detailed information about model capabilities and errors.
+
+        Args:
+            model_path: Path to model directory (default: from get_model_path("parakeet"))
+
+        Returns:
+            bool: True if Parakeet models are available
+
+        Example:
+            >>> if Parakeet.is_available():
+            ...     parakeet = Parakeet()
+            ... else:
+            ...     print("Parakeet models not available")
+        """
+        return Parakeet.get_status(model_path=model_path).available
+
+    def load_vad_model(self) -> Optional[sherpa_onnx.VoiceActivityDetector]:  # type: ignore
         logging.info(f"Loading VAD Model from {self.model_config['model_path']}")
         required_files = ["silero_vad.onnx"]
         missing_files = [
@@ -86,7 +234,7 @@ class Parakeet:
             logging.error("VAD Model is not ready")
             return None
 
-    def load_model(self):
+    def load_model(self) -> sherpa_onnx.OfflineRecognizer:  # type: ignore
         logging.info(f"Loading Parakeet Model from {self.model_config['model_path']}")
 
         required_files = ["encoder.onnx", "decoder.onnx", "joiner.onnx", "tokens.txt"]
@@ -229,35 +377,36 @@ class Parakeet:
         Returns:
             True if recording started successfully, False otherwise
         """
-        if self._is_recording:
-            logging.warning("Already recording")
-            return False
+        with self._lock:
+            if self._is_recording:
+                logging.warning("Already recording")
+                return False
 
-        try:
-            self._init_audio()
-            assert self._pyaudio is not None, "PyAudio initialization failed"
+            try:
+                self._init_audio()
+                assert self._pyaudio is not None, "PyAudio initialization failed"
 
-            self._stream = self._pyaudio.open(
-                format=self.audio_config["format"],
-                channels=self.audio_config["channels"],
-                rate=self.audio_config["rate"],
-                input=True,
-                input_device_index=self.audio_config["device"],
-                frames_per_buffer=self.audio_config["chunk"],
-            )
+                self._stream = self._pyaudio.open(
+                    format=self.audio_config["format"],
+                    channels=self.audio_config["channels"],
+                    rate=self.audio_config["rate"],
+                    input=True,
+                    input_device_index=self.audio_config["device"],
+                    frames_per_buffer=self.audio_config["chunk"],
+                )
 
-            self._audio_frames = []
-            self._is_recording = True
-            self._audio_thread = threading.Thread(target=self._recording_thread)
-            self._audio_thread.daemon = True
-            self._audio_thread.start()
+                self._audio_frames = []
+                self._is_recording = True
+                self._audio_thread = threading.Thread(target=self._recording_thread)
+                self._audio_thread.daemon = True
+                self._audio_thread.start()
 
-            logging.info("Recording started")
-            return True
-        except Exception as e:
-            logging.error(f"Failed to start recording: {e}")
-            self._is_recording = False
-            return False
+                logging.info("Recording started")
+                return True
+            except Exception as e:
+                logging.error(f"Failed to start recording: {e}")
+                self._is_recording = False
+                return False
 
     def stop_recording(self) -> Optional[bytes]:
         """
@@ -266,11 +415,14 @@ class Parakeet:
         Returns:
             Audio data as bytes in WAV format, or None if not recording or no audio recorded
         """
-        if not self._is_recording:
-            logging.warning("Not recording")
-            return None
+        with self._lock:
+            if not self._is_recording:
+                logging.warning("Not recording")
+                return None
 
-        self._is_recording = False
+            self._is_recording = False
+
+        # Wait for thread outside the lock to avoid deadlock
         if self._audio_thread:
             self._audio_thread.join(timeout=1.0)
 
@@ -296,11 +448,20 @@ class Parakeet:
 
         return buffer.getvalue()
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Release PyAudio resources"""
         if self._pyaudio:
             self._pyaudio.terminate()
             self._pyaudio = None
+
+    def __enter__(self):
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager and cleanup resources."""
+        self.cleanup()
+        return False
 
     def record_and_transcribe_ptt(self) -> Generator[str, None, None]:
         """

@@ -1,12 +1,10 @@
 import subprocess
+import threading
 from typing import List, Optional, Tuple
 from pathlib import Path
 
-
-class LEDError(Exception):
-    """Custom exception for LED-related errors."""
-
-    pass
+from distiller_sdk.exceptions import LEDError
+from distiller_sdk.hardware_status import HardwareStatus, HardwareState
 
 
 class LED:
@@ -45,6 +43,9 @@ class LED:
         self.base_path = Path(base_path)
         self.use_sudo = use_sudo
 
+        # Thread safety lock
+        self._lock = threading.Lock()
+
         # Check if sysfs interface exists
         if not self.base_path.exists():
             raise LEDError(f"LED sysfs interface not found at {base_path}")
@@ -54,6 +55,174 @@ class LED:
 
         if not self.available_leds:
             raise LEDError("No compatible LEDs found (pamir:led* pattern)")
+
+    @staticmethod
+    def get_status(base_path: str = "/sys/class/leds") -> HardwareStatus:
+        """Get detailed LED hardware status without initializing.
+
+        This method probes LED hardware availability and capabilities without
+        creating an LED instance or modifying system state. It never raises
+        exceptions - all errors are captured in the returned status.
+
+        Args:
+            base_path: Base path for LED sysfs interface (default: /sys/class/leds)
+
+        Returns:
+            HardwareStatus: Detailed hardware status including state, capabilities,
+                          diagnostics, and error information
+
+        Example:
+            >>> status = LED.get_status()
+            >>> if status.available:
+            ...     led = LED()
+            >>> else:
+            ...     print(f"LED unavailable: {status.message}")
+        """
+        capabilities = {}
+        diagnostic_info = {}
+
+        try:
+            # Check if sysfs interface exists
+            base = Path(base_path)
+            if not base.exists():
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError(f"LED sysfs interface not found at {base_path}"),
+                    diagnostic_info={"sysfs_path": base_path},
+                    message=f"LED sysfs interface not found at {base_path}",
+                )
+
+            diagnostic_info["sysfs_path"] = str(base)
+
+            # Discover available LEDs (pamir:led* pattern)
+            available_leds = []
+            led_details = []
+
+            try:
+                for item in base.iterdir():
+                    if item.is_dir() and item.name.startswith("pamir:led"):
+                        try:
+                            led_num = int(item.name.replace("pamir:led", ""))
+                            available_leds.append(led_num)
+
+                            # Check for RGB support
+                            has_rgb = all(
+                                (item / component).exists()
+                                for component in ["red", "green", "blue"]
+                            )
+
+                            # Check for animation support
+                            has_animation = (item / "animation_mode").exists()
+
+                            # Check for trigger support
+                            has_trigger = (item / "trigger").exists()
+
+                            led_details.append(
+                                {
+                                    "led_id": led_num,
+                                    "rgb": has_rgb,
+                                    "animation": has_animation,
+                                    "trigger": has_trigger,
+                                }
+                            )
+
+                        except ValueError:
+                            continue
+
+            except PermissionError as e:
+                return HardwareStatus(
+                    state=HardwareState.PERMISSION_DENIED,
+                    available=False,
+                    capabilities={},
+                    error=e,
+                    diagnostic_info=diagnostic_info,
+                    message=f"Permission denied accessing LED sysfs: {str(e)}",
+                )
+
+            if not available_leds:
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities={},
+                    error=FileNotFoundError("No LEDs found matching pamir:led* pattern"),
+                    diagnostic_info=diagnostic_info,
+                    message="No compatible LEDs found (pamir:led* pattern)",
+                )
+
+            # Set capabilities
+            capabilities["led_count"] = len(available_leds)
+            capabilities["available_leds"] = sorted(available_leds)
+
+            # Check if all LEDs have RGB support
+            capabilities["rgb_support"] = all(led["rgb"] for led in led_details)
+
+            # Check if any LED has animation support
+            capabilities["animation_support"] = any(led["animation"] for led in led_details)
+
+            # Check if any LED has trigger support
+            capabilities["trigger_support"] = any(led["trigger"] for led in led_details)
+
+            # Diagnostic info
+            diagnostic_info["led_list"] = led_details
+            diagnostic_info["leds_found"] = len(available_leds)
+
+            # All checks passed
+            return HardwareStatus(
+                state=HardwareState.AVAILABLE,
+                available=True,
+                capabilities=capabilities,
+                error=None,
+                diagnostic_info=diagnostic_info,
+                message=f"LED hardware available ({len(available_leds)} LED(s) detected)",
+            )
+
+        except PermissionError as e:
+            return HardwareStatus(
+                state=HardwareState.PERMISSION_DENIED,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Permission denied accessing LED hardware: {str(e)}",
+            )
+        except FileNotFoundError as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"LED hardware not found: {str(e)}",
+            )
+        except Exception as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info=diagnostic_info,
+                message=f"Error detecting LED hardware: {str(e)}",
+            )
+
+    @staticmethod
+    def is_available() -> bool:
+        """Quick check if LED hardware is available.
+
+        This is a convenience method that returns the available flag from get_status().
+        Use get_status() for detailed information about capabilities and errors.
+
+        Returns:
+            bool: True if LED hardware is available and accessible
+
+        Example:
+            >>> if LED.is_available():
+            ...     led = LED()
+            ... else:
+            ...     print("LED hardware not available")
+        """
+        return LED.get_status().available
 
     def _discover_leds(self) -> List[int]:
         """
@@ -188,12 +357,13 @@ class LED:
             if not 0 <= value <= 255:
                 raise LEDError(f"{component.capitalize()} value {value} out of range (0-255)")
 
-        led_path = self._get_led_path(led_id)
+        with self._lock:
+            led_path = self._get_led_path(led_id)
 
-        # Set RGB components
-        self._write_sysfs_file(led_path / "red", str(red))
-        self._write_sysfs_file(led_path / "green", str(green))
-        self._write_sysfs_file(led_path / "blue", str(blue))
+            # Set RGB components
+            self._write_sysfs_file(led_path / "red", str(red))
+            self._write_sysfs_file(led_path / "green", str(green))
+            self._write_sysfs_file(led_path / "blue", str(blue))
 
     def get_rgb_color(self, led_id: int) -> Tuple[int, int, int]:
         """
@@ -245,16 +415,17 @@ class LED:
                 f"Invalid animation mode '{mode}'. Valid modes: {', '.join(self.VALID_MODES)}"
             )
 
-        led_path = self._get_led_path(led_id)
+        with self._lock:
+            led_path = self._get_led_path(led_id)
 
-        # Set timing if provided
-        if timing is not None:
-            # Find nearest valid timing value
-            nearest_timing = min(self.VALID_TIMINGS, key=lambda x: abs(x - timing))
-            self._write_sysfs_file(led_path / "timing", str(nearest_timing))
+            # Set timing if provided
+            if timing is not None:
+                # Find nearest valid timing value
+                nearest_timing = min(self.VALID_TIMINGS, key=lambda x: abs(x - timing))
+                self._write_sysfs_file(led_path / "timing", str(nearest_timing))
 
-        # Set animation mode
-        self._write_sysfs_file(led_path / "mode", mode)
+            # Set animation mode
+            self._write_sysfs_file(led_path / "mode", mode)
 
     def get_animation_mode(self, led_id: int) -> Tuple[str, int]:
         """
@@ -308,8 +479,9 @@ class LED:
             Use get_available_triggers() to see all available triggers for a LED.
             Set trigger to "none" to return to manual color/animation control.
         """
-        led_path = self._get_led_path(led_id)
-        self._write_sysfs_file(led_path / "trigger", trigger)
+        with self._lock:
+            led_path = self._get_led_path(led_id)
+            self._write_sysfs_file(led_path / "trigger", trigger)
 
     def get_trigger(self, led_id: int) -> str:
         """
@@ -383,8 +555,9 @@ class LED:
         if not 0 <= brightness <= 255:
             raise LEDError(f"Brightness {brightness} out of range (0-255)")
 
-        led_path = self._get_led_path(led_id)
-        self._write_sysfs_file(led_path / "brightness", str(brightness))
+        with self._lock:
+            led_path = self._get_led_path(led_id)
+            self._write_sysfs_file(led_path / "brightness", str(brightness))
 
     def get_brightness(self, led_id: int) -> int:
         """
@@ -582,6 +755,15 @@ class LED:
             return True
         except LEDError:
             return False
+
+    def __enter__(self):
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager and turn off all LEDs."""
+        self.turn_off_all()
+        return False
 
 
 # Convenience function for quick LED access with sudo

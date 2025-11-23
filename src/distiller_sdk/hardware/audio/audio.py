@@ -10,11 +10,8 @@ import subprocess
 import threading
 from typing import Optional, Union, Callable, BinaryIO
 
-
-class AudioError(Exception):
-    """Custom exception for Audio-related errors."""
-
-    pass
+from distiller_sdk.exceptions import AudioError
+from distiller_sdk.hardware_status import HardwareStatus, HardwareState
 
 
 class Audio:
@@ -61,6 +58,152 @@ class Audio:
     def has_audio_controls() -> bool:
         """Check if this system has the PamirAI soundcard controls."""
         return os.path.exists(Audio.MIC_GAIN_PATH) and os.path.exists(Audio.SPEAKER_VOLUME_PATH)
+
+    @staticmethod
+    def get_status() -> HardwareStatus:
+        """Get detailed audio hardware status without initializing.
+
+        This method probes audio hardware availability and capabilities without
+        creating an Audio instance or modifying system state. It never raises
+        exceptions - all errors are captured in the returned status.
+
+        Returns:
+            HardwareStatus: Detailed hardware status with capabilities and diagnostics
+
+        Example:
+            >>> status = Audio.get_status()
+            >>> if status.available:
+            ...     print(f"Audio ready: {status.message}")
+            ...     if status.capabilities.get('input'):
+            ...         audio = Audio()
+            ...         audio.record("output.wav")
+            >>> else:
+            ...     print(f"Audio unavailable: {status.message}")
+            ...     if status.error:
+            ...         print(f"Error: {status.error}")
+        """
+        capabilities = {}
+        diagnostic_info = {}
+        error = None
+
+        try:
+            # Check for arecord (input)
+            has_input = False
+            try:
+                result = subprocess.run(
+                    ["arecord", "-l"], capture_output=True, check=False, timeout=5
+                )
+                has_input = result.returncode == 0 and b"card" in result.stdout
+                if has_input:
+                    diagnostic_info["input_devices"] = result.stdout.decode(
+                        "utf-8", errors="ignore"
+                    )
+            except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+                error = e
+
+            # Check for aplay (output)
+            has_output = False
+            try:
+                result = subprocess.run(
+                    ["aplay", "-l"], capture_output=True, check=False, timeout=5
+                )
+                has_output = result.returncode == 0 and b"card" in result.stdout
+                if has_output:
+                    diagnostic_info["output_devices"] = result.stdout.decode(
+                        "utf-8", errors="ignore"
+                    )
+            except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+                if error is None:
+                    error = e
+
+            # Check for volume controls
+            has_volume_control = Audio.has_audio_controls()
+
+            # Set capabilities
+            capabilities["input"] = has_input
+            capabilities["output"] = has_output
+            capabilities["volume_control"] = has_volume_control
+
+            # Determine state and message
+            if has_input and has_output:
+                return HardwareStatus(
+                    state=HardwareState.AVAILABLE,
+                    available=True,
+                    capabilities=capabilities,
+                    error=None,
+                    diagnostic_info=diagnostic_info,
+                    message="Audio hardware fully available (input and output)",
+                )
+            elif has_input or has_output:
+                available_features = []
+                if has_input:
+                    available_features.append("input")
+                if has_output:
+                    available_features.append("output")
+                return HardwareStatus(
+                    state=HardwareState.PARTIALLY_AVAILABLE,
+                    available=True,
+                    capabilities=capabilities,
+                    error=None,
+                    diagnostic_info=diagnostic_info,
+                    message=f"Audio partially available ({', '.join(available_features)} only)",
+                )
+            else:
+                return HardwareStatus(
+                    state=HardwareState.UNAVAILABLE,
+                    available=False,
+                    capabilities=capabilities,
+                    error=error,
+                    diagnostic_info=diagnostic_info,
+                    message="No audio devices found - ALSA tools may not be installed",
+                )
+
+        except FileNotFoundError as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info={},
+                message="ALSA tools not installed (arecord/aplay not found)",
+            )
+        except PermissionError as e:
+            return HardwareStatus(
+                state=HardwareState.PERMISSION_DENIED,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info={"required_group": "audio"},
+                message="Permission denied - add user to audio group",
+            )
+        except Exception as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info={},
+                message=f"Error detecting audio hardware: {str(e)}",
+            )
+
+    @staticmethod
+    def is_available() -> bool:
+        """Quick check if audio hardware is available.
+
+        This is a convenience method that returns the available flag from get_status().
+        Use get_status() for detailed information about capabilities and errors.
+
+        Returns:
+            bool: True if audio hardware is available (at least input or output)
+
+        Example:
+            >>> if Audio.is_available():
+            ...     audio = Audio()
+            ...     audio.record("output.wav")
+            ... else:
+            ...     print("Audio hardware not available")
+        """
+        return Audio.get_status().available
 
     def __init__(
         self,
