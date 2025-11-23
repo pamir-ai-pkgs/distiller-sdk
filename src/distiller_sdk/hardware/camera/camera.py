@@ -11,12 +11,12 @@ import os
 import time
 import subprocess
 import threading
-import cv2  # type: ignore
+import cv2
 import numpy as np
 import tempfile
 import shutil
 import logging
-from typing import Optional, Tuple, Union, List, Callable
+from typing import Optional, Tuple, Union, List, Callable, Dict, Any, Literal, cast
 
 from distiller_sdk.exceptions import CameraError
 from distiller_sdk.hardware_status import HardwareStatus, HardwareState
@@ -63,11 +63,11 @@ class Camera:
         self.framerate = framerate
         self.rotation = rotation
         self.format = format.lower()
-        self._camera = None
+        self._camera: Optional[cv2.VideoCapture] = None
         self._is_streaming = False
         self._stream_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
-        self._frame = None
+        self._frame: Optional[np.ndarray[Any, Any]] = None
         self._frame_lock = threading.Lock()
 
         # Supported formats
@@ -115,8 +115,8 @@ class Camera:
             >>> else:
             ...     print(f"Camera unavailable: {status.message}")
         """
-        capabilities = {}
-        diagnostic_info = {}
+        capabilities: Dict[str, Any] = {}
+        diagnostic_info: Dict[str, Any] = {}
 
         try:
             # Check for rpicam-still availability
@@ -328,7 +328,7 @@ class Camera:
 
         return True
 
-    def _init_camera(self):
+    def _init_camera(self) -> None:
         """Initialize camera using rpicam CLI tools."""
         # For OpenCV fallback (not primary capture method but used for setting adjustments)
         self._camera = cv2.VideoCapture(0)
@@ -365,7 +365,7 @@ class Camera:
         except Exception as e:
             raise CameraError(f"Failed to initialize camera: {str(e)}")
 
-    def start_stream(self, callback: Optional[Callable] = None) -> None:
+    def start_stream(self, callback: Optional[Callable[[Any], None]] = None) -> None:
         """
         Start streaming video from the camera.
 
@@ -382,7 +382,7 @@ class Camera:
         self._is_streaming = True
 
         # Use rpicam-still streaming
-        def stream_thread_func():
+        def stream_thread_func() -> None:
             while not self._stop_event.is_set():
                 try:
                     # Capture using rpicam-still
@@ -454,7 +454,7 @@ class Camera:
         self._is_streaming = False
         logger.info("Camera streaming stopped")
 
-    def get_frame(self) -> np.ndarray:
+    def get_frame(self) -> np.ndarray[Any, Any]:
         """
         Get the latest frame from the camera.
 
@@ -507,7 +507,7 @@ class Camera:
                 with self._frame_lock:
                     self._frame = frame
 
-                return frame
+                return cast(np.ndarray[Any, Any], frame)
 
         # Get the latest frame from the stream
         with self._frame_lock:
@@ -515,7 +515,7 @@ class Camera:
                 raise CameraError("No frame available")
             return self._frame.copy()
 
-    def capture_image(self, filepath: Optional[str] = None) -> np.ndarray:
+    def capture_image(self, filepath: Optional[str] = None) -> np.ndarray[Any, Any]:
         """
         Capture a still image from the camera.
 
@@ -564,7 +564,7 @@ class Camera:
             elif self.format == "gray":
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            return frame
+            return cast(np.ndarray[Any, Any], frame)
         else:
             # If no filepath is provided, use get_frame
             return self.get_frame()
@@ -609,7 +609,7 @@ class Camera:
             raise CameraError(f"Unknown setting: {setting}")
 
         prop_id = setting_mapping[setting.lower()]
-        success = self._camera.set(prop_id, value)
+        success = bool(self._camera.set(prop_id, value))
 
         if not success:
             logger.warning(f"Setting {setting} may not have effect with rpicam-still capture")
@@ -656,7 +656,7 @@ class Camera:
         prop_id = setting_mapping[setting.lower()]
         value = self._camera.get(prop_id)
 
-        return value
+        return float(value) if isinstance(value, (int, float)) else float(value)
 
     def get_available_settings(self) -> List[str]:
         """
@@ -682,7 +682,7 @@ class Camera:
             "sharpness",
         ]
 
-    def close(self):
+    def close(self) -> None:
         """Release camera resources."""
         if self._is_streaming:
             self.stop_stream()
@@ -693,11 +693,19 @@ class Camera:
 
         logger.info("Camera closed")
 
-    def __enter__(self):
+    def __enter__(self) -> "Camera":
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> Literal[False]:
         """Exit context manager and cleanup resources."""
         self.close()
         return False
+
+
+__all__ = ["Camera", "CameraError"]

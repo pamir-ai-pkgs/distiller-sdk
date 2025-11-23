@@ -1,15 +1,15 @@
 import os
 import io
 import time
-from typing import Generator, Optional
+from typing import Generator, Optional, Dict, Any, Literal
 import logging
-import pyaudio  # type: ignore
+import pyaudio
 import wave
 import threading
-import sherpa_onnx  # type: ignore
+import sherpa_onnx
 import numpy as np
-import soundfile as sf  # type: ignore
-import sounddevice as sd  # type: ignore
+import soundfile as sf
+import sounddevice as sd
 
 from distiller_sdk.hardware.audio.audio import Audio
 from distiller_sdk import get_model_path
@@ -31,8 +31,8 @@ class Parakeet:
 
     def __init__(
         self,
-        model_config=None,
-        audio_config=None,
+        model_config: Optional[Dict[str, Any]] = None,
+        audio_config: Optional[Dict[str, Any]] = None,
         vad_silence_duration: float = 1.0,
         configure_audio: bool = True,
     ) -> None:
@@ -73,7 +73,7 @@ class Parakeet:
         self._audio_frames: list[bytes] = []
         self._audio_thread: Optional[threading.Thread] = None
         self._pyaudio: Optional[pyaudio.PyAudio] = None
-        self._stream: Optional[pyaudio.Stream] = None  # type: ignore
+        self._stream: Any = None
 
         # Thread safety lock
         self._lock = threading.Lock()
@@ -100,8 +100,8 @@ class Parakeet:
             >>> else:
             ...     print(f"Parakeet unavailable: {status.message}")
         """
-        capabilities = {}
-        diagnostic_info = {}
+        capabilities: Dict[str, Any] = {}
+        diagnostic_info: Dict[str, Any] = {}
 
         try:
             if model_path is None:
@@ -143,8 +143,10 @@ class Parakeet:
                 )
 
             # ASR model available
-            capabilities["asr_available"] = True
-            capabilities["model_type"] = "nemo_transducer"
+            capabilities = {
+                "asr_available": True,
+                "model_type": "nemo_transducer",
+            }
             diagnostic_info["model_files"] = required_files
 
             # Check for optional VAD model
@@ -205,7 +207,7 @@ class Parakeet:
         """
         return Parakeet.get_status(model_path=model_path).available
 
-    def load_vad_model(self) -> Optional[sherpa_onnx.VoiceActivityDetector]:  # type: ignore
+    def load_vad_model(self) -> Any:
         logging.info(f"Loading VAD Model from {self.model_config['model_path']}")
         required_files = ["silero_vad.onnx"]
         missing_files = [
@@ -234,7 +236,7 @@ class Parakeet:
             logging.error("VAD Model is not ready")
             return None
 
-    def load_model(self) -> sherpa_onnx.OfflineRecognizer:  # type: ignore
+    def load_model(self) -> Any:
         logging.info(f"Loading Parakeet Model from {self.model_config['model_path']}")
 
         required_files = ["encoder.onnx", "decoder.onnx", "joiner.onnx", "tokens.txt"]
@@ -317,7 +319,7 @@ class Parakeet:
         )
         yield result
 
-    def _init_audio(self):
+    def _init_audio(self) -> None:
         """Initialize PyAudio instance and get device info if needed"""
         if self._pyaudio is None:
             self._pyaudio = pyaudio.PyAudio()
@@ -326,8 +328,11 @@ class Parakeet:
         input_devices = []
         for i in range(self._pyaudio.get_device_count()):
             device_info = self._pyaudio.get_device_info_by_index(i)
-            if device_info["maxInputChannels"] > 0:
-                input_devices.append((i, device_info["name"]))
+            max_input_channels = device_info["maxInputChannels"]
+            if isinstance(max_input_channels, int) and max_input_channels > 0:
+                device_name = device_info["name"]
+                if isinstance(device_name, str):
+                    input_devices.append((i, device_name))
 
         if not input_devices:
             raise Exception(
@@ -339,10 +344,11 @@ class Parakeet:
         )
 
         # If a specific device name was provided, find its index
-        if isinstance(self.audio_config["device"], str):
+        device_config = self.audio_config["device"]
+        if isinstance(device_config, str):
             device_index = None
             for i, name in input_devices:
-                if self.audio_config["device"] in name:
+                if device_config in name:
                     device_index = i
                     break
             if device_index is None:
@@ -360,12 +366,13 @@ class Parakeet:
                 self.audio_config["device"] = input_devices[0][0]
                 logging.info(f"No default device, using first available: {input_devices[0][1]}")
 
-    def _recording_thread(self):
+    def _recording_thread(self) -> None:
         """Thread function for audio recording"""
         while self._is_recording:
             try:
-                data = self._stream.read(self.audio_config["chunk"])
-                self._audio_frames.append(data)
+                if self._stream is not None:
+                    data = self._stream.read(self.audio_config["chunk"])
+                    self._audio_frames.append(data)
             except Exception as e:
                 logging.error(f"Error recording audio: {e}")
                 break
@@ -454,11 +461,16 @@ class Parakeet:
             self._pyaudio.terminate()
             self._pyaudio = None
 
-    def __enter__(self):
+    def __enter__(self) -> "Parakeet":
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> Literal[False]:
         """Exit context manager and cleanup resources."""
         self.cleanup()
         return False
@@ -525,7 +537,7 @@ class Parakeet:
                 )
                 return
 
-        _buffer = []
+        _buffer: Any = np.array([], dtype=np.float32)
         with sd.InputStream(channels=1, dtype="float32", samplerate=self.audio_config["rate"]) as s:
             while True:
                 _samples, _ = s.read(int(0.1 * self.audio_config["rate"]))
@@ -533,9 +545,10 @@ class Parakeet:
 
                 _buffer = np.concatenate([_buffer, _samples])
 
-                while len(_buffer) > self.vad_windows_size:
-                    self.vad_model.accept_waveform(_buffer[: self.vad_windows_size])
-                    _buffer = _buffer[self.vad_windows_size :]
+                if self.vad_windows_size is not None:
+                    while len(_buffer) > self.vad_windows_size:
+                        self.vad_model.accept_waveform(_buffer[: self.vad_windows_size])
+                        _buffer = _buffer[self.vad_windows_size :]
 
                 while not self.vad_model.empty():
                     _stream = self.recognizer.create_stream()
@@ -548,19 +561,26 @@ class Parakeet:
 
 
 class suppress_stdout_stderr(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]
         self.save_fds = (os.dup(1), os.dup(2))
 
-    def __enter__(self):
+    def __enter__(self) -> "suppress_stdout_stderr":
         os.dup2(self.null_fds[0], 1)
         os.dup2(self.null_fds[1], 2)
+        return self
 
-    def __exit__(self, *_):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> Literal[False]:
         os.dup2(self.save_fds[0], 1)
         os.dup2(self.save_fds[1], 2)
         os.close(self.null_fds[0])
         os.close(self.null_fds[1])
+        return False
 
 
 if __name__ == "__main__":
@@ -607,3 +627,6 @@ if __name__ == "__main__":
 
     # for text in parakeet.auto_record_and_transcribe():
     #     print(f"Transcribed: {text}")
+
+
+__all__ = ["Parakeet"]

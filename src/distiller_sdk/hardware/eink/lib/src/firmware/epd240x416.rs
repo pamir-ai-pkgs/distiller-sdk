@@ -12,7 +12,7 @@ pub struct EPD240x416Firmware {
     lut_4g: [u8; 216],
     /// VCOM LUT for partial updates
     lut_vcom: [u8; 42],
-    /// WW LUT for partial updates  
+    /// WW LUT for partial updates
     lut_ww: [u8; 42],
     /// BW LUT for partial updates
     lut_bw: [u8; 42],

@@ -4,11 +4,12 @@ import sys
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any, TYPE_CHECKING
+from typing import Dict, Any, TYPE_CHECKING, Optional
 
 from .composer import EinkComposer
 
 # Try to import hardware display support
+HARDWARE_AVAILABLE = False
 if TYPE_CHECKING:
     from distiller_sdk.hardware.eink import Display, DisplayMode, ScalingMethod, DitheringMethod
 else:
@@ -25,7 +26,7 @@ else:
         DitheringMethod = None  # type: ignore
 
 
-def create_parser():
+def create_parser() -> argparse.ArgumentParser:
     """Create command line argument parser."""
     parser = argparse.ArgumentParser(
         description="E-ink display image composer - Create layered templates for e-ink displays",
@@ -261,12 +262,12 @@ Examples:
 class ComposerSession:
     """Manage composer state between commands."""
 
-    def __init__(self):
-        self.composer = None
+    def __init__(self) -> None:
+        self.composer: Optional[EinkComposer] = None
         self.session_file = Path.home() / ".eink_composer_session.json"
         self.load_session()
 
-    def ensure_composer(self, default_width=250, default_height=128):
+    def ensure_composer(self, default_width: int = 250, default_height: int = 128) -> None:
         """Ensure a composer exists, creating a default one if needed. Default is 250×128 landscape for EPD128x250."""
         if not self.composer:
             print(
@@ -276,7 +277,7 @@ class ComposerSession:
             self.save_session()
             print(f"✓ Created default {default_width}x{default_height} composition")
 
-    def load_session(self):
+    def load_session(self) -> None:
         """Load session from file."""
         if self.session_file.exists():
             try:
@@ -290,7 +291,7 @@ class ComposerSession:
                 print(f"Warning: Could not load session: {e}", file=sys.stderr)
                 self.composer = None
 
-    def save_session(self):
+    def save_session(self) -> None:
         """Save session to file."""
         if self.composer:
             data = {
@@ -301,8 +302,10 @@ class ComposerSession:
             with open(self.session_file, "w") as f:
                 json.dump(data, f, indent=2)
 
-    def _restore_layer(self, layer_data: Dict[str, Any]):
+    def _restore_layer(self, layer_data: Dict[str, Any]) -> None:
         """Restore a layer from saved data."""
+        if self.composer is None:
+            return
         layer_type = layer_data["type"]
         layer_id = layer_data["id"]
 
@@ -353,7 +356,7 @@ class ComposerSession:
             self.composer.toggle_layer(layer_id)
 
 
-def main():
+def main() -> None:
     """Main CLI entry point."""
     parser = create_parser()
     args = parser.parse_args()
@@ -383,6 +386,7 @@ def main():
 
     elif args.command == "add-image":
         session.ensure_composer()
+        assert session.composer is not None
 
         session.composer.add_image_layer(
             layer_id=args.layer_id,
@@ -406,6 +410,7 @@ def main():
 
     elif args.command == "add-text":
         session.ensure_composer()
+        assert session.composer is not None
 
         session.composer.add_text_layer(
             layer_id=args.layer_id,
@@ -425,6 +430,7 @@ def main():
 
     elif args.command == "add-rect":
         session.ensure_composer()
+        assert session.composer is not None
 
         session.composer.add_rectangle_layer(
             layer_id=args.layer_id,
@@ -440,6 +446,7 @@ def main():
 
     elif args.command == "remove":
         session.ensure_composer()
+        assert session.composer is not None
 
         session.composer.remove_layer(args.layer_id)
         session.save_session()
@@ -447,6 +454,7 @@ def main():
 
     elif args.command == "toggle":
         session.ensure_composer()
+        assert session.composer is not None
 
         session.composer.toggle_layer(args.layer_id)
         session.save_session()
@@ -473,6 +481,7 @@ def main():
 
     elif args.command == "list":
         session.ensure_composer()
+        assert session.composer is not None
 
         layers = session.composer.get_layer_info()
         if not layers:
@@ -495,6 +504,7 @@ def main():
 
     elif args.command == "render":
         session.ensure_composer()
+        assert session.composer is not None
 
         render_kwargs = {
             "background_color": args.bg_color,
@@ -507,6 +517,7 @@ def main():
 
     elif args.command == "save":
         session.ensure_composer()
+        assert session.composer is not None
 
         data = {
             "width": session.composer.width,
@@ -524,11 +535,19 @@ def main():
             with open(args.filename) as f:
                 data = json.load(f)
 
-            session.composer = EinkComposer(data["width"], data["height"])
+            # Extract and validate width and height
+            width_val = data["width"]
+            height_val = data["height"]
+            width = int(width_val) if isinstance(width_val, (int, str)) else 0
+            height = int(height_val) if isinstance(height_val, (int, str)) else 0
+
+            session.composer = EinkComposer(width, height)
 
             # Restore layers
-            for layer_data in data.get("layers", []):
-                session._restore_layer(layer_data)
+            layers_data = data.get("layers", [])
+            if isinstance(layers_data, list):
+                for layer_data in layers_data:
+                    session._restore_layer(layer_data)
 
             session.save_session()
             print(f"Loaded composition from {args.filename}")
@@ -548,6 +567,7 @@ def main():
             sys.exit(1)
 
         session.ensure_composer()
+        assert session.composer is not None
 
         try:
             # Initialize display
@@ -642,6 +662,13 @@ def main():
         except Exception as e:
             print(f"Error with hardware control: {e}", file=sys.stderr)
             sys.exit(1)
+
+
+__all__ = [
+    "create_parser",
+    "ComposerSession",
+    "main",
+]
 
 
 if __name__ == "__main__":

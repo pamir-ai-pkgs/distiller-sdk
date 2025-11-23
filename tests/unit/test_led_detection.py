@@ -2,6 +2,8 @@
 
 import pytest
 from pathlib import Path
+from typing import Any
+
 from distiller_sdk.hardware.sam import LED
 from distiller_sdk.hardware_status import HardwareStatus, HardwareState
 
@@ -9,7 +11,7 @@ from distiller_sdk.hardware_status import HardwareStatus, HardwareState
 class TestLEDDetection:
     """Tests for LED.get_status() and LED.is_available()."""
 
-    def test_get_status_returns_hardware_status(self, mock_led_hardware):
+    def test_get_status_returns_hardware_status(self, mock_led_hardware: Path) -> None:
         """Test that get_status returns HardwareStatus object."""
         status = LED.get_status()
 
@@ -21,23 +23,24 @@ class TestLEDDetection:
         assert hasattr(status, "diagnostic_info")
         assert hasattr(status, "message")
 
-    def test_get_status_available_hardware(self, mock_led_hardware):
+    def test_get_status_available_hardware(self, mock_led_hardware: Path) -> None:
         """Test get_status when LED hardware is available."""
         status = LED.get_status()
 
         assert status.state == HardwareState.AVAILABLE
         assert status.available is True
-        assert status.capabilities.get("led_count") is not None
-        assert status.capabilities.get("led_count") > 0
+        led_count = status.capabilities.get("led_count")
+        assert led_count is not None
+        assert led_count > 0
         assert status.error is None
         assert "available" in status.message.lower()
 
-    def test_get_status_unavailable_no_sysfs(self, monkeypatch):
+    def test_get_status_unavailable_no_sysfs(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test get_status when sysfs interface is not available."""
         # Mock Path.exists to return False for /sys/class/leds
         original_exists = Path.exists
 
-        def mock_exists(self):
+        def mock_exists(self: Any) -> bool:
             if str(self) == "/sys/class/leds":
                 return False
             return original_exists(self)
@@ -53,7 +56,9 @@ class TestLEDDetection:
         # Message should indicate sysfs not found
         assert "sysfs" in status.message.lower() or "not found" in status.message.lower()
 
-    def test_get_status_no_leds_detected(self, monkeypatch, tmp_path):
+    def test_get_status_no_leds_detected(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
         """Test get_status when no LEDs are detected."""
         # Create empty LED directory
         led_base = tmp_path / "sys" / "class" / "leds"
@@ -69,7 +74,7 @@ class TestLEDDetection:
             "not" in status.message.lower() or "no" in status.message.lower()
         )
 
-    def test_get_status_includes_capabilities(self, mock_led_hardware):
+    def test_get_status_includes_capabilities(self, mock_led_hardware: Path) -> None:
         """Test that get_status includes LED capabilities."""
         status = LED.get_status()
 
@@ -79,7 +84,7 @@ class TestLEDDetection:
         # Should support RGB control
         assert status.capabilities["rgb_support"] is True
 
-    def test_get_status_includes_diagnostic_info(self, mock_led_hardware):
+    def test_get_status_includes_diagnostic_info(self, mock_led_hardware: Path) -> None:
         """Test that get_status includes diagnostic information."""
         status = LED.get_status()
 
@@ -92,22 +97,22 @@ class TestLEDDetection:
         )
         assert has_info
 
-    def test_is_available_returns_bool(self, mock_led_hardware):
+    def test_is_available_returns_bool(self, mock_led_hardware: Path) -> None:
         """Test that is_available returns a boolean."""
         result = LED.is_available()
 
         assert isinstance(result, bool)
 
-    def test_is_available_true_when_hardware_present(self, mock_led_hardware):
+    def test_is_available_true_when_hardware_present(self, mock_led_hardware: Path) -> None:
         """Test is_available returns True when hardware is present."""
         assert LED.is_available() is True
 
-    def test_is_available_false_when_hardware_absent(self, monkeypatch):
+    def test_is_available_false_when_hardware_absent(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test is_available returns False when hardware is absent."""
         # Mock Path.exists to return False
         original_exists = Path.exists
 
-        def mock_exists(self):
+        def mock_exists(self: Any) -> bool:
             if str(self) == "/sys/class/leds":
                 return False
             return original_exists(self)
@@ -116,14 +121,14 @@ class TestLEDDetection:
 
         assert LED.is_available() is False
 
-    def test_is_available_consistent_with_get_status(self, mock_led_hardware):
+    def test_is_available_consistent_with_get_status(self, mock_led_hardware: Path) -> None:
         """Test that is_available matches get_status().available."""
         status = LED.get_status()
         is_available = LED.is_available()
 
         assert is_available == status.available
 
-    def test_get_status_does_not_initialize_hardware(self, mock_led_hardware):
+    def test_get_status_does_not_initialize_hardware(self, mock_led_hardware: Path) -> None:
         """Test that get_status does not initialize hardware."""
         # get_status should be a pure detection function
         status = LED.get_status()
@@ -132,7 +137,7 @@ class TestLEDDetection:
         assert status is not None
         # Should not have side effects
 
-    def test_is_available_does_not_initialize_hardware(self, mock_led_hardware):
+    def test_is_available_does_not_initialize_hardware(self, mock_led_hardware: Path) -> None:
         """Test that is_available does not initialize hardware."""
         # is_available should be a pure detection function
         result = LED.is_available()
@@ -141,12 +146,12 @@ class TestLEDDetection:
         assert isinstance(result, bool)
         # Should not have side effects
 
-    def test_get_status_no_exceptions_on_failure(self, monkeypatch):
+    def test_get_status_no_exceptions_on_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that get_status does not raise exceptions."""
         # Should never raise, always returns HardwareStatus
         original_exists = Path.exists
 
-        def mock_exists(self):
+        def mock_exists(self: Any) -> bool:
             if str(self) == "/sys/class/leds":
                 return False
             return original_exists(self)
@@ -158,12 +163,12 @@ class TestLEDDetection:
         assert isinstance(status, HardwareStatus)
         assert status.available is False
 
-    def test_is_available_no_exceptions_on_failure(self, monkeypatch):
+    def test_is_available_no_exceptions_on_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that is_available does not raise exceptions."""
         # Should never raise, always returns bool
         original_exists = Path.exists
 
-        def mock_exists(self):
+        def mock_exists(self: Any) -> bool:
             if str(self) == "/sys/class/leds":
                 return False
             return original_exists(self)
@@ -183,10 +188,12 @@ class TestLEDDetection:
             OSError("I/O error"),
         ],
     )
-    def test_get_status_handles_various_errors(self, monkeypatch, error_type):
+    def test_get_status_handles_various_errors(
+        self, monkeypatch: pytest.MonkeyPatch, error_type: Any
+    ) -> None:
         """Test that get_status handles various error conditions."""
 
-        def mock_exists(self):
+        def mock_exists(self: Any) -> bool:
             raise error_type
 
         monkeypatch.setattr(Path, "exists", mock_exists)
@@ -199,10 +206,10 @@ class TestLEDDetection:
         # Error should be captured in status
         assert isinstance(status.error, (FileNotFoundError, PermissionError, OSError))
 
-    def test_get_status_permission_denied_state(self, monkeypatch):
+    def test_get_status_permission_denied_state(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that permission errors result in PERMISSION_DENIED state."""
 
-        def mock_exists(self):
+        def mock_exists(self: Any) -> bool:
             if str(self) == "/sys/class/leds":
                 raise PermissionError("Permission denied accessing sysfs")
             return True
@@ -216,7 +223,7 @@ class TestLEDDetection:
         assert isinstance(status.error, PermissionError)
         assert "permission" in status.message.lower()
 
-    def test_get_status_detects_multiple_leds(self, tmp_path):
+    def test_get_status_detects_multiple_leds(self, tmp_path: Any) -> None:
         """Test that get_status detects multiple LEDs."""
         # Create LED directory structure with multiple LEDs
         led_base = tmp_path / "sys" / "class" / "leds"
@@ -242,7 +249,7 @@ class TestLEDDetection:
         assert 1 in status.capabilities.get("available_leds", [])
         assert 2 in status.capabilities.get("available_leds", [])
 
-    def test_get_status_detects_animation_support(self, tmp_path):
+    def test_get_status_detects_animation_support(self, tmp_path: Any) -> None:
         """Test that get_status detects animation mode support."""
         # Create LED directory with animation support
         led_base = tmp_path / "sys" / "class" / "leds"
@@ -264,7 +271,7 @@ class TestLEDDetection:
         # Should detect animation support
         assert status.capabilities.get("animation_support") is True
 
-    def test_get_status_detects_trigger_support(self, tmp_path):
+    def test_get_status_detects_trigger_support(self, tmp_path: Any) -> None:
         """Test that get_status detects trigger support."""
         # Create LED directory with trigger support
         led_base = tmp_path / "sys" / "class" / "leds"

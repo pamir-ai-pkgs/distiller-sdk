@@ -1,5 +1,5 @@
 import numpy as np
-import cv2  # type: ignore
+import cv2
 from typing import List, Dict, Optional, Literal, Any
 from dataclasses import dataclass, field
 
@@ -25,7 +25,7 @@ class ImageLayer(Layer):
 
     type: str = field(default="image", init=False)
     image_path: Optional[str] = None
-    image_data: Optional[np.ndarray] = None
+    image_data: Optional[np.ndarray[Any, Any]] = None
     resize_mode: Literal["stretch", "fit", "crop"] = "fit"
     dither_mode: Literal["floyd-steinberg", "threshold", "none"] = "floyd-steinberg"
     brightness: float = 1.0
@@ -227,7 +227,7 @@ class EinkComposer:
         self.layers = [layer for layer in self.layers if layer.id != layer_id]
         return True
 
-    def update_layer(self, layer_id: str, **kwargs) -> bool:
+    def update_layer(self, layer_id: str, **kwargs: Any) -> bool:
         """Update layer properties."""
         for layer in self.layers:
             if layer.id == layer_id:
@@ -309,19 +309,21 @@ class EinkComposer:
 
         return True
 
-    def _render_image_layer(self, layer: ImageLayer):
+    def _render_image_layer(self, layer: ImageLayer) -> None:
         """Render an image layer to canvas."""
         if not layer.visible:
             return
 
         # Load image
+        img: np.ndarray[Any, Any]
         if layer.image_data is not None:
             img = layer.image_data
         elif layer.image_path:
             # Use OpenCV to load image in grayscale
-            img = cv2.imread(layer.image_path, cv2.IMREAD_GRAYSCALE)
-            if img is None:
+            img_loaded = cv2.imread(layer.image_path, cv2.IMREAD_GRAYSCALE)
+            if img_loaded is None:
                 return  # Failed to load image
+            img = img_loaded
         else:
             return
 
@@ -382,7 +384,7 @@ class EinkComposer:
                 : y_end - int(layer.y), : x_end - int(layer.x)
             ]
 
-    def _render_text_layer(self, layer: TextLayer):
+    def _render_text_layer(self, layer: TextLayer) -> None:
         """Render a text layer to canvas."""
         if not layer.visible or not layer.text:
             return
@@ -402,7 +404,9 @@ class EinkComposer:
             bg_height = text_height
 
         # Create a temporary canvas for text + background
-        temp_canvas = np.full((bg_height, bg_width), 255, dtype=np.uint8)  # White background
+        temp_canvas: np.ndarray[Any, Any] = np.full(
+            (bg_height, bg_width), 255, dtype=np.uint8
+        )  # White background
 
         # Render background if enabled
         if layer.background:
@@ -421,7 +425,7 @@ class EinkComposer:
         if layer.flip_h:
             temp_canvas = flip_horizontal(temp_canvas)
         if layer.flip_v:
-            temp_canvas = np.flipud(temp_canvas)  # Vertical flip using numpy
+            temp_canvas = np.flipud(temp_canvas).astype(np.uint8)  # Vertical flip using numpy
 
         # Apply rotation if needed
         if layer.rotate != 0:
@@ -448,7 +452,7 @@ class EinkComposer:
                     : y_end - int(layer.y), : x_end - int(layer.x)
                 ][mask]
 
-    def _render_rectangle_layer(self, layer: RectangleLayer):
+    def _render_rectangle_layer(self, layer: RectangleLayer) -> None:
         """Render a rectangle layer to canvas."""
         if not layer.visible:
             return
@@ -475,7 +479,7 @@ class EinkComposer:
         background_color: int = 255,
         final_dither: Optional[Literal["floyd-steinberg", "threshold"]] = None,
         transformations: Optional[List[Literal["flip-h", "flip-v", "rotate-90", "invert"]]] = None,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Render all layers to create final image.
 
@@ -523,7 +527,7 @@ class EinkComposer:
 
         return result
 
-    def render_binary(self, **kwargs) -> bytes:
+    def render_binary(self, **kwargs: Any) -> bytes:
         """
         Render and return as packed binary data.
 
@@ -533,7 +537,9 @@ class EinkComposer:
         img = self.render(**kwargs)
         return pack_bits(img)
 
-    def save(self, filename: str, format: Literal["png", "binary", "bmp"] = "png", **render_kwargs):
+    def save(
+        self, filename: str, format: Literal["png", "binary", "bmp"] = "png", **render_kwargs: Any
+    ) -> None:
         """
         Save rendered image to file.
 
@@ -620,3 +626,12 @@ class EinkComposer:
             info.append(layer_info)
 
         return info
+
+
+__all__ = [
+    "Layer",
+    "ImageLayer",
+    "TextLayer",
+    "RectangleLayer",
+    "EinkComposer",
+]

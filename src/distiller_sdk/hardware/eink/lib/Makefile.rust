@@ -38,7 +38,7 @@ endif
 	@echo "Library built successfully: $@"
 
 # Check if rebuild is needed (useful for debugging)
-check-rebuild: 
+check-rebuild:
 	@if [ ! -f libdistiller_display_sdk_shared.so ]; then \
 		echo "Library does not exist, rebuild needed"; \
 	elif [ -n "$$(find src -name '*.rs' -newer libdistiller_display_sdk_shared.so 2>/dev/null)" ]; then \

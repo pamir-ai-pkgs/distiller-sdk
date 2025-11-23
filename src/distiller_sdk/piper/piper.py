@@ -3,7 +3,7 @@ import os
 import logging
 import re
 import tempfile
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any, Literal
 
 from distiller_sdk.hardware.audio.audio import Audio
 from distiller_sdk import get_model_path
@@ -25,7 +25,12 @@ class Piper:
                         If True, sets speaker volume to 30 for optimal TTS
     """
 
-    def __init__(self, model_path=None, piper_path=None, configure_audio: bool = True):
+    def __init__(
+        self,
+        model_path: Optional[str] = None,
+        piper_path: Optional[str] = None,
+        configure_audio: bool = True,
+    ) -> None:
         logger.info("Piper: Initializing Piper")
 
         # Configure audio with recommended settings if requested
@@ -82,8 +87,8 @@ class Piper:
             >>> else:
             ...     print(f"Piper unavailable: {status.message}")
         """
-        capabilities = {}
-        diagnostic_info = {}
+        capabilities: Dict[str, Any] = {}
+        diagnostic_info: Dict[str, Any] = {}
 
         try:
             if model_path is None:
@@ -339,7 +344,8 @@ class Piper:
             )
 
             # Close piper stdout in parent to allow piper to receive SIGPIPE if aplay exits
-            piper_process.stdout.close()
+            if piper_process.stdout is not None:
+                piper_process.stdout.close()
 
             # Send text to piper and wait for completion
             piper_stdout, piper_stderr = piper_process.communicate(input=text)
@@ -347,25 +353,39 @@ class Piper:
 
             # Check for errors
             if piper_process.returncode != 0:
-                logger.error(f"Piper: Piper command failed: {piper_stderr}")
-                raise ValueError(f"Piper: Piper command failed: {piper_stderr}")
+                if isinstance(piper_stderr, str):
+                    piper_stderr_str = piper_stderr
+                elif isinstance(piper_stderr, bytes):
+                    piper_stderr_str = piper_stderr.decode()
+                else:
+                    piper_stderr_str = ""
+                logger.error(f"Piper: Piper command failed: {piper_stderr_str}")
+                raise ValueError(f"Piper: Piper command failed: {piper_stderr_str}")
             if aplay_process.returncode != 0:
-                logger.error(f"Piper: aplay command failed: {aplay_stderr}")
-                raise ValueError(f"Piper: aplay command failed: {aplay_stderr}")
+                aplay_stderr_str = aplay_stderr.decode() if aplay_stderr else ""
+                logger.error(f"Piper: aplay command failed: {aplay_stderr_str}")
+                raise ValueError(f"Piper: aplay command failed: {aplay_stderr_str}")
 
             logger.info(f"Piper: Text '{text}' streamed successfully")
         except Exception as e:
             logger.error(f"Piper: Error streaming audio: {str(e)}")
             raise ValueError(f"Piper: Error streaming audio: {str(e)}")
 
-    def __enter__(self):
+    def __enter__(self) -> "Piper":
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> Literal[False]:
         """Exit context manager. Piper has no resources to cleanup."""
         return False
 
+
+__all__ = ["Piper"]
 
 if __name__ == "__main__":
     piper = Piper()

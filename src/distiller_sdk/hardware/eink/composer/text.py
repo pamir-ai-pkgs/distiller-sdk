@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Any
 
 # 6x8 bitmap font data (subset of characters)
 FONT_6X8 = {
@@ -64,10 +64,10 @@ def render_text(
     text: str,
     x: int = 0,
     y: int = 0,
-    canvas: Optional[np.ndarray] = None,
+    canvas: Optional[np.ndarray[Any, Any]] = None,
     color: int = 0,
     font_size: int = 1,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """
     Render text using bitmap font.
 

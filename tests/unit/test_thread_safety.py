@@ -2,13 +2,17 @@
 
 import threading
 import time
+from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestDisplayThreadSafety:
     """Tests for Display module thread safety."""
 
-    def test_display_has_lock(self, tmp_path):
+    def test_display_has_lock(self, tmp_path: Any) -> None:
         """Test that Display class has a thread safety lock."""
         from distiller_sdk.hardware.eink import Display
 
@@ -26,7 +30,9 @@ class TestDisplayThreadSafety:
             "Display._lock should be a threading.Lock"
         )
 
-    def test_display_concurrent_operations(self, tmp_path, monkeypatch):
+    def test_display_concurrent_operations(
+        self, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that concurrent display operations are serialized."""
         from distiller_sdk.hardware.eink import Display
 
@@ -43,7 +49,7 @@ class TestDisplayThreadSafety:
         mock_lib.display_image_auto.return_value = True
         mock_lib.display_get_dimensions = lambda w, h: None
 
-        def mock_display_image(*args, **kwargs):
+        def mock_display_image(*args: Any, **kwargs: Any) -> bool:
             operations.append(("display", time.time()))
             time.sleep(0.01)  # Simulate slow operation
             return True
@@ -56,7 +62,7 @@ class TestDisplayThreadSafety:
                 display._initialized = True
 
                 # Run multiple display operations concurrently
-                def display_task(task_id):
+                def display_task(task_id: int) -> None:
                     # Create a fake image file
                     img_file = tmp_path / f"test{task_id}.png"
                     img_file.write_text("fake")
@@ -79,7 +85,7 @@ class TestDisplayThreadSafety:
 class TestLEDThreadSafety:
     """Tests for LED module thread safety."""
 
-    def test_led_has_lock(self, mock_led_hardware):
+    def test_led_has_lock(self, mock_led_hardware: Path) -> None:
         """Test that LED class has a thread safety lock."""
         from distiller_sdk.hardware.sam import LED
 
@@ -88,7 +94,7 @@ class TestLEDThreadSafety:
         assert hasattr(led, "_lock"), "LED should have a _lock attribute"
         assert isinstance(led._lock, type(threading.Lock())), "LED._lock should be a threading.Lock"
 
-    def test_led_concurrent_color_changes(self, mock_led_hardware):
+    def test_led_concurrent_color_changes(self, mock_led_hardware: Path) -> None:
         """Test that concurrent LED color changes are serialized."""
         from distiller_sdk.hardware.sam import LED
 
@@ -97,7 +103,7 @@ class TestLEDThreadSafety:
         # Track color changes
         color_changes = []
 
-        def set_color_task(led_id, r, g, b):
+        def set_color_task(led_id: int, r: int, g: int, b: int) -> None:
             try:
                 led.set_rgb_color(led_id, r, g, b)
                 color_changes.append((led_id, r, g, b, time.time()))
@@ -116,7 +122,7 @@ class TestLEDThreadSafety:
         # All operations should complete
         assert len(color_changes) >= 5, "All color change operations should complete"
 
-    def test_led_concurrent_animation_changes(self, mock_led_hardware):
+    def test_led_concurrent_animation_changes(self, mock_led_hardware: Path) -> None:
         """Test that concurrent LED animation changes are serialized."""
         from distiller_sdk.hardware.sam import LED
 
@@ -124,7 +130,7 @@ class TestLEDThreadSafety:
 
         animation_changes = []
 
-        def set_animation_task(led_id, mode, timing):
+        def set_animation_task(led_id: int, mode: str, timing: int) -> None:
             try:
                 led.set_animation_mode(led_id, mode, timing)
                 animation_changes.append((led_id, mode, timing, time.time()))
@@ -149,7 +155,9 @@ class TestLEDThreadSafety:
 class TestParakeetThreadSafety:
     """Tests for Parakeet module thread safety."""
 
-    def test_parakeet_has_lock(self, mock_parakeet_models, monkeypatch):
+    def test_parakeet_has_lock(
+        self, mock_parakeet_models: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that Parakeet class has a thread safety lock."""
         from distiller_sdk.parakeet import Parakeet
 
@@ -164,7 +172,7 @@ class TestParakeetThreadSafety:
             "Parakeet._lock should be a threading.Lock"
         )
 
-    def test_parakeet_concurrent_recording_state(self, mock_parakeet_models):
+    def test_parakeet_concurrent_recording_state(self, mock_parakeet_models: Path) -> None:
         """Test that Parakeet recording state changes are thread-safe."""
         from distiller_sdk.parakeet import Parakeet
 
@@ -195,7 +203,7 @@ class TestParakeetThreadSafety:
             # Test that concurrent start_recording calls are safe
             results = []
 
-            def start_task():
+            def start_task() -> None:
                 result = parakeet.start_recording()
                 results.append(result)
 
@@ -214,7 +222,7 @@ class TestParakeetThreadSafety:
 class TestWhisperThreadSafety:
     """Tests for Whisper module thread safety."""
 
-    def test_whisper_has_lock(self, mock_whisper_models):
+    def test_whisper_has_lock(self, mock_whisper_models: Path) -> None:
         """Test that Whisper class has a thread safety lock."""
         from distiller_sdk.whisper import Whisper
 
@@ -236,7 +244,7 @@ class TestWhisperThreadSafety:
             "Whisper._lock should be a threading.Lock"
         )
 
-    def test_whisper_concurrent_recording_state(self, mock_whisper_models):
+    def test_whisper_concurrent_recording_state(self, mock_whisper_models: Path) -> None:
         """Test that Whisper recording state changes are thread-safe."""
         from distiller_sdk.whisper import Whisper
 
@@ -272,7 +280,7 @@ class TestWhisperThreadSafety:
             # Test that concurrent start_recording calls are safe
             results = []
 
-            def start_task():
+            def start_task() -> None:
                 result = whisper.start_recording()
                 results.append(result)
 
@@ -290,7 +298,7 @@ class TestWhisperThreadSafety:
 class TestAudioThreadSafetyVerification:
     """Verify Audio module already has proper thread safety."""
 
-    def test_audio_has_lock(self):
+    def test_audio_has_lock(self) -> None:
         """Test that Audio class has a thread safety lock."""
         from distiller_sdk.hardware.audio import Audio
 
@@ -305,7 +313,7 @@ class TestAudioThreadSafetyVerification:
 class TestCameraThreadSafetyVerification:
     """Verify Camera module already has proper thread safety."""
 
-    def test_camera_has_frame_lock(self, mock_camera_hardware):
+    def test_camera_has_frame_lock(self, mock_camera_hardware: None) -> None:
         """Test that Camera class has a frame lock."""
         from distiller_sdk.hardware.camera import Camera
 

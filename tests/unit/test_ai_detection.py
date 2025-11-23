@@ -1,12 +1,15 @@
 """Tests for AI module detection (Parakeet, Piper, Whisper)."""
 
+from pathlib import Path
+from typing import Any
+
 from distiller_sdk.hardware_status import HardwareStatus, HardwareState
 
 
 class TestParakeetDetection:
     """Tests for Parakeet.get_status() and Parakeet.is_available()."""
 
-    def test_get_status_returns_hardware_status(self, mock_parakeet_models):
+    def test_get_status_returns_hardware_status(self, mock_parakeet_models: Path) -> None:
         """Test that get_status returns HardwareStatus object."""
         from distiller_sdk.parakeet import Parakeet
 
@@ -20,7 +23,7 @@ class TestParakeetDetection:
         assert hasattr(status, "diagnostic_info")
         assert hasattr(status, "message")
 
-    def test_get_status_available_models(self, mock_parakeet_models):
+    def test_get_status_available_models(self, mock_parakeet_models: Path) -> None:
         """Test get_status when Parakeet models are available."""
         from distiller_sdk.parakeet import Parakeet
 
@@ -32,7 +35,7 @@ class TestParakeetDetection:
         assert status.error is None
         assert "available" in status.message.lower()
 
-    def test_get_status_missing_models(self, tmp_path):
+    def test_get_status_missing_models(self, tmp_path: Any) -> None:
         """Test get_status when model files are missing."""
         from distiller_sdk.parakeet import Parakeet
 
@@ -45,7 +48,7 @@ class TestParakeetDetection:
         # Message should indicate missing models
         assert "model" in status.message.lower() or "not found" in status.message.lower()
 
-    def test_get_status_includes_capabilities(self, mock_parakeet_models):
+    def test_get_status_includes_capabilities(self, mock_parakeet_models: Path) -> None:
         """Test that get_status includes Parakeet capabilities."""
         from distiller_sdk.parakeet import Parakeet
 
@@ -55,7 +58,7 @@ class TestParakeetDetection:
         assert "vad_available" in status.capabilities
         assert "model_type" in status.capabilities
 
-    def test_get_status_includes_diagnostic_info(self, mock_parakeet_models):
+    def test_get_status_includes_diagnostic_info(self, mock_parakeet_models: Path) -> None:
         """Test that get_status includes diagnostic information."""
         from distiller_sdk.parakeet import Parakeet
 
@@ -69,7 +72,7 @@ class TestParakeetDetection:
         )
         assert has_info
 
-    def test_is_available_returns_bool(self, mock_parakeet_models):
+    def test_is_available_returns_bool(self, mock_parakeet_models: Path) -> None:
         """Test that is_available returns a boolean."""
         from distiller_sdk.parakeet import Parakeet
 
@@ -77,19 +80,19 @@ class TestParakeetDetection:
 
         assert isinstance(result, bool)
 
-    def test_is_available_true_when_models_present(self, mock_parakeet_models):
+    def test_is_available_true_when_models_present(self, mock_parakeet_models: Path) -> None:
         """Test is_available returns True when models are present."""
         from distiller_sdk.parakeet import Parakeet
 
         assert Parakeet.is_available(model_path=str(mock_parakeet_models)) is True
 
-    def test_is_available_false_when_models_absent(self, tmp_path):
+    def test_is_available_false_when_models_absent(self, tmp_path: Any) -> None:
         """Test is_available returns False when models are absent."""
         from distiller_sdk.parakeet import Parakeet
 
         assert Parakeet.is_available(model_path=str(tmp_path)) is False
 
-    def test_get_status_detects_vad_model(self, mock_parakeet_models):
+    def test_get_status_detects_vad_model(self, mock_parakeet_models: Path) -> None:
         """Test that get_status detects VAD model availability."""
         from distiller_sdk.parakeet import Parakeet
 
@@ -105,7 +108,7 @@ class TestParakeetDetection:
 class TestPiperDetection:
     """Tests for Piper.get_status() and Piper.is_available()."""
 
-    def test_get_status_returns_hardware_status(self, mock_piper_models):
+    def test_get_status_returns_hardware_status(self, mock_piper_models: dict[str, Path]) -> None:
         """Test that get_status returns HardwareStatus object."""
         from distiller_sdk.piper import Piper
 
@@ -122,7 +125,7 @@ class TestPiperDetection:
         assert hasattr(status, "diagnostic_info")
         assert hasattr(status, "message")
 
-    def test_get_status_available_models(self, mock_piper_models):
+    def test_get_status_available_models(self, mock_piper_models: dict[str, Path]) -> None:
         """Test get_status when Piper models and binary are available."""
         from distiller_sdk.piper import Piper
 
@@ -137,7 +140,7 @@ class TestPiperDetection:
         assert status.error is None
         assert "available" in status.message.lower()
 
-    def test_get_status_missing_models(self, tmp_path):
+    def test_get_status_missing_models(self, tmp_path: Any) -> None:
         """Test get_status when model files are missing."""
         from distiller_sdk.piper import Piper
 
@@ -150,7 +153,9 @@ class TestPiperDetection:
         # Message should indicate missing models
         assert "model" in status.message.lower() or "not found" in status.message.lower()
 
-    def test_get_status_missing_binary(self, mock_piper_models, tmp_path):
+    def test_get_status_missing_binary(
+        self, mock_piper_models: dict[str, Path], tmp_path: Any
+    ) -> None:
         """Test get_status when piper binary is missing."""
         from distiller_sdk.piper import Piper
 
@@ -168,7 +173,7 @@ class TestPiperDetection:
         # Message should indicate missing binary
         assert "binary" in status.message.lower() or "piper" in status.message.lower()
 
-    def test_get_status_includes_capabilities(self, mock_piper_models):
+    def test_get_status_includes_capabilities(self, mock_piper_models: dict[str, Path]) -> None:
         """Test that get_status includes Piper capabilities."""
         from distiller_sdk.piper import Piper
 
@@ -180,7 +185,7 @@ class TestPiperDetection:
         assert "tts_available" in status.capabilities
         assert "voice" in status.capabilities
 
-    def test_get_status_includes_diagnostic_info(self, mock_piper_models):
+    def test_get_status_includes_diagnostic_info(self, mock_piper_models: dict[str, Path]) -> None:
         """Test that get_status includes diagnostic information."""
         from distiller_sdk.piper import Piper
 
@@ -197,7 +202,7 @@ class TestPiperDetection:
         )
         assert has_info
 
-    def test_is_available_returns_bool(self, mock_piper_models):
+    def test_is_available_returns_bool(self, mock_piper_models: dict[str, Path]) -> None:
         """Test that is_available returns a boolean."""
         from distiller_sdk.piper import Piper
 
@@ -208,7 +213,9 @@ class TestPiperDetection:
 
         assert isinstance(result, bool)
 
-    def test_is_available_true_when_models_present(self, mock_piper_models):
+    def test_is_available_true_when_models_present(
+        self, mock_piper_models: dict[str, Path]
+    ) -> None:
         """Test is_available returns True when models and binary are present."""
         from distiller_sdk.piper import Piper
 
@@ -220,7 +227,7 @@ class TestPiperDetection:
             is True
         )
 
-    def test_is_available_false_when_models_absent(self, tmp_path):
+    def test_is_available_false_when_models_absent(self, tmp_path: Any) -> None:
         """Test is_available returns False when models are absent."""
         from distiller_sdk.piper import Piper
 
@@ -230,7 +237,7 @@ class TestPiperDetection:
 class TestWhisperDetection:
     """Tests for Whisper.get_status() and Whisper.is_available()."""
 
-    def test_get_status_returns_hardware_status(self, mock_whisper_models):
+    def test_get_status_returns_hardware_status(self, mock_whisper_models: Path) -> None:
         """Test that get_status returns HardwareStatus object."""
         from distiller_sdk.whisper import Whisper
 
@@ -244,7 +251,7 @@ class TestWhisperDetection:
         assert hasattr(status, "diagnostic_info")
         assert hasattr(status, "message")
 
-    def test_get_status_available_models(self, mock_whisper_models):
+    def test_get_status_available_models(self, mock_whisper_models: Path) -> None:
         """Test get_status when Whisper models are available."""
         from distiller_sdk.whisper import Whisper
 
@@ -261,7 +268,7 @@ class TestWhisperDetection:
         assert status.error is None
         assert "available" in status.message.lower()
 
-    def test_get_status_missing_models(self, tmp_path):
+    def test_get_status_missing_models(self, tmp_path: Any) -> None:
         """Test get_status when model files are missing."""
         from distiller_sdk.whisper import Whisper
 
@@ -274,7 +281,7 @@ class TestWhisperDetection:
         # Message should indicate missing models
         assert "model" in status.message.lower() or "not found" in status.message.lower()
 
-    def test_get_status_includes_capabilities(self, mock_whisper_models):
+    def test_get_status_includes_capabilities(self, mock_whisper_models: Path) -> None:
         """Test that get_status includes Whisper capabilities."""
         from distiller_sdk.whisper import Whisper
 
@@ -288,7 +295,7 @@ class TestWhisperDetection:
         assert "asr_available" in status.capabilities
         assert "model_type" in status.capabilities
 
-    def test_get_status_includes_diagnostic_info(self, mock_whisper_models):
+    def test_get_status_includes_diagnostic_info(self, mock_whisper_models: Path) -> None:
         """Test that get_status includes diagnostic information."""
         from distiller_sdk.whisper import Whisper
 
@@ -307,7 +314,7 @@ class TestWhisperDetection:
         )
         assert has_info
 
-    def test_is_available_returns_bool(self, mock_whisper_models):
+    def test_is_available_returns_bool(self, mock_whisper_models: Path) -> None:
         """Test that is_available returns a boolean."""
         from distiller_sdk.whisper import Whisper
 
@@ -320,7 +327,7 @@ class TestWhisperDetection:
 
         assert isinstance(result, bool)
 
-    def test_is_available_true_when_models_present(self, mock_whisper_models):
+    def test_is_available_true_when_models_present(self, mock_whisper_models: Path) -> None:
         """Test is_available returns True when models are present."""
         from distiller_sdk.whisper import Whisper
 
@@ -331,7 +338,7 @@ class TestWhisperDetection:
 
         assert Whisper.is_available(model_path=str(mock_whisper_models)) is True
 
-    def test_is_available_false_when_models_absent(self, tmp_path):
+    def test_is_available_false_when_models_absent(self, tmp_path: Any) -> None:
         """Test is_available returns False when models are absent."""
         from distiller_sdk.whisper import Whisper
 

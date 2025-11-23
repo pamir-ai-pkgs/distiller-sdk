@@ -15,7 +15,7 @@ import logging
 import threading
 from ctypes import c_bool, c_char_p, c_uint32, c_int, c_float, POINTER
 from enum import IntEnum
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Dict, Any, Literal
 
 from distiller_sdk.exceptions import DisplayError
 from distiller_sdk.hardware_status import HardwareStatus, HardwareState
@@ -216,7 +216,7 @@ class Display:
             + "\n".join(f"  - {path}" for path in search_paths)
         )
 
-    def _setup_function_signatures(self):
+    def _setup_function_signatures(self) -> None:
         """Set up ctypes function signatures for all C functions."""
 
         # display_init() -> bool
@@ -482,8 +482,8 @@ class Display:
             >>> else:
             ...     print(f"Display unavailable: {status.message}")
         """
-        capabilities = {}
-        diagnostic_info = {}
+        capabilities: Dict[str, Any] = {}
+        diagnostic_info: Dict[str, Any] = {}
         error = None
 
         try:
@@ -1221,13 +1221,18 @@ class Display:
         if not success:
             raise DisplayError("Failed to initialize configuration system")
 
-    def __enter__(self):
+    def __enter__(self) -> "Display":
         """Context manager entry."""
         if not self._initialized:
             self.initialize()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> Literal[False]:
         """Context manager exit."""
         self.close()
         # Return False to propagate any exceptions that occurred
@@ -1336,7 +1341,8 @@ class Display:
             if flip and transform != TransformType.FLIP_VERTICAL:
                 result = self._flip_vertical_1bit(result, self.WIDTH, self.HEIGHT)
 
-        return result
+        # Ensure result is bytes type for mypy
+        return bytes(result) if not isinstance(result, bytes) else result
 
     def _rotate_1bit(self, data: bytes, width: int, height: int, degrees: int) -> bytes:
         """
@@ -1609,7 +1615,7 @@ def clear_display() -> None:
         display.clear()
 
 
-def get_display_info() -> dict:
+def get_display_info() -> Dict[str, Any]:
     """
     Get display information.
 
@@ -1903,3 +1909,20 @@ def invert_bitpacked_colors(data: bytes) -> bytes:
         raise DisplayError("Failed to invert image colors")
 
     return bytes(output)
+
+
+__all__ = [
+    "Display",
+    "DisplayError",
+    "DisplayMode",
+    "ScalingMethod",
+    "DitheringMethod",
+    "DisplayErrorCode",
+    "clear_display",
+    "get_display_info",
+    "rotate_bitpacked_ccw_90",
+    "rotate_bitpacked_cw_90",
+    "flip_bitpacked_horizontal",
+    "flip_bitpacked_vertical",
+    "invert_bitpacked_colors",
+]

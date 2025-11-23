@@ -60,7 +60,7 @@ class HardwareStatus:
     diagnostic_info: Dict[str, Any]
     message: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate hardware status after initialization."""
         # Ensure consistency between state and available flag
         if self.state == HardwareState.AVAILABLE:

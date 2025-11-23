@@ -7,9 +7,10 @@ Renders templates with dynamic data using the EinkComposer for proven compatibil
 import json
 import os
 import tempfile
+from typing import Dict, Any, Tuple, List
 import qrcode
 import numpy as np
-import cv2  # type: ignore
+import cv2
 
 from . import EinkComposer
 
@@ -27,16 +28,17 @@ class TemplateRenderer:
         self.template_path = template_path
         self.template = self._load_template()
 
-    def _load_template(self) -> dict:
+    def _load_template(self) -> Dict[str, Any]:
         """Load template from JSON file."""
         try:
             with open(self.template_path, "r") as f:
-                return json.load(f)
+                template_data: Dict[str, Any] = json.load(f)
+                return template_data
         except Exception as e:
             raise Exception(f"Failed to load template {self.template_path}: {e}")
 
     def _generate_qr_code_file(
-        self, data: str, output_path: str, size: tuple, error_correction: str = "M"
+        self, data: str, output_path: str, size: Tuple[int, int], error_correction: str = "M"
     ) -> str:
         """
         Generate QR code and save to file for use with EinkComposer.
@@ -118,7 +120,9 @@ class TemplateRenderer:
 
         return composer
 
-    def _add_ip_layer(self, composer: EinkComposer, layer_data: dict, ip_address: str):
+    def _add_ip_layer(
+        self, composer: EinkComposer, layer_data: Dict[str, Any], ip_address: str
+    ) -> None:
         """Add IP address text layer using EinkComposer."""
         composer.add_text_layer(
             layer_id=layer_data["id"],
@@ -134,7 +138,9 @@ class TemplateRenderer:
             padding=layer_data.get("padding", 2),
         )
 
-    def _add_qr_layer(self, composer: EinkComposer, layer_data: dict, tunnel_url: str):
+    def _add_qr_layer(
+        self, composer: EinkComposer, layer_data: Dict[str, Any], tunnel_url: str
+    ) -> None:
         """Add QR code layer using EinkComposer."""
         # Generate QR code to temporary file
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
@@ -160,10 +166,10 @@ class TemplateRenderer:
         # Store temp file for cleanup
         if not hasattr(composer, "_temp_files"):
             setattr(composer, "_temp_files", [])
-        temp_files: list = getattr(composer, "_temp_files")
+        temp_files: List[str] = getattr(composer, "_temp_files")
         temp_files.append(temp_path)
 
-    def _add_regular_layer(self, composer: EinkComposer, layer_data: dict):
+    def _add_regular_layer(self, composer: EinkComposer, layer_data: Dict[str, Any]) -> None:
         """Add regular (non-placeholder) layer using EinkComposer."""
         layer_type = layer_data["type"]
 
@@ -217,10 +223,10 @@ class TemplateRenderer:
                 height=layer_data.get("height"),
             )
 
-    def _cleanup_temp_files(self, composer: EinkComposer):
+    def _cleanup_temp_files(self, composer: EinkComposer) -> None:
         """Clean up temporary files created during rendering."""
         if hasattr(composer, "_temp_files"):
-            temp_files: list = getattr(composer, "_temp_files")
+            temp_files: List[str] = getattr(composer, "_temp_files")
             for temp_file in temp_files:
                 try:
                     os.remove(temp_file)
@@ -245,7 +251,7 @@ class TemplateRenderer:
         self._cleanup_temp_files(composer)
         return output_path
 
-    def render_and_display(self, ip_address: str, tunnel_url: str):
+    def render_and_display(self, ip_address: str, tunnel_url: str) -> bool:
         """
         Render template and display on e-ink hardware.
 
@@ -312,7 +318,7 @@ class TemplateRenderer:
                     pass
 
 
-def create_template_from_dict(template_dict: dict, output_path: str) -> str:
+def create_template_from_dict(template_dict: Dict[str, Any], output_path: str) -> str:
     """
     Helper function to create template file from dictionary.
 
@@ -326,3 +332,9 @@ def create_template_from_dict(template_dict: dict, output_path: str) -> str:
     with open(output_path, "w") as f:
         json.dump(template_dict, f, indent=2)
     return output_path
+
+
+__all__ = [
+    "TemplateRenderer",
+    "create_template_from_dict",
+]

@@ -1,6 +1,6 @@
 import subprocess
 import threading
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any, Literal
 from pathlib import Path
 
 from distiller_sdk.exceptions import LEDError
@@ -78,8 +78,8 @@ class LED:
             >>> else:
             ...     print(f"LED unavailable: {status.message}")
         """
-        capabilities = {}
-        diagnostic_info = {}
+        capabilities: Dict[str, Any] = {}
+        diagnostic_info: Dict[str, Any] = {}
 
         try:
             # Check if sysfs interface exists
@@ -756,11 +756,16 @@ class LED:
         except LEDError:
             return False
 
-    def __enter__(self):
+    def __enter__(self) -> "LED":
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> Literal[False]:
         """Exit context manager and turn off all LEDs."""
         self.turn_off_all()
         return False
@@ -775,3 +780,6 @@ def create_led_with_sudo() -> LED:
         LED instance configured to use sudo for write operations
     """
     return LED(use_sudo=True)
+
+
+__all__ = ["LED", "LEDError", "create_led_with_sudo"]

@@ -1,9 +1,9 @@
 import os
 import io
-from typing import Generator, Optional
-from faster_whisper import WhisperModel  # type: ignore
+from typing import Generator, Optional, Dict, Any, Literal
+from faster_whisper import WhisperModel
 import logging
-import pyaudio  # type: ignore
+import pyaudio
 import wave
 import threading
 
@@ -24,7 +24,12 @@ class Whisper:
                         If True, sets microphone gain to 85 for optimal ASR
     """
 
-    def __init__(self, model_config=None, audio_config=None, configure_audio: bool = True) -> None:
+    def __init__(
+        self,
+        model_config: Optional[Dict[str, Any]] = None,
+        audio_config: Optional[Dict[str, Any]] = None,
+        configure_audio: bool = True,
+    ) -> None:
         # Configure audio with recommended settings if requested
         if configure_audio:
             if Audio.has_audio_controls():
@@ -96,8 +101,8 @@ class Whisper:
             >>> else:
             ...     print(f"Whisper unavailable: {status.message}")
         """
-        capabilities = {}
-        diagnostic_info = {}
+        capabilities: Dict[str, Any] = {}
+        diagnostic_info: Dict[str, Any] = {}
 
         try:
             if model_path is None:
@@ -202,7 +207,7 @@ class Whisper:
         """
         return Whisper.get_status(model_path=model_path, model_size=model_size).available
 
-    def load_model(self) -> WhisperModel:  # type: ignore
+    def load_model(self) -> WhisperModel:
         logging.info(f"Loading Whisper Model from {self.model_config['model_size_or_path']}")
         if not os.path.isfile(os.path.join(self.model_config["model_size_or_path"], "model.bin")):
             logging.error("Model not found")
@@ -262,17 +267,19 @@ class Whisper:
             logging.info(f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}")
             yield segment.text
 
-    def _init_audio(self):
+    def _init_audio(self) -> None:
         """Initialize PyAudio instance and get device info if needed"""
         if self._pyaudio is None:
             self._pyaudio = pyaudio.PyAudio()
 
         # If a specific device name was provided, find its index
-        if isinstance(self.audio_config["device"], str):
+        device_config = self.audio_config["device"]
+        if isinstance(device_config, str):
             device_index = None
             for i in range(self._pyaudio.get_device_count()):
                 device_info = self._pyaudio.get_device_info_by_index(i)
-                if self.audio_config["device"] in device_info["name"]:
+                device_name = device_info["name"]
+                if isinstance(device_name, str) and device_config in device_name:
                     device_index = i
                     break
             if device_index is None:
@@ -281,12 +288,13 @@ class Whisper:
             else:
                 self.audio_config["device"] = device_index
 
-    def _recording_thread(self):
+    def _recording_thread(self) -> None:
         """Thread function for audio recording"""
         while self._is_recording:
             try:
-                data = self._stream.read(self.audio_config["chunk"])
-                self._audio_frames.append(data)
+                if self._stream is not None:
+                    data = self._stream.read(self.audio_config["chunk"])
+                    self._audio_frames.append(data)
             except Exception as e:
                 logging.error(f"Error recording audio: {e}")
                 break
@@ -376,11 +384,16 @@ class Whisper:
             self._pyaudio.terminate()
             self._pyaudio = None
 
-    def __enter__(self):
+    def __enter__(self) -> "Whisper":
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> Literal[False]:
         """Exit context manager and cleanup resources."""
         self.cleanup()
         return False
@@ -411,20 +424,27 @@ class Whisper:
 
 
 class suppress_stdout_stderr(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]
         self.save_fds = (os.dup(1), os.dup(2))
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         os.dup2(self.null_fds[0], 1)
         os.dup2(self.null_fds[1], 2)
 
-    def __exit__(self, *_):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> None:
         os.dup2(self.save_fds[0], 1)
         os.dup2(self.save_fds[1], 2)
         os.close(self.null_fds[0])
         os.close(self.null_fds[1])
 
+
+__all__ = ["Whisper"]
 
 if __name__ == "__main__":
     # Example usage with push-to-talk

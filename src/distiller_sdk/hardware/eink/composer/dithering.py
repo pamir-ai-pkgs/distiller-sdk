@@ -1,7 +1,8 @@
 import numpy as np
+from typing import Any
 
 
-def floyd_steinberg_dither(image: np.ndarray) -> np.ndarray:
+def floyd_steinberg_dither(image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """
     Apply Floyd-Steinberg dithering to convert grayscale image to 1-bit monochrome.
 
@@ -38,7 +39,7 @@ def floyd_steinberg_dither(image: np.ndarray) -> np.ndarray:
     return img.astype(np.uint8)
 
 
-def threshold_dither(image: np.ndarray, threshold: int = 128) -> np.ndarray:
+def threshold_dither(image: np.ndarray[Any, Any], threshold: int = 128) -> np.ndarray[Any, Any]:
     """
     Simple threshold-based dithering (no error diffusion).
 
@@ -52,7 +53,7 @@ def threshold_dither(image: np.ndarray, threshold: int = 128) -> np.ndarray:
     return np.where(image > threshold, 255, 0).astype(np.uint8)
 
 
-def pack_bits(image: np.ndarray) -> bytes:
+def pack_bits(image: np.ndarray[Any, Any]) -> bytes:
     """
     Pack a binary image (0/255 values) into bit-packed format.
     8 pixels per byte, MSB first.
@@ -77,7 +78,7 @@ def pack_bits(image: np.ndarray) -> bytes:
     return bytes(packed)
 
 
-def unpack_bits(data: bytes, width: int, height: int) -> np.ndarray:
+def unpack_bits(data: bytes, width: int, height: int) -> np.ndarray[Any, Any]:
     """
     Unpack bit-packed data into a binary image array.
 

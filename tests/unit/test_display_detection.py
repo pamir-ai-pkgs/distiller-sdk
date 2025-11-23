@@ -1,7 +1,10 @@
 """Tests for Display hardware detection."""
 
-import pytest
 import os
+from typing import Any
+
+import pytest
+
 from distiller_sdk.hardware.eink import Display
 from distiller_sdk.hardware_status import HardwareStatus, HardwareState
 
@@ -9,7 +12,7 @@ from distiller_sdk.hardware_status import HardwareStatus, HardwareState
 class TestDisplayDetection:
     """Tests for Display.get_status() and Display.is_available()."""
 
-    def test_get_status_returns_hardware_status(self, mock_display_hardware):
+    def test_get_status_returns_hardware_status(self, mock_display_hardware: None) -> None:
         """Test that get_status returns HardwareStatus object."""
         status = Display.get_status()
 
@@ -21,7 +24,7 @@ class TestDisplayDetection:
         assert hasattr(status, "diagnostic_info")
         assert hasattr(status, "message")
 
-    def test_get_status_available_hardware(self, mock_display_hardware):
+    def test_get_status_available_hardware(self, mock_display_hardware: None) -> None:
         """Test get_status when display hardware is available."""
         status = Display.get_status()
 
@@ -33,11 +36,11 @@ class TestDisplayDetection:
         assert status.error is None
         assert "available" in status.message.lower()
 
-    def test_get_status_unavailable_library(self, monkeypatch):
+    def test_get_status_unavailable_library(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test get_status when shared library is not found."""
 
         # Mock library search to fail
-        def mock_find_library():
+        def mock_find_library() -> str | None:
             raise FileNotFoundError("Library not found")
 
         # We need to mock at the module level before import
@@ -54,14 +57,16 @@ class TestDisplayDetection:
             # Message should indicate library not found
             assert "library" in status.message.lower() or "not found" in status.message.lower()
 
-    def test_get_status_unavailable_spi_device(self, monkeypatch, tmp_path):
+    def test_get_status_unavailable_spi_device(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
         """Test get_status when SPI device is not available."""
         # Create a mock library that exists
         lib_path = tmp_path / "libdistiller_display_sdk_shared.so"
         lib_path.write_text("mock library")
 
         # Mock device check to fail for SPI
-        def mock_exists(path):
+        def mock_exists(path: Any) -> bool:
             if "/dev/spidev" in str(path):
                 return False
             return True
@@ -75,7 +80,9 @@ class TestDisplayDetection:
         # Message should indicate SPI device issue
         assert "spi" in status.message.lower()
 
-    def test_get_status_unavailable_gpio_chip(self, monkeypatch, tmp_path):
+    def test_get_status_unavailable_gpio_chip(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
         """Test get_status when GPIO chip is not available."""
         import os
 
@@ -83,12 +90,12 @@ class TestDisplayDetection:
         lib_path = tmp_path / "libdistiller_display_sdk_shared.so"
         lib_path.write_text("mock library")
 
-        def mock_exists(path):
+        def mock_exists(path: Any) -> bool:
             if "/dev/gpiochip" in str(path):
                 return False
             return True
 
-        def mock_access(path, mode):
+        def mock_access(path: Any, mode: int) -> bool:
             # Mock access for SPI to succeed so we reach GPIO check
             if "/dev/spidev" in str(path):
                 return True
@@ -104,12 +111,14 @@ class TestDisplayDetection:
         # Message should indicate GPIO issue
         assert "gpio" in status.message.lower()
 
-    def test_get_status_missing_config(self, mock_display_hardware, monkeypatch):
+    def test_get_status_missing_config(
+        self, mock_display_hardware: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test get_status when eink config file is missing."""
         # Mock config file check to fail
         original_exists = os.path.exists
 
-        def mock_exists(path):
+        def mock_exists(path: Any) -> bool:
             if "eink.conf" in str(path):
                 return False
             return original_exists(path)
@@ -122,7 +131,7 @@ class TestDisplayDetection:
         assert status.state in [HardwareState.AVAILABLE, HardwareState.PARTIALLY_AVAILABLE]
         assert "config" in status.diagnostic_info
 
-    def test_get_status_includes_capabilities(self, mock_display_hardware):
+    def test_get_status_includes_capabilities(self, mock_display_hardware: None) -> None:
         """Test that get_status includes display capabilities."""
         status = Display.get_status()
 
@@ -133,7 +142,7 @@ class TestDisplayDetection:
         # Should support at least FULL refresh mode
         assert "FULL" in status.capabilities["modes"] or "full" in str(status.capabilities["modes"])
 
-    def test_get_status_includes_diagnostic_info(self, mock_display_hardware):
+    def test_get_status_includes_diagnostic_info(self, mock_display_hardware: None) -> None:
         """Test that get_status includes diagnostic information."""
         status = Display.get_status()
 
@@ -147,31 +156,31 @@ class TestDisplayDetection:
         )
         assert has_info
 
-    def test_is_available_returns_bool(self, mock_display_hardware):
+    def test_is_available_returns_bool(self, mock_display_hardware: None) -> None:
         """Test that is_available returns a boolean."""
         result = Display.is_available()
 
         assert isinstance(result, bool)
 
-    def test_is_available_true_when_hardware_present(self, mock_display_hardware):
+    def test_is_available_true_when_hardware_present(self, mock_display_hardware: None) -> None:
         """Test is_available returns True when hardware is present."""
         assert Display.is_available() is True
 
-    def test_is_available_false_when_hardware_absent(self, monkeypatch):
+    def test_is_available_false_when_hardware_absent(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test is_available returns False when hardware is absent."""
         # Mock library not found
         monkeypatch.setenv("LD_LIBRARY_PATH", "/nonexistent")
 
         assert Display.is_available() is False
 
-    def test_is_available_consistent_with_get_status(self, mock_display_hardware):
+    def test_is_available_consistent_with_get_status(self, mock_display_hardware: None) -> None:
         """Test that is_available matches get_status().available."""
         status = Display.get_status()
         is_available = Display.is_available()
 
         assert is_available == status.available
 
-    def test_get_status_does_not_initialize_hardware(self, mock_display_hardware):
+    def test_get_status_does_not_initialize_hardware(self, mock_display_hardware: None) -> None:
         """Test that get_status does not initialize hardware."""
         # get_status should be a pure detection function
         status = Display.get_status()
@@ -180,7 +189,7 @@ class TestDisplayDetection:
         assert status is not None
         # Should not have side effects
 
-    def test_is_available_does_not_initialize_hardware(self, mock_display_hardware):
+    def test_is_available_does_not_initialize_hardware(self, mock_display_hardware: None) -> None:
         """Test that is_available does not initialize hardware."""
         # is_available should be a pure detection function
         result = Display.is_available()
@@ -189,7 +198,7 @@ class TestDisplayDetection:
         assert isinstance(result, bool)
         # Should not have side effects
 
-    def test_get_status_no_exceptions_on_failure(self, monkeypatch):
+    def test_get_status_no_exceptions_on_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that get_status does not raise exceptions."""
         # Should never raise, always returns HardwareStatus
         monkeypatch.setenv("LD_LIBRARY_PATH", "/nonexistent")
@@ -199,7 +208,7 @@ class TestDisplayDetection:
         assert isinstance(status, HardwareStatus)
         assert status.available is False
 
-    def test_is_available_no_exceptions_on_failure(self, monkeypatch):
+    def test_is_available_no_exceptions_on_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that is_available does not raise exceptions."""
         # Should never raise, always returns bool
         monkeypatch.setenv("LD_LIBRARY_PATH", "/nonexistent")
@@ -211,8 +220,8 @@ class TestDisplayDetection:
 
     @pytest.mark.parametrize("firmware_type", ["EPD128x250", "EPD240x416"])
     def test_get_status_detects_firmware_type(
-        self, mock_display_hardware, monkeypatch, firmware_type
-    ):
+        self, mock_display_hardware: None, monkeypatch: pytest.MonkeyPatch, firmware_type: Any
+    ) -> None:
         """Test that get_status detects different firmware types."""
         monkeypatch.setenv("DISTILLER_EINK_FIRMWARE", firmware_type)
 
@@ -229,10 +238,12 @@ class TestDisplayDetection:
             OSError("I/O error"),
         ],
     )
-    def test_get_status_handles_various_errors(self, monkeypatch, error_type):
+    def test_get_status_handles_various_errors(
+        self, monkeypatch: pytest.MonkeyPatch, error_type: Any
+    ) -> None:
         """Test that get_status handles various error conditions."""
 
-        def mock_exists(path):
+        def mock_exists(path: Any) -> bool:
             raise error_type
 
         monkeypatch.setattr("os.path.exists", mock_exists)
@@ -245,10 +256,10 @@ class TestDisplayDetection:
         # Error should be captured in status
         assert isinstance(status.error, (FileNotFoundError, PermissionError, OSError))
 
-    def test_get_status_permission_denied_state(self, monkeypatch):
+    def test_get_status_permission_denied_state(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that permission errors result in PERMISSION_DENIED state."""
 
-        def mock_exists(path):
+        def mock_exists(path: Any) -> bool:
             if "/dev/spi" in str(path) or "/dev/gpio" in str(path):
                 raise PermissionError("Permission denied")
             return True

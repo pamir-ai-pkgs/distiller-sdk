@@ -21,25 +21,26 @@ Features demonstrated:
 import time
 import sys
 import signal
-from distiller_sdk.hardware.sam import LEDError, create_led_with_sudo
+from typing import Any, Callable, List, Optional, Tuple
+from distiller_sdk.hardware.sam import LED, LEDError, create_led_with_sudo
 
 
 class InteractiveLEDDemo:
     """Interactive LED demonstration class."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the demo."""
-        self.led = None
-        self.available_leds = []
+        self.led: Optional[LED] = None
+        self.available_leds: List[int] = []
 
-    def wait_for_enter(self, message="Press Enter to continue..."):
+    def wait_for_enter(self, message: str = "Press Enter to continue...") -> None:
         """Wait for user to press Enter."""
         try:
             input(f"\n💡 {message}")
         except KeyboardInterrupt:
             raise KeyboardInterrupt
 
-    def print_section(self, title, description=""):
+    def print_section(self, title: str, description: str = "") -> None:
         """Print a formatted section header."""
         print(f"\n{'=' * 60}")
         print(f"🎯 {title}")
@@ -47,7 +48,7 @@ class InteractiveLEDDemo:
         if description:
             print(f"📝 {description}")
 
-    def demo_initialization(self):
+    def demo_initialization(self) -> None:
         """Demo 1: LED initialization and discovery."""
         self.print_section(
             "Demo 1: LED Initialization", "Discovering available LEDs and setting up sudo mode"
@@ -56,6 +57,9 @@ class InteractiveLEDDemo:
         print("🔧 Initializing LED module with sudo mode...")
         self.led = create_led_with_sudo()
         print("✅ LED module initialized successfully!")
+
+        if self.led is None:
+            raise LEDError("❌ Failed to initialize LED module!")
 
         self.available_leds = self.led.get_available_leds()
         print(f"🔍 Discovered LEDs: {self.available_leds}")
@@ -66,11 +70,14 @@ class InteractiveLEDDemo:
 
         self.wait_for_enter("Ready to test RGB colors?")
 
-    def demo_rgb_colors(self):
+    def demo_rgb_colors(self) -> None:
         """Demo 2: RGB color control."""
         self.print_section(
             "Demo 2: RGB Color Control", "Testing primary and secondary colors on LED 0"
         )
+
+        if self.led is None:
+            raise LEDError("LED module not initialized")
 
         led_id = self.available_leds[0]
         print(f"🎨 Testing RGB colors on LED {led_id}...")
@@ -100,12 +107,15 @@ class InteractiveLEDDemo:
 
         self.wait_for_enter("Ready to test brightness control?")
 
-    def demo_brightness_control(self):
+    def demo_brightness_control(self) -> None:
         """Demo 3: Brightness control."""
         self.print_section(
             "Demo 3: Brightness Control",
             "Demonstrating brightness levels while preserving color ratios",
         )
+
+        if self.led is None:
+            raise LEDError("LED module not initialized")
 
         led_id = self.available_leds[0]
         print(f"💡 Testing brightness control on LED {led_id}...")
@@ -135,22 +145,34 @@ class InteractiveLEDDemo:
 
         self.wait_for_enter("Ready to test multi-LED static control?")
 
-    def demo_multi_led_control(self):
+    def demo_multi_led_control(self) -> None:
         """Demo 4: Multi-LED control with animations."""
         self.print_section(
             "Demo 4: Multi-LED Control with Animations",
             "Setting different animations on multiple LEDs simultaneously",
         )
 
+        if self.led is None:
+            raise LEDError("LED module not initialized")
+
         if len(self.available_leds) == 1:
             print("Single LED system - demonstrating different animations sequentially")
             led_id = self.available_leds[0]
 
-            animations = [
-                ("Blinking red", lambda: self.led.blink_led(led_id, 255, 0, 0, 400)),
-                ("Fading green", lambda: self.led.fade_led(led_id, 0, 255, 0, 600)),
-                ("Rainbow cycle", lambda: self.led.rainbow_led(led_id, 800)),
-                ("Static blue", lambda: self.led.static_led(led_id, 0, 0, 255)),
+            animations: List[Tuple[str, Callable[[], None]]] = [
+                (
+                    "Blinking red",
+                    lambda: self.led.blink_led(led_id, 255, 0, 0, 400) if self.led else None,
+                ),
+                (
+                    "Fading green",
+                    lambda: self.led.fade_led(led_id, 0, 255, 0, 600) if self.led else None,
+                ),
+                ("Rainbow cycle", lambda: self.led.rainbow_led(led_id, 800) if self.led else None),
+                (
+                    "Static blue",
+                    lambda: self.led.static_led(led_id, 0, 0, 255) if self.led else None,
+                ),
             ]
 
             for description, action in animations:
@@ -165,22 +187,70 @@ class InteractiveLEDDemo:
             )
 
             # Define animations for multiple LEDs
-            animations = [
-                (0, "Blinking red", lambda id: self.led.blink_led(id, 255, 0, 0, 400)),
-                (1, "Fading green", lambda id: self.led.fade_led(id, 0, 255, 0, 600)),
-                (2, "Rainbow cycle", lambda id: self.led.rainbow_led(id, 800)),
-                (3, "Blinking yellow", lambda id: self.led.blink_led(id, 255, 255, 0, 300)),
-                (4, "Fading magenta", lambda id: self.led.fade_led(id, 255, 0, 255, 700)),
-                (5, "Static cyan", lambda id: self.led.static_led(id, 0, 255, 255)),
-                (6, "Blinking orange", lambda id: self.led.blink_led(id, 255, 128, 0, 500)),
-                (7, "Rainbow cycle", lambda id: self.led.rainbow_led(id, 1000)),
+            multi_animations: List[Tuple[int, str, Callable[[int], None]]] = [
+                (
+                    0,
+                    "Blinking red",
+                    lambda led_id_param: self.led.blink_led(led_id_param, 255, 0, 0, 400)
+                    if self.led
+                    else None,
+                ),
+                (
+                    1,
+                    "Fading green",
+                    lambda led_id_param: self.led.fade_led(led_id_param, 0, 255, 0, 600)
+                    if self.led
+                    else None,
+                ),
+                (
+                    2,
+                    "Rainbow cycle",
+                    lambda led_id_param: self.led.rainbow_led(led_id_param, 800)
+                    if self.led
+                    else None,
+                ),
+                (
+                    3,
+                    "Blinking yellow",
+                    lambda led_id_param: self.led.blink_led(led_id_param, 255, 255, 0, 300)
+                    if self.led
+                    else None,
+                ),
+                (
+                    4,
+                    "Fading magenta",
+                    lambda led_id_param: self.led.fade_led(led_id_param, 255, 0, 255, 700)
+                    if self.led
+                    else None,
+                ),
+                (
+                    5,
+                    "Static cyan",
+                    lambda led_id_param: self.led.static_led(led_id_param, 0, 255, 255)
+                    if self.led
+                    else None,
+                ),
+                (
+                    6,
+                    "Blinking orange",
+                    lambda led_id_param: self.led.blink_led(led_id_param, 255, 128, 0, 500)
+                    if self.led
+                    else None,
+                ),
+                (
+                    7,
+                    "Rainbow cycle",
+                    lambda led_id_param: self.led.rainbow_led(led_id_param, 1000)
+                    if self.led
+                    else None,
+                ),
             ]
 
             for idx, led_id in enumerate(self.available_leds):
-                if idx < len(animations):
-                    anim_idx, description, action = animations[idx]
+                if idx < len(multi_animations):
+                    anim_idx, description, multi_action = multi_animations[idx]
                     print(f"LED {led_id}: {description}")
-                    action(led_id)
+                    multi_action(led_id)
                     self.led.set_brightness(led_id, 180)
                     time.sleep(0.2)
 
@@ -195,12 +265,15 @@ class InteractiveLEDDemo:
 
         self.wait_for_enter("Ready to test animation modes?")
 
-    def demo_animation_modes(self):
+    def demo_animation_modes(self) -> None:
         """Demo 5: Animation modes with kernel-based looping."""
         self.print_section(
             "Demo 5: Animation Modes",
             "Testing blink, fade, and rainbow modes with different timings",
         )
+
+        if self.led is None:
+            raise LEDError("LED module not initialized")
 
         led_id = self.available_leds[0]
         print(f"Testing animation modes on LED {led_id}...")
@@ -299,11 +372,14 @@ class InteractiveLEDDemo:
 
         self.wait_for_enter("Ready to test LED triggers?")
 
-    def demo_led_triggers(self):
+    def demo_led_triggers(self) -> None:
         """Demo 6: Linux LED triggers."""
         self.print_section(
             "Demo 6: LED Triggers", "Testing heartbeat-rgb, breathing-rgb, and rainbow-rgb triggers"
         )
+
+        if self.led is None:
+            raise LEDError("LED module not initialized")
 
         led_id = self.available_leds[0]
         print(f"Testing LED triggers on LED {led_id}...")
@@ -385,11 +461,14 @@ class InteractiveLEDDemo:
 
         self.wait_for_enter("Ready to test timing control?")
 
-    def demo_timing_control(self):
+    def demo_timing_control(self) -> None:
         """Demo 7: Dynamic timing changes."""
         self.print_section(
             "Demo 7: Dynamic Timing Control", "Changing animation timing while running"
         )
+
+        if self.led is None:
+            raise LEDError("LED module not initialized")
 
         led_id = self.available_leds[0]
         print(f"Testing dynamic timing control on LED {led_id}...")
@@ -467,11 +546,14 @@ class InteractiveLEDDemo:
 
         self.wait_for_enter("Ready to test convenience methods?")
 
-    def demo_convenience_methods(self):
+    def demo_convenience_methods(self) -> None:
         """Demo 8: Convenience methods."""
         self.print_section(
             "Demo 8: Convenience Methods", "Testing bulk operations and helper functions"
         )
+
+        if self.led is None:
+            raise LEDError("LED module not initialized")
 
         if len(self.available_leds) > 1:
             print(f"🎯 Testing bulk operations on {len(self.available_leds)} LEDs...")
@@ -510,31 +592,63 @@ class InteractiveLEDDemo:
 
         self.wait_for_enter("Ready to test error handling?")
 
-    def demo_error_handling(self):
+    def demo_error_handling(self) -> None:
         """Demo 9: Error handling."""
         self.print_section("Demo 9: Error Handling", "Testing input validation and error messages")
+
+        if self.led is None:
+            raise LEDError("LED module not initialized")
 
         valid_led = self.available_leds[0]
         print("Testing error handling and validation...")
 
-        test_cases = [
-            ("Invalid LED ID", lambda: self.led.set_rgb_color(999, 255, 0, 0)),
-            ("Invalid RGB value (>255)", lambda: self.led.set_rgb_color(valid_led, 300, 0, 0)),
-            ("Invalid RGB value (<0)", lambda: self.led.set_rgb_color(valid_led, -10, 0, 0)),
-            ("Invalid brightness (>255)", lambda: self.led.set_brightness(valid_led, 300)),
-            ("Invalid brightness (<0)", lambda: self.led.set_brightness(valid_led, -50)),
+        test_cases: List[Tuple[str, Callable[[], None]]] = [
+            (
+                "Invalid LED ID",
+                lambda: self.led.set_rgb_color(999, 255, 0, 0) if self.led else None,
+            ),
+            (
+                "Invalid RGB value (>255)",
+                lambda: self.led.set_rgb_color(valid_led, 300, 0, 0) if self.led else None,
+            ),
+            (
+                "Invalid RGB value (<0)",
+                lambda: self.led.set_rgb_color(valid_led, -10, 0, 0) if self.led else None,
+            ),
+            (
+                "Invalid brightness (>255)",
+                lambda: self.led.set_brightness(valid_led, 300) if self.led else None,
+            ),
+            (
+                "Invalid brightness (<0)",
+                lambda: self.led.set_brightness(valid_led, -50) if self.led else None,
+            ),
             (
                 "Invalid animation mode",
-                lambda: self.led.set_animation_mode(valid_led, "invalid_mode"),
+                lambda: self.led.set_animation_mode(valid_led, "invalid_mode")
+                if self.led
+                else None,
             ),
-            ("Invalid trigger", lambda: self.led.set_trigger(valid_led, "invalid-trigger")),
-            ("Invalid blink timing (<100ms)", lambda: self.led.blink_led(valid_led, 255, 0, 0, 50)),
+            (
+                "Invalid trigger",
+                lambda: self.led.set_trigger(valid_led, "invalid-trigger") if self.led else None,
+            ),
+            (
+                "Invalid blink timing (<100ms)",
+                lambda: self.led.blink_led(valid_led, 255, 0, 0, 50) if self.led else None,
+            ),
             (
                 "Invalid blink timing (>1000ms)",
-                lambda: self.led.blink_led(valid_led, 255, 0, 0, 1500),
+                lambda: self.led.blink_led(valid_led, 255, 0, 0, 1500) if self.led else None,
             ),
-            ("Invalid fade timing", lambda: self.led.fade_led(valid_led, 0, 255, 0, 2000)),
-            ("Invalid rainbow timing", lambda: self.led.rainbow_led(valid_led, 50)),
+            (
+                "Invalid fade timing",
+                lambda: self.led.fade_led(valid_led, 0, 255, 0, 2000) if self.led else None,
+            ),
+            (
+                "Invalid rainbow timing",
+                lambda: self.led.rainbow_led(valid_led, 50) if self.led else None,
+            ),
         ]
 
         for description, test_func in test_cases:
@@ -548,11 +662,14 @@ class InteractiveLEDDemo:
 
         self.wait_for_enter("Ready to test sudo mode switching?")
 
-    def demo_sudo_mode(self):
+    def demo_sudo_mode(self) -> None:
         """Demo 10: Sudo mode switching."""
         self.print_section(
             "Demo 10: Sudo Mode Management", "Testing sudo mode switching functionality"
         )
+
+        if self.led is None:
+            raise LEDError("LED module not initialized")
 
         print("🔐 Testing sudo mode switching...")
 
@@ -576,9 +693,12 @@ class InteractiveLEDDemo:
 
         self.wait_for_enter("Ready for the final cleanup demo?")
 
-    def demo_cleanup(self):
+    def demo_cleanup(self) -> None:
         """Demo 11: Cleanup and summary."""
         self.print_section("Demo 11: Cleanup & Summary", "Proper cleanup and demonstration summary")
+
+        if self.led is None:
+            raise LEDError("LED module not initialized")
 
         print("🧹 Performing comprehensive cleanup...")
 
@@ -601,7 +721,7 @@ class InteractiveLEDDemo:
 
         print("\nAll LED functionality demonstrated successfully!")
 
-    def run_full_demo(self):
+    def run_full_demo(self) -> None:
         """Run the complete interactive demo."""
         print("Interactive LED Demo and Test Suite")
         print("=" * 60)
@@ -640,7 +760,7 @@ class InteractiveLEDDemo:
             print(f"\nUnexpected error: {e}")
             self.cleanup_on_exit()
 
-    def cleanup_on_exit(self):
+    def cleanup_on_exit(self) -> None:
         """Cleanup when exiting unexpectedly."""
         if self.led and self.available_leds:
             print("🧹 Emergency cleanup...")
@@ -651,11 +771,11 @@ class InteractiveLEDDemo:
                 print("⚠️ Cleanup failed - LEDs may still be active")
 
 
-def main():
+def main() -> int:
     """Main function."""
 
     # Set up signal handler for clean exit
-    def signal_handler(sig, frame):
+    def signal_handler(sig: int, frame: Any) -> None:
         print("\n🛑 Received exit signal...")
         sys.exit(0)
 

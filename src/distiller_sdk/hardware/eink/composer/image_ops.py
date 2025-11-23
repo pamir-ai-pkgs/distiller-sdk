@@ -1,17 +1,17 @@
 import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
-from typing import Literal, Optional, cast
+from typing import Literal, Optional, Any
 
 
 def resize_image(
-    image: np.ndarray,
+    image: np.ndarray[Any, Any],
     target_width: int,
     target_height: int,
     mode: Literal["stretch", "fit", "crop"] = "fit",
     bg_color: int = 255,
     crop_x: Optional[int] = None,
     crop_y: Optional[int] = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """
     Resize image using different modes with Pillow.
 
@@ -89,42 +89,42 @@ def resize_image(
         return np.array(cropped)
 
 
-def flip_horizontal(image: np.ndarray) -> np.ndarray:
+def flip_horizontal(image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Flip image horizontally (mirror left-right)."""
     pil_img = Image.fromarray(image, mode="L")
     flipped = pil_img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
     return np.array(flipped)
 
 
-def flip_vertical(image: np.ndarray) -> np.ndarray:
+def flip_vertical(image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Flip image vertically (mirror top-bottom)."""
     pil_img = Image.fromarray(image, mode="L")
     flipped = pil_img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
     return np.array(flipped)
 
 
-def rotate_ccw_90(image: np.ndarray) -> np.ndarray:
+def rotate_ccw_90(image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Rotate image 90 degrees counter-clockwise."""
     pil_img = Image.fromarray(image, mode="L")
     rotated = pil_img.rotate(90, expand=True)
     return np.array(rotated)
 
 
-def rotate_cw_90(image: np.ndarray) -> np.ndarray:
+def rotate_cw_90(image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Rotate image 90 degrees clockwise."""
     pil_img = Image.fromarray(image, mode="L")
     rotated = pil_img.rotate(-90, expand=True)
     return np.array(rotated)
 
 
-def rotate_180(image: np.ndarray) -> np.ndarray:
+def rotate_180(image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Rotate image 180 degrees."""
     pil_img = Image.fromarray(image, mode="L")
     rotated = pil_img.rotate(180, expand=True)
     return np.array(rotated)
 
 
-def invert_colors(image: np.ndarray) -> np.ndarray:
+def invert_colors(image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Invert image colors (black to white, white to black)."""
     pil_img = Image.fromarray(image, mode="L")
     inverted = ImageOps.invert(pil_img)
@@ -132,8 +132,8 @@ def invert_colors(image: np.ndarray) -> np.ndarray:
 
 
 def adjust_brightness_contrast(
-    image: np.ndarray, brightness: float = 1.0, contrast: float = 1.0
-) -> np.ndarray:
+    image: np.ndarray[Any, Any], brightness: float = 1.0, contrast: float = 1.0
+) -> np.ndarray[Any, Any]:
     """
     Adjust image brightness and contrast.
 
@@ -150,7 +150,7 @@ def adjust_brightness_contrast(
     # Apply brightness
     if brightness != 1.0:
         brightness_enhancer = ImageEnhance.Brightness(pil_img)
-        pil_img = cast(Image.Image, brightness_enhancer.enhance(brightness))
+        pil_img = brightness_enhancer.enhance(brightness)
 
     # Apply contrast
     # Convert contrast from (-100 to 100) scale to Pillow's scale
@@ -160,12 +160,14 @@ def adjust_brightness_contrast(
         contrast_factor = 1.0 + (contrast / 100.0)
         contrast_factor = max(0.0, contrast_factor)  # Ensure non-negative
         contrast_enhancer = ImageEnhance.Contrast(pil_img)
-        pil_img = cast(Image.Image, contrast_enhancer.enhance(contrast_factor))
+        pil_img = contrast_enhancer.enhance(contrast_factor)
 
     return np.array(pil_img)
 
 
-def crop_image(image: np.ndarray, x: int, y: int, width: int, height: int) -> np.ndarray:
+def crop_image(
+    image: np.ndarray[Any, Any], x: int, y: int, width: int, height: int
+) -> np.ndarray[Any, Any]:
     """
     Crop a region from the image.
 
@@ -190,3 +192,16 @@ def crop_image(image: np.ndarray, x: int, y: int, width: int, height: int) -> np
 
     cropped = pil_img.crop((x, y, x2, y2))
     return np.array(cropped)
+
+
+__all__ = [
+    "resize_image",
+    "flip_horizontal",
+    "flip_vertical",
+    "rotate_ccw_90",
+    "rotate_cw_90",
+    "rotate_180",
+    "invert_colors",
+    "adjust_brightness_contrast",
+    "crop_image",
+]

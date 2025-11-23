@@ -1,12 +1,14 @@
 """Tests for context manager support across all modules."""
 
+from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 
 class TestCameraContextManager:
     """Tests for Camera module context manager."""
 
-    def test_camera_has_context_manager(self, mock_camera_hardware):
+    def test_camera_has_context_manager(self, mock_camera_hardware: None) -> None:
         """Test that Camera class supports context manager protocol."""
         from distiller_sdk.hardware.camera import Camera
 
@@ -17,7 +19,7 @@ class TestCameraContextManager:
         assert callable(camera.__enter__), "Camera.__enter__ should be callable"
         assert callable(camera.__exit__), "Camera.__exit__ should be callable"
 
-    def test_camera_context_manager_usage(self, mock_camera_hardware):
+    def test_camera_context_manager_usage(self, mock_camera_hardware: None) -> None:
         """Test that Camera can be used as a context manager."""
         from distiller_sdk.hardware.camera import Camera
 
@@ -35,7 +37,7 @@ class TestCameraContextManager:
             # Check that release was called on the capture object
             assert mock_cap.release.called, "Camera cleanup should call release()"
 
-    def test_camera_cleanup_on_exception(self, mock_camera_hardware):
+    def test_camera_cleanup_on_exception(self, mock_camera_hardware: None) -> None:
         """Test that Camera cleanup happens even when exception occurs."""
         from distiller_sdk.hardware.camera import Camera
 
@@ -56,7 +58,7 @@ class TestCameraContextManager:
 class TestLEDContextManager:
     """Tests for LED module context manager."""
 
-    def test_led_has_context_manager(self, mock_led_hardware):
+    def test_led_has_context_manager(self, mock_led_hardware: Path) -> None:
         """Test that LED class supports context manager protocol."""
         from distiller_sdk.hardware.sam import LED
 
@@ -67,7 +69,7 @@ class TestLEDContextManager:
         assert callable(led.__enter__), "LED.__enter__ should be callable"
         assert callable(led.__exit__), "LED.__exit__ should be callable"
 
-    def test_led_context_manager_usage(self, mock_led_hardware):
+    def test_led_context_manager_usage(self, mock_led_hardware: Path) -> None:
         """Test that LED can be used as a context manager."""
         from distiller_sdk.hardware.sam import LED
 
@@ -83,7 +85,7 @@ class TestLEDContextManager:
             led0_red = (mock_led_hardware / "distiller:led0" / "red").read_text().strip()
             assert led0_red == "0", "LED red should be 0 after context exit"
 
-    def test_led_cleanup_on_exception(self, mock_led_hardware):
+    def test_led_cleanup_on_exception(self, mock_led_hardware: Path) -> None:
         """Test that LED cleanup happens even when exception occurs."""
         from distiller_sdk.hardware.sam import LED
 
@@ -103,7 +105,7 @@ class TestLEDContextManager:
 class TestPiperContextManager:
     """Tests for Piper module context manager."""
 
-    def test_piper_has_context_manager(self, mock_piper_models):
+    def test_piper_has_context_manager(self, mock_piper_models: dict[str, Path]) -> None:
         """Test that Piper class supports context manager protocol."""
         from distiller_sdk.piper import Piper
 
@@ -119,7 +121,7 @@ class TestPiperContextManager:
         assert callable(piper.__enter__), "Piper.__enter__ should be callable"
         assert callable(piper.__exit__), "Piper.__exit__ should be callable"
 
-    def test_piper_context_manager_usage(self, mock_piper_models):
+    def test_piper_context_manager_usage(self, mock_piper_models: dict[str, Path]) -> None:
         """Test that Piper can be used as a context manager."""
         from distiller_sdk.piper import Piper
 
@@ -134,7 +136,7 @@ class TestPiperContextManager:
 
             # After exiting context, cleanup should have been called
 
-    def test_piper_cleanup_on_exception(self, mock_piper_models):
+    def test_piper_cleanup_on_exception(self, mock_piper_models: dict[str, Path]) -> None:
         """Test that Piper cleanup happens even when exception occurs."""
         from distiller_sdk.piper import Piper
 
@@ -155,7 +157,7 @@ class TestPiperContextManager:
 class TestExistingContextManagers:
     """Verify existing context managers still work."""
 
-    def test_audio_context_manager(self):
+    def test_audio_context_manager(self) -> None:
         """Test that Audio context manager works."""
         from distiller_sdk.hardware.audio import Audio
 
@@ -163,7 +165,7 @@ class TestExistingContextManagers:
         assert hasattr(audio, "__enter__")
         assert hasattr(audio, "__exit__")
 
-    def test_display_context_manager(self, tmp_path):
+    def test_display_context_manager(self, tmp_path: Any) -> None:
         """Test that Display context manager works."""
         from distiller_sdk.hardware.eink import Display
 
@@ -178,7 +180,7 @@ class TestExistingContextManagers:
         assert hasattr(display, "__enter__")
         assert hasattr(display, "__exit__")
 
-    def test_parakeet_context_manager(self, mock_parakeet_models):
+    def test_parakeet_context_manager(self, mock_parakeet_models: Path) -> None:
         """Test that Parakeet context manager works."""
         from distiller_sdk.parakeet import Parakeet
 
@@ -190,7 +192,7 @@ class TestExistingContextManagers:
         assert hasattr(parakeet, "__enter__")
         assert hasattr(parakeet, "__exit__")
 
-    def test_whisper_context_manager(self, mock_whisper_models):
+    def test_whisper_context_manager(self, mock_whisper_models: Path) -> None:
         """Test that Whisper context manager works."""
         from distiller_sdk.whisper import Whisper
 

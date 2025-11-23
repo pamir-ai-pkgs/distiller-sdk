@@ -8,7 +8,7 @@ import os
 import time
 import subprocess
 import threading
-from typing import Optional, Union, Callable, BinaryIO
+from typing import Optional, Union, Callable, BinaryIO, Literal, Any
 
 from distiller_sdk.exceptions import AudioError
 from distiller_sdk.hardware_status import HardwareStatus, HardwareState
@@ -263,7 +263,7 @@ class Audio:
             self.set_mic_gain(self._mic_gain)
             self.set_speaker_volume(self._speaker_volume)
 
-    def __enter__(self):
+    def __enter__(self) -> "Audio":
         """
         Context manager entry point.
 
@@ -277,7 +277,12 @@ class Audio:
         """
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> Literal[False]:
         """
         Context manager exit point. Ensures proper cleanup of resources.
 
@@ -585,7 +590,7 @@ class Audio:
 
                 if duration is None:
                     # For manual stop, run in a thread
-                    def record_thread():
+                    def record_thread() -> None:
                         proc = subprocess.Popen(cmd)
                         # Wait for stop event
                         while not self._stop_recording.is_set():
@@ -669,18 +674,21 @@ class Audio:
             str(self.channels),
         ]
 
-        def stream_thread():
+        def stream_thread() -> None:
             try:
                 process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
                 self._is_recording = True
 
                 while not self._stop_recording.is_set():
                     # Read from stdout pipe
-                    audio_data = process.stdout.read(buffer_size)
-                    if not audio_data:
+                    if process.stdout is not None:
+                        audio_data = process.stdout.read(buffer_size)
+                        if not audio_data:
+                            break
+                        # Call the callback with the audio data
+                        callback(audio_data)
+                    else:
                         break
-                    # Call the callback with the audio data
-                    callback(audio_data)
 
                 # Clean up
                 if process.poll() is None:
@@ -724,7 +732,7 @@ class Audio:
                 self._is_playing = True
                 self._stop_playback.clear()
 
-                def play_thread():
+                def play_thread() -> None:
                     proc = subprocess.Popen(cmd)
                     # Wait for stop event or completion
                     while not self._stop_playback.is_set():
@@ -796,22 +804,23 @@ class Audio:
                 self._is_playing = True
                 self._stop_playback.clear()
 
-                def play_thread():
+                def play_thread() -> None:
                     # Create a subprocess
                     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
 
                     try:
                         # Handle different input types
-                        if isinstance(audio_data, bytes):
-                            proc.stdin.write(audio_data)
-                            proc.stdin.close()
-                        else:
-                            # Assume file-like object
-                            while chunk := audio_data.read(4096):
-                                if self._stop_playback.is_set():
-                                    break
-                                proc.stdin.write(chunk)
-                            proc.stdin.close()
+                        if proc.stdin is not None:
+                            if isinstance(audio_data, bytes):
+                                proc.stdin.write(audio_data)
+                                proc.stdin.close()
+                            else:
+                                # Assume file-like object
+                                while chunk := audio_data.read(4096):
+                                    if self._stop_playback.is_set():
+                                        break
+                                    proc.stdin.write(chunk)
+                                proc.stdin.close()
 
                         # Wait for process to complete
                         while not self._stop_playback.is_set():

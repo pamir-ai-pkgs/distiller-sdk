@@ -249,3 +249,19 @@ class ResourceError(DistillerError):
     """
 
     pass
+
+
+__all__ = [
+    "DistillerError",
+    "HardwareError",
+    "AudioError",
+    "DisplayError",
+    "CameraError",
+    "LEDError",
+    "AIError",
+    "ParakeetError",
+    "PiperError",
+    "WhisperError",
+    "ConfigurationError",
+    "ResourceError",
+]

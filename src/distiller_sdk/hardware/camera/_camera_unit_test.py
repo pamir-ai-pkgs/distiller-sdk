@@ -6,11 +6,14 @@ This script tests all available functions with a real camera and saves captured 
 
 import os
 import time
-import cv2  # type: ignore
+from typing import Any
+
+import cv2
+
 from distiller_sdk.hardware.camera import Camera
 
 
-def main():
+def main() -> None:
     """Main test function for testing all camera functionality with real hardware."""
     print("=== CM5 Camera Real Hardware Test ===")
 
@@ -136,7 +139,7 @@ def main():
     print("\n9. Testing stream with callbacks...")
     frames_received = []
 
-    def stream_callback(frame):
+    def stream_callback(frame: Any) -> None:
         frames_received.append(frame.shape)
         if len(frames_received) == 1:
             # Save first frame

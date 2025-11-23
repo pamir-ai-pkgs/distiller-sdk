@@ -1,8 +1,11 @@
 """Shared pytest fixtures for distiller-sdk tests."""
 
 import subprocess
+from pathlib import Path
+from typing import Any
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 
 # ============================================================================
@@ -11,13 +14,13 @@ import pytest
 
 
 @pytest.fixture
-def mock_audio_hardware(monkeypatch):
+def mock_audio_hardware(monkeypatch: MonkeyPatch) -> None:
     """Mock audio hardware for unit tests.
 
     Simulates ALSA tools (arecord, aplay) being available with audio devices.
     """
 
-    def mock_run(*args, **kwargs):
+    def mock_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
         cmd = args[0] if args else kwargs.get("args", [])
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
@@ -47,17 +50,17 @@ def mock_audio_hardware(monkeypatch):
 
 
 @pytest.fixture
-def mock_audio_unavailable(monkeypatch):
+def mock_audio_unavailable(monkeypatch: MonkeyPatch) -> None:
     """Mock audio hardware being unavailable."""
 
-    def mock_run(*args, **kwargs):
+    def mock_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
         raise FileNotFoundError("arecord: command not found")
 
     monkeypatch.setattr(subprocess, "run", mock_run)
 
 
 @pytest.fixture
-def mock_display_hardware(monkeypatch, tmp_path):
+def mock_display_hardware(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     """Mock e-ink display hardware for unit tests.
 
     Simulates e-ink display hardware including SPI device, GPIO chip,
@@ -68,7 +71,7 @@ def mock_display_hardware(monkeypatch, tmp_path):
     # Mock os.path.exists to simulate hardware devices
     original_exists = os.path.exists
 
-    def mock_exists(path):
+    def mock_exists(path: Any) -> bool:
         path_str = str(path)
         # Mock SPI device
         if "/dev/spidev" in path_str:
@@ -88,7 +91,7 @@ def mock_display_hardware(monkeypatch, tmp_path):
     monkeypatch.setattr("os.path.exists", mock_exists)
 
     # Mock os.access for permission checks
-    def mock_access(path, mode):
+    def mock_access(path: Any, mode: int) -> bool:
         path_str = str(path)
         if "/dev/spidev" in path_str or "/dev/gpiochip" in path_str:
             return True
@@ -98,7 +101,7 @@ def mock_display_hardware(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def mock_camera_hardware(monkeypatch):
+def mock_camera_hardware(monkeypatch: MonkeyPatch) -> None:
     """Mock camera hardware for unit tests.
 
     Simulates Raspberry Pi camera with rpicam-still available and camera detected.
@@ -106,14 +109,14 @@ def mock_camera_hardware(monkeypatch):
     import shutil
 
     # Mock shutil.which to find rpicam-still
-    def mock_which(cmd):
+    def mock_which(cmd: str) -> str | None:
         if cmd == "rpicam-still":
             return "/usr/bin/rpicam-still"
         return None
 
     monkeypatch.setattr(shutil, "which", mock_which)
 
-    def mock_run(*args, **kwargs):
+    def mock_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         cmd = args[0] if args else kwargs.get("args", [])
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
@@ -141,7 +144,7 @@ def mock_camera_hardware(monkeypatch):
 
 
 @pytest.fixture
-def mock_led_hardware(monkeypatch, tmp_path):
+def mock_led_hardware(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
     """Mock LED sysfs interface for unit tests.
 
     Simulates Pamir RGB LED hardware with sysfs interface including
@@ -170,14 +173,14 @@ def mock_led_hardware(monkeypatch, tmp_path):
         (led_path / "trigger").write_text("[none] heartbeat-rgb breathing-rgb")
 
     # Mock LED.get_status to use tmp_path
-    original_get_status = None
+    original_get_status: Any = None
     try:
         from distiller_sdk.hardware.sam import LED
 
         if hasattr(LED, "get_status"):
             original_get_status = LED.get_status
 
-            def mock_get_status(base_path="/sys/class/leds"):
+            def mock_get_status(base_path: str = "/sys/class/leds") -> Any:
                 # Redirect to our tmp_path if default path requested
                 if base_path == "/sys/class/leds":
                     base_path = str(led_base)
@@ -197,7 +200,7 @@ def mock_led_hardware(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def mock_parakeet_models(monkeypatch, tmp_path):
+def mock_parakeet_models(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
     """Mock Parakeet model files."""
     models_dir = tmp_path / "parakeet" / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
@@ -212,7 +215,7 @@ def mock_parakeet_models(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def mock_piper_models(monkeypatch, tmp_path):
+def mock_piper_models(monkeypatch: MonkeyPatch, tmp_path: Path) -> dict[str, Path]:
     """Mock Piper model files and binary."""
     models_dir = tmp_path / "piper" / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
@@ -234,7 +237,7 @@ def mock_piper_models(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def mock_whisper_models(monkeypatch, tmp_path):
+def mock_whisper_models(monkeypatch: MonkeyPatch, tmp_path: Path) -> Path:
     """Mock Whisper model files."""
     models_dir = tmp_path / "whisper" / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
@@ -251,7 +254,7 @@ def mock_whisper_models(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def temp_audio_file(tmp_path):
+def temp_audio_file(tmp_path: Path) -> Path:
     """Create a temporary WAV file for testing."""
     audio_file = tmp_path / "test_audio.wav"
     # Create a minimal WAV file header (44 bytes)
@@ -275,7 +278,7 @@ def temp_audio_file(tmp_path):
 
 
 @pytest.fixture
-def temp_image_file(tmp_path):
+def temp_image_file(tmp_path: Path) -> Path:
     """Create a temporary image file for testing."""
     image_file = tmp_path / "test_image.png"
     # Create a minimal 1x1 PNG file
@@ -296,7 +299,7 @@ def temp_image_file(tmp_path):
 # ============================================================================
 
 
-def hardware_states():
+def hardware_states() -> list[tuple[str, bool, dict[str, Any], Exception | None, str]]:
     """Provide common hardware states for parametrized tests."""
     return [
         ("available", True, {}, None, "Hardware available"),

@@ -7,14 +7,14 @@ from distiller_sdk.hardware_status import HardwareStatus, HardwareState
 class TestHardwareState:
     """Tests for HardwareState enum."""
 
-    def test_hardware_state_values(self):
+    def test_hardware_state_values(self) -> None:
         """Test that all hardware states are defined."""
         assert HardwareState.AVAILABLE.value == "available"
         assert HardwareState.UNAVAILABLE.value == "unavailable"
         assert HardwareState.PERMISSION_DENIED.value == "permission_denied"
         assert HardwareState.PARTIALLY_AVAILABLE.value == "partially_available"
 
-    def test_hardware_state_enum_members(self):
+    def test_hardware_state_enum_members(self) -> None:
         """Test that enum has expected members."""
         states = [e.name for e in HardwareState]
         assert "AVAILABLE" in states
@@ -26,7 +26,7 @@ class TestHardwareState:
 class TestHardwareStatus:
     """Tests for HardwareStatus dataclass."""
 
-    def test_hardware_status_available(self):
+    def test_hardware_status_available(self) -> None:
         """Test creating a status for available hardware."""
         status = HardwareStatus(
             state=HardwareState.AVAILABLE,
@@ -44,7 +44,7 @@ class TestHardwareStatus:
         assert status.diagnostic_info == {"device": "/dev/audio0"}
         assert status.message == "Audio hardware fully available"
 
-    def test_hardware_status_unavailable(self):
+    def test_hardware_status_unavailable(self) -> None:
         """Test creating a status for unavailable hardware."""
         error = FileNotFoundError("Hardware not found")
         status = HardwareStatus(
@@ -62,7 +62,7 @@ class TestHardwareStatus:
         assert status.error == error
         assert status.message == "Hardware not found"
 
-    def test_hardware_status_permission_denied(self):
+    def test_hardware_status_permission_denied(self) -> None:
         """Test status for permission denied scenario."""
         error = PermissionError("Access denied")
         status = HardwareStatus(
@@ -79,7 +79,7 @@ class TestHardwareStatus:
         assert status.error == error
         assert "audio" in status.diagnostic_info["required_group"]
 
-    def test_hardware_status_partially_available(self):
+    def test_hardware_status_partially_available(self) -> None:
         """Test status for partially available hardware."""
         status = HardwareStatus(
             state=HardwareState.PARTIALLY_AVAILABLE,
@@ -95,7 +95,7 @@ class TestHardwareStatus:
         assert status.capabilities["input"] is True
         assert status.capabilities["output"] is False
 
-    def test_hardware_status_dataclass_equality(self):
+    def test_hardware_status_dataclass_equality(self) -> None:
         """Test that two identical statuses are equal."""
         status1 = HardwareStatus(
             state=HardwareState.AVAILABLE,
@@ -116,7 +116,7 @@ class TestHardwareStatus:
 
         assert status1 == status2
 
-    def test_hardware_status_dataclass_inequality(self):
+    def test_hardware_status_dataclass_inequality(self) -> None:
         """Test that different statuses are not equal."""
         status1 = HardwareStatus(
             state=HardwareState.AVAILABLE,
@@ -137,7 +137,7 @@ class TestHardwareStatus:
 
         assert status1 != status2
 
-    def test_hardware_status_repr(self):
+    def test_hardware_status_repr(self) -> None:
         """Test string representation of hardware status."""
         status = HardwareStatus(
             state=HardwareState.AVAILABLE,
@@ -153,7 +153,7 @@ class TestHardwareStatus:
         assert "AVAILABLE" in repr_str
         assert "True" in repr_str
 
-    def test_hardware_status_with_complex_capabilities(self):
+    def test_hardware_status_with_complex_capabilities(self) -> None:
         """Test status with complex capability dictionary."""
         capabilities = {
             "input": True,
@@ -177,7 +177,7 @@ class TestHardwareStatus:
         assert 44100 in status.capabilities["sample_rates"]
         assert status.capabilities["channels"]["stereo"] is True
 
-    def test_hardware_status_with_exception_info(self):
+    def test_hardware_status_with_exception_info(self) -> None:
         """Test that exceptions are properly stored in status."""
         error = RuntimeError("Unexpected hardware error")
         status = HardwareStatus(
@@ -201,7 +201,9 @@ class TestHardwareStatus:
             (HardwareState.PARTIALLY_AVAILABLE, True),  # Typically still usable
         ],
     )
-    def test_hardware_status_available_flag_consistency(self, state, expected_available):
+    def test_hardware_status_available_flag_consistency(
+        self, state: HardwareState, expected_available: bool
+    ) -> None:
         """Test that available flag is consistent with state."""
         status = HardwareStatus(
             state=state,

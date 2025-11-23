@@ -8,7 +8,7 @@ except PackageNotFoundError:
     __version__ = "dev"
 
 
-def get_model_path(module_name):
+def get_model_path(module_name: str) -> str:
     """
     Get the correct model path for a given module.
 
@@ -27,7 +27,7 @@ def get_model_path(module_name):
     return os.path.join(os.path.dirname(__file__), module_name, "models")
 
 
-def get_library_path():
+def get_library_path() -> str:
     """
     Get the correct library path for native libraries.
 
