@@ -1,62 +1,75 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 
-requires = [ "setuptools>=61", "wheel" ]
+requires = ["setuptools>=61", "wheel"]
 
 [project]
 name = "distiller-sdk"
 version = "3.2.0"
 readme = "README.md"
-authors = [
-  { name = "PamirAI Inc", email = "founders@pamir.ai" },
-]
+authors = [{ name = "PamirAI Inc", email = "founders@pamir.ai" }]
 requires-python = ">=3.11"
 classifiers = [
-  "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "build>=1.2.2.post1",
-  "faster-whisper>=1.1.1",
-  "opencv-python>=4.11.0.86",
-  "pyaudio>=0.2.14",
-  "pyserial>=3.5",
-  "qrcode[pil]>=8.2",
-  "sherpa-onnx<1.12.7",
-  "sounddevice>=0.5.2",
-  "soundfile>=0.13.1",
-  "spidev>=3.7",
-]
-
-[project.optional-dependencies]
-dev = [
-  "types-pyaudio",
-  "types-qrcode",
+    "build>=1.2.2.post1",
+    "faster-whisper>=1.1.1",
+    "opencv-python>=4.11.0.86",
+    "pyaudio>=0.2.14",
+    "pyserial>=3.5",
+    "qrcode[pil]>=8.2",
+    "sherpa-onnx<1.12.7",
+    "sounddevice>=0.5.2",
+    "soundfile>=0.13.1",
+    "spidev>=3.7",
 ]
 
 [tool.setuptools.packages.find]
-where = [ "src" ]
-exclude = [ "*.tests", "*.tests.*", "tests.*", "tests" ]
+where = ["src"]
+exclude = ["*.tests", "*.tests.*", "tests.*", "tests"]
 
 [tool.setuptools.exclude-package-data]
-"*" = [ "__pycache__", "*.pyc", "*.pyo", ".git*", "target/*", "*.egg-info" ]
+"*" = ["__pycache__", "*.pyc", "*.pyo", ".git*", "target/*", "*.egg-info"]
 
 [tool.setuptools.package-data]
 "distiller_sdk" = [
-  "hardware/eink/lib/*.so",
-  "hardware/eink/lib/*.h",
-  "parakeet/models/**/*",
-  "piper/models/**/*",
-  "piper/piper/**/*",
-  "whisper/models/**/*",
-  "hardware/audio/test_audio.wav",
+    "hardware/eink/lib/*.so",
+    "hardware/eink/lib/*.h",
+    "parakeet/models/**/*",
+    "piper/models/**/*",
+    "piper/piper/**/*",
+    "whisper/models/**/*",
+    "hardware/audio/test_audio.wav",
 ]
 
 [tool.ruff]
 target-version = "py311"
 line-length = 100
 
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
 [tool.uv]
 index-url = "https://pypi.org/simple"
+
+[dependency-groups]
+dev = [
+    "pandas-stubs>=2.3.2.250926",
+    "types-colorama>=0.4.15.20250801",
+    "types-decorator>=5.2.0.20251101",
+    "types-defusedxml>=0.7.0.20250822",
+    "types-pexpect>=4.9.0.20250916",
+    "types-pyaudio>=0.2.16.20250801",
+    "types-pygments>=2.19.0.20251121",
+    "types-qrcode>=8.2.0.20250914",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest>=8.0.0",
+]
