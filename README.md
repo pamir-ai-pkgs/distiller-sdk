@@ -93,6 +93,27 @@ just clean               # Clean artifacts
 # Note: To include Whisper models, run ./build.sh --whisper before just build
 ```
 
+## Hardware Detection
+
+Check hardware availability before initialization:
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+
+status = HardwareStatus()
+
+print(f"E-ink Display: {'Available' if status.eink_available else 'Not available'}")
+print(f"Camera: {'Available' if status.camera_available else 'Not available'}")
+print(f"LED Controller: {'Available' if status.led_available else 'Not available'}")
+print(f"Audio: {'Available' if status.audio_available else 'Not available'}")
+
+# Initialize only available hardware
+if status.eink_available:
+    from distiller_sdk.hardware.eink import Display
+    with Display() as display:
+        display.clear()
+```
+
 ## SDK Modules
 
 ### Audio System
@@ -100,49 +121,46 @@ just clean               # Clean artifacts
 ```python
 from distiller_sdk.hardware.audio import Audio
 
-# Initialize
-audio = Audio()
-
-# Configure system-wide settings
+# Configure system-wide settings (static methods)
 Audio.set_mic_gain_static(80)      # 0-100
 Audio.set_speaker_volume_static(70) # 0-100
 
-# Recording to file
-audio.record("output.wav", duration=5.0)  # Record for 5 seconds
-# OR without duration (manual stop required)
-audio.record("output.wav")
-audio.stop_recording()
+# Use context manager for automatic cleanup
+with Audio() as audio:
+    # Recording to file
+    audio.record("output.wav", duration=5.0)  # Record for 5 seconds
+    # OR without duration (manual stop required)
+    audio.record("output.wav")
+    audio.stop_recording()
 
-# Streaming recording with callback
-def audio_callback(data):
-    print(f"Received {len(data)} bytes")
+    # Streaming recording with callback
+    def audio_callback(data):
+        print(f"Received {len(data)} bytes")
 
-thread = audio.stream_record(callback=audio_callback, buffer_size=4096)
-# ... do something ...
-audio.stop_recording()
+    thread = audio.stream_record(callback=audio_callback, buffer_size=4096)
+    # ... do something ...
+    audio.stop_recording()
 
-# Playback from file
-audio.play("sound.wav")
+    # Playback from file
+    audio.play("sound.wav")
 
-# Stream playback
-audio_data = b'...'  # Your audio data
-audio.stream_play(audio_data,
-      format_type="S16_LE",
-      sample_rate=16000,
-      channels=1)
+    # Stream playback
+    audio_data = b'...'  # Your audio data
+    audio.stream_play(audio_data,
+          format_type="S16_LE",
+          sample_rate=16000,
+          channels=1)
 
-# Volume control
-audio.set_mic_gain(85)  # Instance method
-audio.set_speaker_volume(60)
-gain = audio.get_mic_gain()
-volume = audio.get_speaker_volume()
+    # Volume control
+    audio.set_mic_gain(85)  # Instance method
+    audio.set_speaker_volume(60)
+    gain = audio.get_mic_gain()
+    volume = audio.get_speaker_volume()
 
-# Status checks
-is_recording = audio.is_recording()
-is_playing = audio.is_playing()
-
-# Cleanup
-audio.close()
+    # Status checks
+    is_recording = audio.is_recording()
+    is_playing = audio.is_playing()
+# Automatic cleanup on exit
 ```
 
 ### E-ink Display
@@ -373,32 +391,30 @@ rpicam-apps-based image capture with OpenCV processing for Raspberry Pi OS Bookw
 ```python
 from distiller_sdk.hardware.camera import Camera
 
-camera = Camera()
+# Use context manager for automatic cleanup
+with Camera() as camera:
+    # Capture image (saves to file if filepath provided)
+    image = camera.capture_image("photo.jpg")
+    # OR without filepath (returns numpy array only)
+    image = camera.capture_image()
 
-# Capture image (saves to file if filepath provided)
-image = camera.capture_image("photo.jpg")
-# OR without filepath (returns numpy array only)
-image = camera.capture_image()
+    # Get single frame
+    frame = camera.get_frame()
 
-# Get single frame
-frame = camera.get_frame()
+    # Stream processing with callback
+    def frame_callback(frame):
+        print(f"Frame shape: {frame.shape}")
+        # Process frame
 
-# Stream processing with callback
-def frame_callback(frame):
-    print(f"Frame shape: {frame.shape}")
-    # Process frame
+    camera.start_stream(callback=frame_callback)
+    # ... do something ...
+    camera.stop_stream()
 
-camera.start_stream(callback=frame_callback)
-# ... do something ...
-camera.stop_stream()
-
-# Adjust settings
-camera.adjust_setting("brightness", 50)
-setting_value = camera.get_setting("brightness")
-available = camera.get_available_settings()
-
-# Cleanup
-camera.close()
+    # Adjust settings
+    camera.adjust_setting("brightness", 50)
+    setting_value = camera.get_setting("brightness")
+    available = camera.get_available_settings()
+# Automatic cleanup on exit
 ```
 
 ### LED Control
@@ -409,46 +425,47 @@ Full RGB LED control with animation modes, Linux LED triggers, and timing contro
 from distiller_sdk.hardware.sam import LED
 import time
 
-led = LED(use_sudo=True)  # May need sudo for sysfs access
+# Use context manager for automatic cleanup
+with LED(use_sudo=True) as led:  # May need sudo for sysfs access
+    # Basic control (per-LED)
+    led.set_rgb_color(led_id=0, red=255, green=0, blue=0)  # Red
+    led.set_brightness(led_id=0, brightness=128)  # 0-255
+    led.turn_off(led_id=0)
 
-# Basic control (per-LED)
-led.set_rgb_color(led_id=0, red=255, green=0, blue=0)  # Red
-led.set_brightness(led_id=0, brightness=128)  # 0-255
-led.turn_off(led_id=0)
+    # Get current state
+    red, green, blue = led.get_rgb_color(led_id=0)
+    brightness = led.get_brightness(led_id=0)
 
-# Get current state
-red, green, blue = led.get_rgb_color(led_id=0)
-brightness = led.get_brightness(led_id=0)
+    # Control all LEDs
+    led.set_color_all(red=0, green=255, blue=0)  # All green
+    led.set_brightness_all(200)  # 0-255
+    led.turn_off_all()
 
-# Control all LEDs
-led.set_color_all(red=0, green=255, blue=0)  # All green
-led.set_brightness_all(200)  # 0-255
-led.turn_off_all()
+    # Animation modes (kernel-based looping, hardware-accelerated)
+    led.blink_led(led_id=0, red=255, green=0, blue=0, timing=500)  # Blink red at 500ms
+    led.fade_led(led_id=0, red=0, green=255, blue=0, timing=1000)  # Fade green at 1000ms
+    led.rainbow_led(led_id=0, timing=800)  # Rainbow cycle at 800ms
 
-# Animation modes (kernel-based looping, hardware-accelerated)
-led.blink_led(led_id=0, red=255, green=0, blue=0, timing=500)  # Blink red at 500ms
-led.fade_led(led_id=0, red=0, green=255, blue=0, timing=1000)  # Fade green at 1000ms
-led.rainbow_led(led_id=0, timing=800)  # Rainbow cycle at 800ms
+    # Stop animation by returning to static mode
+    led.set_rgb_color(led_id=0, red=0, green=0, blue=0)  # Returns to static mode
+    led.turn_off(led_id=0)  # Or turn off completely
 
-# Stop animation by returning to static mode
-led.set_rgb_color(led_id=0, red=0, green=0, blue=0)  # Returns to static mode
-led.turn_off(led_id=0)  # Or turn off completely
+    # Linux LED triggers (hardware-accelerated effects)
+    led.set_trigger(0, "heartbeat-rgb")    # Heartbeat pattern
+    led.set_trigger(0, "breathing-rgb")    # Breathing effect
+    led.set_trigger(0, "none")             # Disable trigger
 
-# Linux LED triggers (hardware-accelerated effects)
-led.set_trigger(0, "heartbeat-rgb")    # Heartbeat pattern
-led.set_trigger(0, "breathing-rgb")    # Breathing effect
-led.set_trigger(0, "none")             # Disable trigger
+    # Get available triggers
+    triggers = led.get_available_triggers(0)
+    current_trigger = led.get_trigger(0)
 
-# Get available triggers
-triggers = led.get_available_triggers(0)
-current_trigger = led.get_trigger(0)
+    # Custom animation timing control
+    led.blink_led(led_id=0, red=255, green=255, blue=0, timing=200)  # Fast yellow blink
+    led.fade_led(led_id=1, red=0, green=0, blue=255, timing=2000)    # Slow blue fade
 
-# Custom animation timing control
-led.blink_led(led_id=0, red=255, green=255, blue=0, timing=200)  # Fast yellow blink
-led.fade_led(led_id=1, red=0, green=0, blue=255, timing=2000)    # Slow blue fade
-
-# Get available LEDs
-available = led.get_available_leds()  # Returns list of LED IDs
+    # Get available LEDs
+    available = led.get_available_leds()  # Returns list of LED IDs
+# LEDs automatically turned off on exit
 ```
 
 ### Parakeet ASR (with VAD)
@@ -456,28 +473,25 @@ available = led.get_available_leds()  # Returns list of LED IDs
 ```python
 from distiller_sdk.parakeet import Parakeet
 
-# Initialize
-asr = Parakeet()
+# Use context manager for automatic cleanup
+with Parakeet() as asr:
+    # Push-to-talk recording and transcription
+    for text in asr.record_and_transcribe_ptt():
+        print(f"Transcribed: {text}")
 
-# Push-to-talk recording and transcription
-for text in asr.record_and_transcribe_ptt():
-    print(f"Transcribed: {text}")
+    # Automatic recording with VAD (Voice Activity Detection)
+    for text in asr.auto_record_and_transcribe():
+        print(f"Transcribed: {text}")
 
-# Automatic recording with VAD (Voice Activity Detection)
-for text in asr.auto_record_and_transcribe():
-    print(f"Transcribed: {text}")
+    # Manual recording control
+    asr.start_recording()
+    # ... speak ...
+    audio_data = asr.stop_recording()
 
-# Manual recording control
-asr.start_recording()
-# ... speak ...
-audio_data = asr.stop_recording()
-
-# Transcribe the recorded audio
-for text in asr.transcribe_buffer(audio_data):
-    print(f"Transcribed: {text}")
-
-# Cleanup
-asr.cleanup()
+    # Transcribe the recorded audio
+    for text in asr.transcribe_buffer(audio_data):
+        print(f"Transcribed: {text}")
+# Automatic cleanup on exit
 ```
 
 ### Piper TTS
@@ -485,24 +499,24 @@ asr.cleanup()
 ```python
 from distiller_sdk.piper import Piper
 
-# Initialize
-tts = Piper()
+# Use context manager for automatic cleanup
+with Piper() as tts:
+    # Stream speech directly to speakers
+    tts.speak_stream("Hello, world!", volume=50)
 
-# Stream speech directly to speakers
-tts.speak_stream("Hello, world!", volume=50)
+    # Stream with specific sound card
+    tts.speak_stream("Hello", volume=30, sound_card_name="snd_pamir_ai_soundcard")
 
-# Stream with specific sound card
-tts.speak_stream("Hello", volume=30, sound_card_name="snd_pamir_ai_soundcard")
+    # Get WAV file (saves to current directory as output.wav)
+    wav_path = tts.get_wav_file_path("Hello, this is a test")
+    print(f"WAV file saved to: {wav_path}")
 
-# Get WAV file (saves to current directory as output.wav)
-wav_path = tts.get_wav_file_path("Hello, this is a test")
-print(f"WAV file saved to: {wav_path}")
-
-# List available voices
-voices = tts.list_voices()
-for voice in voices:
-    print(f"Voice: {voice['name']}, Language: {voice['language']}")
-# Note: Currently only 'en_US-amy-medium' is available
+    # List available voices
+    voices = tts.list_voices()
+    for voice in voices:
+        print(f"Voice: {voice['name']}, Language: {voice['language']}")
+    # Note: Currently only 'en_US-amy-medium' is available
+# Automatic cleanup on exit
 ```
 
 ### Whisper ASR (Optional)
@@ -510,81 +524,202 @@ for voice in voices:
 ```python
 from distiller_sdk.whisper import Whisper
 
-# Initialize (requires models)
-whisper = Whisper(model_size="base")
+# Use context manager for automatic cleanup
+with Whisper() as whisper:
+    # Transcribe from file
+    for text in whisper.transcribe("audio.wav"):
+        print(f"Transcribed: {text}")
 
-# Transcribe
-text = whisper.transcribe_file("audio.wav")
+    # Push-to-talk recording
+    for text in whisper.record_and_transcribe_ptt():
+        print(f"Transcribed: {text}")
 
-# With options
-result = whisper.transcribe_file(
-    "audio.wav",
-    language="en",
-    task="transcribe"  # or "translate"
-)
+    # Transcribe from buffer
+    audio_data = b'...'  # Your audio data
+    for text in whisper.transcribe_buffer(audio_data):
+        print(f"Transcribed: {text}")
+# Automatic cleanup on exit
 ```
 
 ### Hardware Manager Pattern
 
 ```python
+from distiller_sdk.hardware_status import HardwareStatus
 from distiller_sdk.hardware.audio import Audio
 from distiller_sdk.hardware.camera import Camera
 from distiller_sdk.hardware.eink import Display, DisplayMode
 from distiller_sdk.hardware.sam import LED
 
 class HardwareManager:
-    """Coordinate multiple hardware components."""
+    """Coordinate multiple hardware components with automatic detection and cleanup."""
 
     def __init__(self):
-        self.audio = None
-        self.camera = None
-        self.display = None
-        self.led = None
+        # Check hardware availability
+        self.status = HardwareStatus()
+        print(f"E-ink: {self.status.eink_available}")
+        print(f"Camera: {self.status.camera_available}")
+        print(f"LED: {self.status.led_available}")
+        print(f"Audio: {self.status.audio_available}")
 
-    def initialize(self):
-        """Initialize available hardware."""
-        try:
-            self.display = Display()
-            self.camera = Camera()
-            self.audio = Audio()
-            self.led = LED(use_sudo=True)  # May need sudo for sysfs access
-            return True
-        except Exception as e:
-            print(f"Hardware init failed: {e}")
-            return False
+    def __enter__(self):
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager (cleanup handled by individual modules)."""
+        return False
 
     def capture_and_display(self):
-        """Capture image and show on display."""
-        if self.camera and self.display:
-            if self.led:
+        """Capture image and show on display using context managers."""
+        if not (self.status.camera_available and self.status.eink_available):
+            print("Required hardware not available")
+            return
+
+        # Use context managers for all hardware
+        with Camera() as camera, \
+             Display() as display, \
+             LED(use_sudo=True) as led if self.status.led_available else None:
+
+            if led:
                 # Blink blue during capture
-                self.led.blink_led(led_id=0, red=0, green=0, blue=255, timing=300)
+                led.blink_led(led_id=0, red=0, green=0, blue=255, timing=300)
 
             # Capture and save image
-            image = self.camera.capture_image("/tmp/capture.png")
+            image = camera.capture_image("/tmp/capture.png")
             # Display on e-ink using auto-conversion
-            self.display.display_png_auto("/tmp/capture.png", DisplayMode.FULL)
+            display.display_png_auto("/tmp/capture.png", mode=DisplayMode.FULL)
 
-            if self.led:
+            if led:
                 # Return to static mode and show solid green for success
-                self.led.set_rgb_color(led_id=0, red=0, green=255, blue=0)
+                led.set_rgb_color(led_id=0, red=0, green=255, blue=0)
+        # All resources automatically cleaned up
 
-    def cleanup(self):
-        """Clean up resources."""
-        if self.display:
-            self.display.clear()
-        if self.led:
-            self.led.turn_off_all()  # Turn off all LEDs
-        if self.camera:
-            self.camera.close()
-        if self.audio:
-            self.audio.close()
+    def voice_interaction(self):
+        """Voice interaction using ASR and TTS."""
+        if not self.status.audio_available:
+            print("Audio hardware not available")
+            return
+
+        from distiller_sdk.parakeet import Parakeet
+        from distiller_sdk.piper import Piper
+
+        with Parakeet() as asr, Piper() as tts:
+            # Listen for voice input
+            for text in asr.record_and_transcribe_ptt():
+                print(f"You said: {text}")
+                # Respond with TTS
+                tts.speak_stream(f"You said: {text}", volume=50)
+        # Automatic cleanup
 
 # Usage
-manager = HardwareManager()
-if manager.initialize():
+with HardwareManager() as manager:
     manager.capture_and_display()
-    manager.cleanup()
+    manager.voice_interaction()
+```
+
+## Exception Handling
+
+All modules raise specific exceptions for better error handling:
+
+```python
+from distiller_sdk.exceptions import AudioError, CameraError, DisplayError, LEDError
+from distiller_sdk.parakeet import Parakeet
+from distiller_sdk.piper import Piper
+from distiller_sdk.whisper import Whisper
+
+# Hardware exceptions
+try:
+    with Display() as display:
+        display.display_image("image.png", mode=DisplayMode.FULL)
+except DisplayError as e:
+    print(f"Display error: {e}")
+except FileNotFoundError:
+    print("Image file not found")
+
+try:
+    with Camera() as camera:
+        camera.capture_image("photo.jpg")
+except CameraError as e:
+    print(f"Camera error: {e}")
+
+try:
+    with LED(use_sudo=True) as led:
+        led.set_rgb_color(0, 255, 0, 0)
+except LEDError as e:
+    print(f"LED error: {e}")
+    # May indicate permission issues - try with use_sudo=True
+
+try:
+    with Audio() as audio:
+        audio.record("test.wav", duration=5)
+except AudioError as e:
+    print(f"Audio error: {e}")
+
+# AI module exceptions
+try:
+    from distiller_sdk.parakeet import Parakeet, ParakeetError
+    with Parakeet() as asr:
+        for text in asr.transcribe("audio.wav"):
+            print(text)
+except ParakeetError as e:
+    print(f"ASR error: {e}")
+
+try:
+    from distiller_sdk.piper import Piper, PiperError
+    with Piper() as tts:
+        tts.speak_stream("Hello", volume=50)
+except PiperError as e:
+    print(f"TTS error: {e}")
+
+try:
+    from distiller_sdk.whisper import Whisper, WhisperError
+    with Whisper() as whisper:
+        for text in whisper.transcribe("audio.wav"):
+            print(text)
+except WhisperError as e:
+    print(f"Whisper error: {e}")
+```
+
+## Thread Safety
+
+All modules are thread-safe and can be used concurrently:
+
+```python
+import threading
+from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.sam import LED
+
+# Safe concurrent operations
+with Audio() as audio, LED(use_sudo=True) as led:
+    def record_task():
+        audio.record("recording.wav", duration=5)
+
+    def led_animation():
+        led.blink_led(led_id=0, red=255, green=0, blue=0, timing=500)
+
+    # Both operations are thread-safe
+    t1 = threading.Thread(target=record_task)
+    t2 = threading.Thread(target=led_animation)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+# Multiple instances are also thread-safe
+def worker1():
+    with Audio() as audio:
+        audio.record("worker1.wav", duration=3)
+
+def worker2():
+    with Audio() as audio:
+        audio.record("worker2.wav", duration=3)
+
+t1 = threading.Thread(target=worker1)
+t2 = threading.Thread(target=worker2)
+t1.start()
+t2.start()
+t1.join()
+t2.join()
 ```
 
 ## Build & Deployment

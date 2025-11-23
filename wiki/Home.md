@@ -1,7 +1,6 @@
 # Distiller SDK Wiki
 
-Welcome to the Distiller SDK documentation! This SDK provides comprehensive hardware control and
-AI capabilities for multiple ARM64 platforms.
+Welcome to the Distiller SDK documentation! This SDK controls audio, camera, e-ink displays, RGB LEDs, and includes AI capabilities for multiple ARM64 platforms.
 
 ## Quick Links
 
@@ -14,7 +13,7 @@ AI capabilities for multiple ARM64 platforms.
 
 ## SDK Overview
 
-The Distiller SDK is a Python package that provides:
+The Distiller SDK is a Python package that includes:
 
 ### Hardware Control
 
@@ -33,7 +32,7 @@ The Distiller SDK is a Python package that provides:
 
 - **System-wide Installation** - Installed at `/opt/distiller-sdk/`
 - **uv Package Management** - Modern Python dependency management
-- **Native Libraries** - Optimized C libraries for hardware control
+- **Native Libraries** - C/Rust libraries using ARM64 NEON instructions for hardware control
 - **Comprehensive API** - Pythonic interfaces for all hardware
 - **Built-in Models** - Pre-packaged AI models ready to use
 
@@ -48,28 +47,37 @@ The Distiller SDK is a Python package that provides:
 ## Quick Start Example
 
 ```python
+from distiller_sdk.hardware_status import HardwareStatus
 from distiller_sdk.hardware.audio import Audio
 from distiller_sdk.hardware.eink import Display, DisplayMode
 from distiller_sdk.parakeet import Parakeet
 from distiller_sdk.piper import Piper
 
-# Initialize hardware
-audio = Audio()
-display = Display()
-asr = Parakeet()
-tts = Piper()
+# Check hardware availability
+status = HardwareStatus()
+if not status.audio_available:
+    print("Audio hardware not available")
+    exit(1)
 
-# Record speech and transcribe
-for text in asr.record_and_transcribe_ptt():
-    print(f"You said: {text}")
+# Use context managers for automatic cleanup
+with Audio() as audio, \
+     Display() as display if status.eink_available else None, \
+     Parakeet() as asr, \
+     Piper() as tts:
 
-    # Display on E-ink
-    display.clear()
-    buffer = display.render_text(text, x=10, y=10, scale=2)
-    display.display_image(buffer, mode=DisplayMode.FULL)
+    # Record speech and transcribe
+    for text in asr.record_and_transcribe_ptt():
+        print(f"You said: {text}")
 
-    # Speak response
-    tts.speak_stream(f"You said: {text}")
+        # Display on E-ink (if available)
+        if display:
+            display.clear()
+            buffer = display.render_text(text, x=10, y=10, scale=2)
+            display.display_image(buffer, mode=DisplayMode.FULL)
+
+        # Speak response
+        tts.speak_stream(f"You said: {text}", volume=50)
+# All resources automatically cleaned up
 ```
 
 ## Documentation Structure

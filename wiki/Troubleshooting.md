@@ -342,6 +342,41 @@ import psutil
 print(f"Available RAM: {psutil.virtual_memory().available / 1024**3:.1f} GB")
 ```
 
+## Hardware Detection
+
+### Check Hardware Availability
+
+Use `HardwareStatus` to diagnose hardware detection issues:
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+
+status = HardwareStatus()
+
+print(f"E-ink Display: {status.eink_available}")
+print(f"Camera: {status.camera_available}")
+print(f"LED Controller: {status.led_available}")
+print(f"Audio: {status.audio_available}")
+
+# Get detailed status for specific hardware
+from distiller_sdk.hardware.eink import Display
+
+display_status = Display.get_status()
+print(f"Display State: {display_status.state}")
+print(f"Display Message: {display_status.message}")
+print(f"Display Capabilities: {display_status.capabilities}")
+if display_status.error:
+    print(f"Display Error: {display_status.error}")
+print(f"Display Diagnostics: {display_status.diagnostic_info}")
+```
+
+**Common Hardware Detection Issues:**
+
+- **E-ink Display**: Check SPI is enabled, GPIO permissions, firmware type setting
+- **Camera**: Check V4L2 device exists, user in `video` group, camera enabled in config
+- **LED**: Check sysfs LED directory exists, write permissions (may need sudo)
+- **Audio**: Check ALSA devices exist, user in `audio` group
+
 ## General Debugging
 
 ### Check SDK Installation

@@ -42,36 +42,53 @@ from distiller_sdk.hardware.sam.led import LED, LEDError, create_led_with_sudo
 
 ## Quick Start
 
+### Hardware Detection
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+from distiller_sdk.hardware.sam import LED
+
+# Check LED availability before initialization
+status = HardwareStatus()
+
+if status.led_available:
+    with LED(use_sudo=True) as led:
+        # Set LED 0 to red
+        led.set_rgb_color(0, 255, 0, 0)
+else:
+    print("LED controller not available")
+    # Graceful degradation
+```
+
+### Basic Usage
+
 ```python
 from distiller_sdk.hardware.sam.led import LED
 
-# Initialize LED module with sudo mode (recommended)
-led = LED(use_sudo=True)
+# Use context manager for automatic cleanup
+with LED(use_sudo=True) as led:
+    # Get available LEDs
+    available_leds = led.get_available_leds()
+    print(f"Available LEDs: {available_leds}")
 
-# Get available LEDs
-available_leds = led.get_available_leds()
-print(f"Available LEDs: {available_leds}")
+    # Set LED 0 to red (static)
+    led.set_rgb_color(0, 255, 0, 0)
 
-# Set LED 0 to red (static)
-led.set_rgb_color(0, 255, 0, 0)
+    # Set brightness
+    led.set_brightness(0, 128)
 
-# Set brightness
-led.set_brightness(0, 128)
+    # Make it blink at 500ms intervals
+    led.blink_led(0, 255, 0, 0, timing=500)
 
-# Make it blink at 500ms intervals
-led.blink_led(0, 255, 0, 0, timing=500)
+    # Use fade animation at 1000ms intervals
+    led.fade_led(0, 0, 255, 0, timing=1000)
 
-# Use fade animation at 1000ms intervals
-led.fade_led(0, 0, 255, 0, timing=1000)
+    # Rainbow animation
+    led.rainbow_led(0, timing=1000)
 
-# Rainbow animation
-led.rainbow_led(0, timing=1000)
-
-# Or use Linux LED triggers
-led.set_trigger(0, "heartbeat-rgb")
-
-# Turn off all LEDs when done
-led.turn_off_all()
+    # Or use Linux LED triggers
+    led.set_trigger(0, "heartbeat-rgb")
+# Automatic cleanup - LEDs turned off
 ```
 
 ### Alternative: Running as Root
@@ -495,13 +512,40 @@ The LED module uses custom `LEDError` exceptions for all LED-related errors:
 from distiller_sdk.hardware.sam.led import LED, LEDError
 
 try:
-    led = LED()
-    led.set_rgb_color(0, 255, 0, 0)
+    with LED(use_sudo=True) as led:
+        led.set_rgb_color(0, 255, 0, 0)
+        led.blink_led(0, 255, 0, 0, timing=500)
 except LEDError as e:
-    print(f"LED Error: {e}")
-    # Handle specific LED errors
+    print(f"LED error: {e}")
+    # Handle LED-specific errors (hardware not found, invalid values, etc.)
+except PermissionError:
+    print("Permission denied - try using LED(use_sudo=True)")
+    # Handle permission issues
 except Exception as e:
     print(f"Unexpected error: {e}")
+    # Handle other errors
+# Automatic cleanup via context manager
+```
+
+### Hardware Detection with Error Handling
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+from distiller_sdk.hardware.sam import LED, LEDError
+
+# Check availability before initialization
+status = HardwareStatus()
+
+if not status.led_available:
+    print("LED controller not available")
+    # Graceful degradation
+else:
+    try:
+        with LED(use_sudo=True) as led:
+            led.set_rgb_color(0, 255, 0, 0)
+    except LEDError as e:
+        print(f"LED operation failed: {e}")
+        # Handle LED errors
 ```
 
 Common error scenarios:
@@ -513,6 +557,63 @@ Common error scenarios:
 - **Invalid timing**: Animation timing not in [100, 200, 500, 1000] milliseconds
 - **Invalid triggers**: Trigger not available in kernel (check with `get_available_triggers()`)
 - **Permission errors**: Insufficient permissions to write to sysfs files
+
+## Context Manager Support
+
+The LED class supports context managers for automatic resource cleanup:
+
+### `__enter__()`
+
+Enter context manager.
+
+- Returns: LED instance for context manager usage
+- Enables automatic resource cleanup
+
+### `__exit__(exc_type, exc_val, exc_tb)`
+
+Exit context manager and automatically cleanup resources.
+
+- Parameters:
+  - `exc_type`: Exception type (if any)
+  - `exc_val`: Exception value (if any)
+  - `exc_tb`: Exception traceback (if any)
+- Returns: False (does not suppress exceptions)
+- Automatically calls `turn_off_all()` to turn off all LEDs
+
+Example:
+
+```python
+with LED(use_sudo=True) as led:
+    led.set_rgb_color(0, 255, 0, 0)
+    led.blink_led(1, 0, 255, 0, timing=500)
+# LEDs automatically turned off on exit
+```
+
+## Thread Safety
+
+All LED module operations are thread-safe. You can safely control LEDs from multiple threads:
+
+```python
+import threading
+from distiller_sdk.hardware.sam import LED
+
+with LED(use_sudo=True) as led:
+    def led_task_1():
+        """Control LED 0 in background thread"""
+        led.blink_led(0, 255, 0, 0, timing=500)
+
+    def led_task_2():
+        """Control LED 1 in background thread"""
+        led.fade_led(1, 0, 255, 0, timing=1000)
+
+    # Both operations are thread-safe
+    t1 = threading.Thread(target=led_task_1)
+    t2 = threading.Thread(target=led_task_2)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+```
 
 ## Constants and Validation
 
@@ -612,92 +713,84 @@ import time
 from distiller_sdk.hardware.sam.led import LED, LEDError
 
 try:
-    # Initialize LED module with sudo mode
-    led = LED(use_sudo=True)
-    print(f"Available LEDs: {led.get_available_leds()}")
+    # Use context manager for automatic cleanup
+    with LED(use_sudo=True) as led:
+        print(f"Available LEDs: {led.get_available_leds()}")
 
-    # Demo RGB color control
-    print("RGB Color Demo...")
-    colors = [
-        (255, 0, 0, "Red"),
-        (0, 255, 0, "Green"),
-        (0, 0, 255, "Blue"),
-        (255, 255, 0, "Yellow"),
-        (255, 0, 255, "Magenta"),
-        (0, 255, 255, "Cyan"),
-    ]
+        # Demo RGB color control
+        print("RGB Color Demo...")
+        colors = [
+            (255, 0, 0, "Red"),
+            (0, 255, 0, "Green"),
+            (0, 0, 255, "Blue"),
+            (255, 255, 0, "Yellow"),
+            (255, 0, 255, "Magenta"),
+            (0, 255, 255, "Cyan"),
+        ]
 
-    for r, g, b, name in colors:
-        print(f"Setting LED 0 to {name}")
-        led.set_rgb_color(0, r, g, b)
-        led.set_brightness(0, 200)
-        time.sleep(1)
+        for r, g, b, name in colors:
+            print(f"Setting LED 0 to {name}")
+            led.set_rgb_color(0, r, g, b)
+            led.set_brightness(0, 200)
+            time.sleep(1)
 
-    # Demo animation modes
-    print("\nAnimation Demo...")
-    print("Blinking red at 500ms...")
-    led.blink_led(0, 255, 0, 0, timing=500)
-    time.sleep(3)
+        # Demo animation modes
+        print("\nAnimation Demo...")
+        print("Blinking red at 500ms...")
+        led.blink_led(0, 255, 0, 0, timing=500)
+        time.sleep(3)
 
-    print("Fading blue at 1000ms...")
-    led.fade_led(0, 0, 0, 255, timing=1000)
-    time.sleep(4)
+        print("Fading blue at 1000ms...")
+        led.fade_led(0, 0, 0, 255, timing=1000)
+        time.sleep(4)
 
-    print("Rainbow cycle at 200ms (fast)...")
-    led.rainbow_led(0, timing=200)
-    time.sleep(4)
+        print("Rainbow cycle at 200ms (fast)...")
+        led.rainbow_led(0, timing=200)
+        time.sleep(4)
 
-    # Demo triggers
-    print("\nTrigger Demo...")
-    print("Heartbeat pattern...")
-    led.set_trigger(0, "heartbeat-rgb")
-    time.sleep(3)
+        # Demo triggers
+        print("\nTrigger Demo...")
+        print("Heartbeat pattern...")
+        led.set_trigger(0, "heartbeat-rgb")
+        time.sleep(3)
 
-    print("Breathing pattern...")
-    led.set_trigger(1, "breathing-rgb")
-    time.sleep(3)
+        print("Breathing pattern...")
+        led.set_trigger(1, "breathing-rgb")
+        time.sleep(3)
 
-    print("Rainbow trigger...")
-    led.set_trigger(2, "rainbow-rgb")
-    time.sleep(3)
+        print("Rainbow trigger...")
+        led.set_trigger(2, "rainbow-rgb")
+        time.sleep(3)
 
-    # Demo timing control
-    print("\nTiming Control Demo...")
-    for timing in [100, 200, 500, 1000]:
-        print(f"Blink at {timing}ms...")
-        led.blink_led(0, 0, 255, 0, timing=timing)
-        time.sleep(2)
+        # Demo timing control
+        print("\nTiming Control Demo...")
+        for timing in [100, 200, 500, 1000]:
+            print(f"Blink at {timing}ms...")
+            led.blink_led(0, 0, 255, 0, timing=timing)
+            time.sleep(2)
 
-    # Demo multi-LED with different animations
-    print("\nMulti-LED Demo...")
-    led.blink_led(0, 255, 0, 0, timing=500)     # LED 0: Blink red
-    led.fade_led(1, 0, 255, 0, timing=1000)     # LED 1: Fade green
-    led.rainbow_led(2, timing=200)              # LED 2: Rainbow
-    time.sleep(5)
+        # Demo multi-LED with different animations
+        print("\nMulti-LED Demo...")
+        led.blink_led(0, 255, 0, 0, timing=500)     # LED 0: Blink red
+        led.fade_led(1, 0, 255, 0, timing=1000)     # LED 1: Fade green
+        led.rainbow_led(2, timing=200)              # LED 2: Rainbow
+        time.sleep(5)
 
-    # Cleanup
-    led.set_trigger(0, "none")
-    led.set_trigger(1, "none")
-    led.set_trigger(2, "none")
-    led.turn_off_all()
-    print("\nDemo complete!")
+        # Cleanup (manual cleanup not required with context manager)
+        led.set_trigger(0, "none")
+        led.set_trigger(1, "none")
+        led.set_trigger(2, "none")
+
+        print("\nDemo complete!")
+    # Automatic cleanup - all LEDs turned off
 
 except LEDError as e:
     print(f"LED Error: {e}")
     print("Ensure the SAM driver is loaded and LED sysfs interface is available")
 except KeyboardInterrupt:
     print("Demo interrupted")
-    if 'led' in locals():
-        led.turn_off_all()
 except Exception as e:
     print(f"Unexpected error: {e}")
-finally:
-    # Always cleanup
-    if 'led' in locals():
-        try:
-            led.turn_off_all()
-        except:
-            pass
 ```
 
 ## Troubleshooting

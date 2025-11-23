@@ -110,13 +110,20 @@ touch src/distiller_sdk/hardware/new_device/_new_device_test.py
 
 ```python
 # src/distiller_sdk/hardware/new_device/__init__.py
+import threading
+from typing import Optional
 
 class NewDevice:
-    """Hardware interface for new device."""
+    """Hardware interface for new device.
+
+    Supports context manager for automatic resource cleanup.
+    Thread-safe for concurrent operations.
+    """
 
     def __init__(self):
         """Initialize device."""
         self._device = None
+        self._lock = threading.Lock()  # Thread safety
         self._initialize()
 
     def _initialize(self):
@@ -129,14 +136,60 @@ class NewDevice:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
+        """Context manager exit with automatic cleanup."""
         self.close()
+        return False
 
     def close(self):
         """Release resources."""
-        if self._device:
-            # Cleanup code
-            self._device = None
+        with self._lock:
+            if self._device:
+                # Cleanup code
+                self._device = None
+
+    @staticmethod
+    def get_status():
+        """Get hardware availability status.
+
+        Returns:
+            HardwareStatus: Detailed status information
+
+        Example:
+            >>> status = NewDevice.get_status()
+            >>> if status.available:
+            ...     device = NewDevice()
+        """
+        from distiller_sdk.hardware_status import HardwareStatus, HardwareState
+
+        try:
+            # Check hardware availability
+            # ... detection logic ...
+            return HardwareStatus(
+                state=HardwareState.AVAILABLE,
+                available=True,
+                capabilities={"feature": True},
+                error=None,
+                diagnostic_info={"path": "/dev/device"},
+                message="Device available"
+            )
+        except Exception as e:
+            return HardwareStatus(
+                state=HardwareState.UNAVAILABLE,
+                available=False,
+                capabilities={},
+                error=e,
+                diagnostic_info={},
+                message=f"Device unavailable: {str(e)}"
+            )
+
+    @staticmethod
+    def is_available() -> bool:
+        """Quick availability check.
+
+        Returns:
+            bool: True if device is available
+        """
+        return NewDevice.get_status().available
 ```
 
 ### 3. Add Test File
@@ -442,10 +495,35 @@ gh release create v3.3.0 dist/*.deb
 
 ### Error Handling
 
-- Use descriptive error messages
+- Use specific exception types from `distiller_sdk.exceptions`
+- Always use `with` statements to ensure cleanup even on errors
+- Check hardware availability before initialization using `HardwareStatus`
+- Provide descriptive error messages with diagnostic information
 - Handle hardware disconnection gracefully
-- Provide fallback options where possible
 - Log errors for debugging
+
+```python
+from distiller_sdk.hardware.camera import Camera, CameraError
+from distiller_sdk.hardware_status import HardwareStatus
+
+# Check availability first
+status = HardwareStatus()
+if not status.camera_available:
+    print("Camera not available")
+    return
+
+# Use context managers and specific exceptions
+try:
+    with Camera() as camera:
+        camera.capture_image("photo.jpg")
+except CameraError as e:
+    print(f"Camera hardware error: {e}")
+except PermissionError:
+    print("Permission denied - add user to 'video' group")
+except FileNotFoundError:
+    print("Output directory not found")
+# Automatic cleanup via context manager
+```
 
 ### Performance
 
@@ -453,6 +531,35 @@ gh release create v3.3.0 dist/*.deb
 - Implement streaming for audio/video
 - Cache model loading
 - Profile memory usage
+
+### Thread Safety
+
+- All SDK modules are thread-safe in v3.0
+- Use `threading.Lock()` for internal state protection
+- Context managers handle cleanup in multi-threaded code
+- No external synchronization needed for public methods
+
+```python
+import threading
+from distiller_sdk.hardware.audio import Audio
+
+# Thread-safe concurrent operations
+with Audio() as audio:
+    def record_task():
+        audio.record("recording.wav", duration=5)
+
+    def playback_task():
+        audio.play("sound.wav")
+
+    # Both operations are thread-safe
+    t1 = threading.Thread(target=record_task)
+    t2 = threading.Thread(target=playback_task)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+# Automatic cleanup
+```
 
 ### Documentation
 

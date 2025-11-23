@@ -1,17 +1,16 @@
 # Piper TTS Module
 
-The Piper module provides high-quality Text-to-Speech (TTS) synthesis using ONNX models. It's
-optimized for the Raspberry Pi CM5 platform, offering natural-sounding voice synthesis with low
-latency and efficient resource usage.
+The Piper module implements Text-to-Speech (TTS) synthesis using ONNX models. It
+uses ONNX Runtime for ARM64, with typical 50-100ms first-synthesis latency.
 
 ## Overview
 
-Piper is a fast, local TTS engine that:
+Piper TTS features:
 
 - Uses ONNX models for voice synthesis
-- Provides real-time audio streaming to speakers
+- Real-time audio streaming to speakers
 - Supports multiple voice configurations
-- Optimized for ARM64 processors
+- Uses ONNX Runtime ARM64 backend
 - No internet connection required
 
 ## Prerequisites
@@ -44,11 +43,11 @@ Required files downloaded during SDK build:
 ```python
 from distiller_sdk.piper import Piper
 
-# Initialize Piper
-piper = Piper()
-
-# Speak text through speakers
-piper.speak_stream("Hello, this is a test of the Piper TTS system.", volume=50)
+# Use context manager for automatic cleanup
+with Piper() as piper:
+    # Speak text through speakers
+    piper.speak_stream("Hello, this is a test of the Piper TTS system.", volume=50)
+# Automatic cleanup
 ```
 
 ### Generate WAV File
@@ -56,12 +55,12 @@ piper.speak_stream("Hello, this is a test of the Piper TTS system.", volume=50)
 ```python
 from distiller_sdk.piper import Piper
 
-piper = Piper()
-
-# Generate speech as WAV file
-text = "This text will be saved as a WAV file."
-output_path = piper.get_wav_file_path(text)
-print(f"Audio saved to: {output_path}")
+with Piper() as piper:
+    # Generate speech as WAV file
+    text = "This text will be saved as a WAV file."
+    output_path = piper.get_wav_file_path(text)
+    print(f"Audio saved to: {output_path}")
+# Automatic cleanup
 ```
 
 ### List Available Voices
@@ -69,14 +68,13 @@ print(f"Audio saved to: {output_path}")
 ```python
 from distiller_sdk.piper import Piper
 
-piper = Piper()
-
-# Get available voices
-voices = piper.list_voices()
-for voice in voices:
-    print(f"Voice: {voice['name']}")
-    print(f"  Language: {voice['language']}")
-    print(f"  Quality: {voice['quality']}")
+with Piper() as piper:
+    # Get available voices
+    voices = piper.list_voices()
+    for voice in voices:
+        print(f"Voice: {voice['name']}")
+        print(f"  Language: {voice['language']}")
+        print(f"  Quality: {voice['quality']}")
 ```
 
 ## API Reference
@@ -99,14 +97,16 @@ Initialize the Piper TTS engine.
 **Example:**
 
 ```python
-# Use default paths
-piper = Piper()
+# Use default paths with context manager
+with Piper() as piper:
+    piper.speak_stream("Hello world")
 
 # Use custom paths
-piper = Piper(
+with Piper(
     model_path="/custom/path/to/models",
     piper_path="/custom/path/to/piper"
-)
+) as piper:
+    piper.speak_stream("Hello world")
 ```
 
 #### `list_voices() -> List[Dict]`
@@ -125,9 +125,10 @@ List available voices for TTS.
 **Example:**
 
 ```python
-voices = piper.list_voices()
-for voice in voices:
-    print(f"{voice['name']}: {voice['language']} ({voice['quality']})")
+with Piper() as piper:
+    voices = piper.list_voices()
+    for voice in voices:
+        print(f"{voice['name']}: {voice['language']} ({voice['quality']})")
 ```
 
 #### `get_wav_file_path(text: str) -> str`
@@ -149,12 +150,14 @@ Generate speech and save to WAV file.
 **Example:**
 
 ```python
-output_file = piper.get_wav_file_path("Hello world")
-print(f"Generated: {output_file}")
-
-# Play the generated file
 import subprocess
-subprocess.run(["aplay", output_file])
+
+with Piper() as piper:
+    output_file = piper.get_wav_file_path("Hello world")
+    print(f"Generated: {output_file}")
+
+    # Play the generated file
+    subprocess.run(["aplay", output_file])
 ```
 
 #### `speak_stream(text: str, volume: int = 50, sound_card_name: str = None)`
@@ -174,18 +177,121 @@ Stream synthesized speech directly to speakers.
 **Example:**
 
 ```python
-# Simple usage with default settings
-piper.speak_stream("Hello, world!")
+with Piper() as piper:
+    # Simple usage with default settings
+    piper.speak_stream("Hello, world!")
 
-# With custom volume
-piper.speak_stream("This is louder.", volume=75)
+    # With custom volume
+    piper.speak_stream("This is louder.", volume=75)
 
-# With specific sound card
-piper.speak_stream(
-    "Using specific audio device.",
-    volume=50,
-    sound_card_name="snd_rpi_pamir_ai_soundcard"
-)
+    # With specific sound card
+    piper.speak_stream(
+        "Using specific audio device.",
+        volume=50,
+        sound_card_name="snd_rpi_pamir_ai_soundcard"
+    )
+```
+
+#### `__enter__()`
+
+Enter context manager.
+
+**Returns:**
+
+- Piper instance for context manager usage
+
+**Example:**
+
+```python
+with Piper() as piper:
+    # Use piper
+    pass
+```
+
+#### `__exit__(exc_type, exc_val, exc_tb)`
+
+Exit context manager and automatically cleanup resources.
+
+**Parameters:**
+
+- `exc_type`: Exception type (if any)
+- `exc_val`: Exception value (if any)
+- `exc_tb`: Exception traceback (if any)
+
+**Returns:**
+
+- False (does not suppress exceptions)
+
+**Note:** Currently no specific cleanup needed, but implemented for consistency and future extensibility.
+
+## Exception Handling
+
+The Piper module uses specific exceptions for better error handling:
+
+```python
+from distiller_sdk.piper import Piper, PiperError
+
+try:
+    with Piper() as piper:
+        piper.speak_stream("Hello world", volume=50)
+except PiperError as e:
+    print(f"Piper error: {e}")
+    # Handle Piper-specific errors (binary not found, model missing, etc.)
+except ValueError as e:
+    print(f"Invalid value: {e}")
+    # Handle invalid parameters (volume out of range, etc.)
+except FileNotFoundError as e:
+    print(f"File not found: {e}")
+    # Handle missing files or binaries
+except Exception as e:
+    print(f"Unexpected error: {e}")
+    # Handle other errors
+# Automatic cleanup via context manager
+```
+
+### Common PiperError Scenarios
+
+```python
+from distiller_sdk.piper import Piper, PiperError
+
+try:
+    with Piper() as piper:
+        # This may raise PiperError if models or binary are missing
+        piper.speak_stream("Test message")
+except PiperError as e:
+    if "binary" in str(e).lower():
+        print("Piper binary not found - run ./build.sh to download")
+    elif "model" in str(e).lower():
+        print("Voice model not found - run ./build.sh to download models")
+    else:
+        print(f"Piper error: {e}")
+```
+
+## Thread Safety
+
+All Piper module operations are thread-safe. Multiple threads can use the same Piper instance concurrently:
+
+```python
+import threading
+from distiller_sdk.piper import Piper
+
+with Piper() as piper:
+    def speak_task(text):
+        """Speak text in background thread"""
+        piper.speak_stream(text, volume=50)
+
+    # Multiple speech tasks can run concurrently
+    threads = []
+    texts = ["First message", "Second message", "Third message"]
+
+    for text in texts:
+        t = threading.Thread(target=speak_task, args=(text,))
+        threads.append(t)
+        t.start()
+
+    # Wait for all speech to complete
+    for t in threads:
+        t.join()
 ```
 
 ## Advanced Usage
@@ -204,9 +310,9 @@ from distiller_sdk.piper import Piper
 
 # Initialize with custom model path
 custom_model_path = "/path/to/voices"
-piper = Piper(model_path=custom_model_path)
-
-# The module will use the first .onnx file found in the directory
+with Piper(model_path=custom_model_path) as piper:
+    # The module will use the first .onnx file found in the directory
+    piper.speak_stream("Using custom voice model")
 ```
 
 ### Batch Processing Multiple Texts
@@ -215,32 +321,32 @@ piper = Piper(model_path=custom_model_path)
 from distiller_sdk.piper import Piper
 import time
 
-piper = Piper()
-
 texts = [
     "First announcement.",
     "Second announcement.",
     "Third announcement."
 ]
 
-for i, text in enumerate(texts, 1):
-    print(f"Speaking text {i}...")
-    piper.speak_stream(text, volume=50)
-    time.sleep(1)  # Pause between announcements
+with Piper() as piper:
+    for i, text in enumerate(texts, 1):
+        print(f"Speaking text {i}...")
+        piper.speak_stream(text, volume=50)
+        time.sleep(1)  # Pause between announcements
+# Automatic cleanup
 ```
 
 ### Dynamic Volume Control
 
 ```python
 from distiller_sdk.piper import Piper
+import time
 
-piper = Piper()
-
-# Gradually increase volume
-for volume in range(20, 81, 10):
-    text = f"Volume level is {volume} percent."
-    piper.speak_stream(text, volume=volume)
-    time.sleep(0.5)
+with Piper() as piper:
+    # Gradually increase volume
+    for volume in range(20, 81, 10):
+        text = f"Volume level is {volume} percent."
+        piper.speak_stream(text, volume=volume)
+        time.sleep(0.5)
 ```
 
 ### Text Processing and Speech
@@ -285,7 +391,9 @@ def num_to_words(n):
 # Example usage
 raw_text = "Dr. Smith has 3 appointments at 2:30 PM."
 clean_text = clean_text_for_speech(raw_text)
-piper.speak_stream(clean_text)
+
+with Piper() as piper:
+    piper.speak_stream(clean_text)
 ```
 
 ### Save Multiple Formats
@@ -295,12 +403,11 @@ from distiller_sdk.piper import Piper
 import subprocess
 import os
 
-piper = Piper()
-
 text = "This audio will be saved in multiple formats."
 
-# Generate WAV
-wav_path = piper.get_wav_file_path(text)
+with Piper() as piper:
+    # Generate WAV
+    wav_path = piper.get_wav_file_path(text)
 
 # Convert to MP3 (requires ffmpeg)
 mp3_path = wav_path.replace('.wav', '.mp3')
@@ -332,28 +439,24 @@ print(f"  OGG: {ogg_path}")
 from distiller_sdk.piper import Piper
 from distiller_sdk.parakeet import Parakeet
 
-# Initialize both engines
-piper = Piper()
-parakeet = Parakeet()
-
 def voice_assistant():
     """Simple voice assistant loop"""
-    piper.speak_stream("Voice assistant ready. Say 'exit' to quit.")
+    with Piper() as piper, Parakeet() as parakeet:
+        piper.speak_stream("Voice assistant ready. Say 'exit' to quit.")
 
-    for text in parakeet.auto_record_and_transcribe():
-        if text:
-            print(f"You said: {text}")
+        for text in parakeet.auto_record_and_transcribe():
+            if text:
+                print(f"You said: {text}")
 
-            # Check for exit command
-            if "exit" in text.lower():
-                piper.speak_stream("Goodbye!")
-                break
+                # Check for exit command
+                if "exit" in text.lower():
+                    piper.speak_stream("Goodbye!")
+                    break
 
-            # Echo back what was heard
-            response = f"I heard you say: {text}"
-            piper.speak_stream(response, volume=50)
-
-    parakeet.cleanup()
+                # Echo back what was heard
+                response = f"I heard you say: {text}"
+                piper.speak_stream(response, volume=50)
+    # Automatic cleanup for both modules
 
 # Run the assistant
 voice_assistant()
@@ -365,21 +468,20 @@ voice_assistant()
 from distiller_sdk.piper import Piper
 from distiller_sdk.hardware.eink import Display
 
-piper = Piper()
-display = Display()
-
 def speak_with_display(text):
     """Show text on display while speaking"""
-    # Display the text
-    display.clear()
-    display.render_text(
-        text=text,
-        font_size=20,
-        wrap_text=True
-    )
+    with Piper() as piper, Display() as display:
+        # Display the text
+        display.clear()
+        display.render_text(
+            text=text,
+            font_size=20,
+            wrap_text=True
+        )
 
-    # Speak the text
-    piper.speak_stream(text, volume=50)
+        # Speak the text
+        piper.speak_stream(text, volume=50)
+    # Automatic cleanup
 
 # Example usage
 speak_with_display("Hello! This text appears on the display while being spoken.")
@@ -392,40 +494,34 @@ from distiller_sdk.piper import Piper
 from distiller_sdk.hardware.sam import LED
 import time
 
-piper = Piper()
-led = LED()
-
 def notify(message, priority="normal"):
     """Send audio and visual notification"""
+    with Piper() as piper, LED(use_sudo=True) as led:
+        if priority == "high":
+            # Red LED for high priority
+            led.set_rgb_color(0, 255, 0, 0)
+            volume = 75
+            prefix = "Urgent: "
+        elif priority == "low":
+            # Blue LED for low priority
+            led.set_rgb_color(0, 0, 0, 255)
+            volume = 30
+            prefix = "Info: "
+        else:
+            # Green LED for normal
+            led.set_rgb_color(0, 0, 255, 0)
+            volume = 50
+            prefix = ""
 
-    if priority == "high":
-        # Red LED for high priority
-        led.set_color(255, 0, 0)
-        volume = 75
-        prefix = "Urgent: "
-    elif priority == "low":
-        # Blue LED for low priority
-        led.set_color(0, 0, 255)
-        volume = 30
-        prefix = "Info: "
-    else:
-        # Green LED for normal
-        led.set_color(0, 255, 0)
-        volume = 50
-        prefix = ""
+        # Speak the notification
+        full_message = prefix + message
+        piper.speak_stream(full_message, volume=volume)
 
-    # Speak the notification
-    full_message = prefix + message
-    piper.speak_stream(full_message, volume=volume)
-
-    # Flash LED
-    for _ in range(3):
-        led.turn_off()
-        time.sleep(0.2)
-        led.set_color(*led.get_color())
-        time.sleep(0.2)
-
-    led.turn_off()
+        # Flash LED using blink animation
+        current_color = led.get_rgb_color(0)
+        led.blink_led(0, current_color[0], current_color[1], current_color[2], timing=200)
+        time.sleep(2)
+    # Automatic cleanup - LEDs turned off
 
 # Example notifications
 notify("System startup complete", priority="low")

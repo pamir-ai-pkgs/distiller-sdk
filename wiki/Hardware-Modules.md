@@ -1,12 +1,12 @@
 # Hardware Modules
 
-The Distiller SDK provides comprehensive Python interfaces for controlling hardware components
+The Distiller SDK includes Python interfaces for controlling hardware components
 on the Distiller platform (Raspberry Pi CM5, Radxa Zero 3/3W). All hardware modules follow
 consistent patterns with context manager support and proper resource cleanup.
 
 ## Audio System
 
-The audio module provides ALSA-based recording and playback with hardware volume control.
+The audio module implements ALSA-based recording and playback with hardware volume control.
 
 ### Features
 
@@ -21,29 +21,26 @@ The audio module provides ALSA-based recording and playback with hardware volume
 ```python
 from distiller_sdk.hardware.audio import Audio
 
-# Initialize
-audio = Audio()
-
 # Configure system-wide settings
 Audio.set_mic_gain_static(80)      # 0-100
 Audio.set_speaker_volume_static(70) # 0-100
 
-# Record to file
-audio.record("output.wav", duration=5.0)  # 5 seconds
+# Use context manager for automatic cleanup
+with Audio() as audio:
+    # Record to file
+    audio.record("output.wav", duration=5.0)  # 5 seconds
 
-# Playback
-audio.play("sound.wav")
+    # Playback
+    audio.play("sound.wav")
 
-# Stream recording with callback
-def process_audio(data):
-    print(f"Received {len(data)} bytes")
+    # Stream recording with callback
+    def process_audio(data):
+        print(f"Received {len(data)} bytes")
 
-thread = audio.stream_record(callback=process_audio)
-# ... do processing ...
-audio.stop_recording()
-
-# Cleanup
-audio.close()
+    thread = audio.stream_record(callback=process_audio)
+    # ... do processing ...
+    audio.stop_recording()
+# Automatic cleanup on exit
 ```
 
 ### Advanced Features
@@ -181,19 +178,17 @@ The camera module uses rpicam-apps for image and video capture.
 ```python
 from distiller_sdk.hardware.camera import Camera
 
-camera = Camera()
+# Use context manager for automatic cleanup
+with Camera() as camera:
+    # Capture image
+    image = camera.capture_image("photo.jpg")  # Saves and returns array
+    # OR
+    image = camera.capture_image()  # Returns array only
 
-# Capture image
-image = camera.capture_image("photo.jpg")  # Saves and returns array
-# OR
-image = camera.capture_image()  # Returns array only
-
-# Get single frame
-frame = camera.get_frame()
-print(f"Frame shape: {frame.shape}")
-
-# Cleanup
-camera.close()
+    # Get single frame
+    frame = camera.get_frame()
+    print(f"Frame shape: {frame.shape}")
+# Automatic cleanup on exit
 ```
 
 ### Video Streaming
@@ -252,17 +247,18 @@ The LED module controls RGB LEDs via the sysfs interface.
 ```python
 from distiller_sdk.hardware.sam import LED
 
-led = LED(use_sudo=True)  # May need sudo for sysfs
+# Use context manager for automatic LED turn-off
+with LED(use_sudo=True) as led:
+    # Control individual LED
+    led.set_rgb_color(led_id=0, red=255, green=0, blue=0)  # Red
+    led.set_brightness(led_id=0, brightness=128)  # 50% brightness
+    led.turn_off(led_id=0)
 
-# Control individual LED
-led.set_rgb_color(led_id=0, red=255, green=0, blue=0)  # Red
-led.set_brightness(led_id=0, brightness=128)  # 50% brightness
-led.turn_off(led_id=0)
-
-# Control all LEDs
-led.set_color_all(red=0, green=255, blue=0)  # All green
-led.set_brightness_all(200)
-led.turn_off_all()
+    # Control all LEDs
+    led.set_color_all(red=0, green=255, blue=0)  # All green
+    led.set_brightness_all(200)
+    led.turn_off_all()
+# All LEDs automatically turned off on exit
 ```
 
 ### LED Animation Modes
@@ -318,85 +314,81 @@ print(f"Available LEDs: {leds}")
 
 ## Hardware Manager Pattern
 
-Coordinate multiple hardware components efficiently:
+Coordinate multiple hardware components efficiently using HardwareStatus and context managers:
 
 ```python
+from distiller_sdk.hardware_status import HardwareStatus
 from distiller_sdk.hardware.audio import Audio
 from distiller_sdk.hardware.camera import Camera
 from distiller_sdk.hardware.eink import Display, DisplayMode, ScalingMethod
 from distiller_sdk.hardware.sam import LED
 
 class HardwareManager:
-    def __init__(self):
-        self.audio = None
-        self.camera = None
-        self.display = None
-        self.led = None
+    """Coordinate multiple hardware components with automatic detection and cleanup."""
 
-    def initialize(self):
-        """Initialize all hardware."""
-        try:
-            self.audio = Audio()
-            self.camera = Camera()
-            self.display = Display()
-            self.led = LED(use_sudo=True)
-            return True
-        except Exception as e:
-            print(f"Init failed: {e}")
-            return False
+    def __init__(self):
+        # Check hardware availability
+        self.status = HardwareStatus()
+
+        if not self.status.audio_available:
+            print("Warning: Audio hardware not available")
 
     def capture_and_display(self):
         """Capture photo and show on E-ink display."""
-        if self.camera and self.display:
-            # Capture
-            image = self.camera.capture_image("/tmp/photo.png")
+        # Use context managers for automatic cleanup
+        with Camera() as camera if self.status.camera_available else None, \
+             Display() as display if self.status.eink_available else None, \
+             LED(use_sudo=True) as led if self.status.led_available else None:
 
-            # Display with auto-conversion
-            self.display.display_png_auto(
-                "/tmp/photo.png",
-                mode=DisplayMode.FULL,
-                scaling=ScalingMethod.LETTERBOX
-            )
+            if camera and display:
+                # Capture
+                image = camera.capture_image("/tmp/photo.png")
 
-            # Success indicator
-            if self.led:
-                self.led.set_rgb_color(0, 0, 255, 0)  # Green
+                # Display with auto-conversion
+                display.display_png_auto(
+                    "/tmp/photo.png",
+                    mode=DisplayMode.FULL,
+                    scaling=ScalingMethod.LETTERBOX
+                )
+
+                # Success indicator
+                if led:
+                    led.set_rgb_color(0, 0, 255, 0)  # Green
+            elif not camera:
+                print("Camera not available")
+            elif not display:
+                print("Display not available")
+        # All resources automatically cleaned up
 
     def record_and_show_status(self, duration=5):
         """Record audio and show status on display."""
-        if self.audio and self.display:
+        if not self.status.audio_available:
+            print("Audio hardware not available")
+            return
+
+        with Audio() as audio, \
+             Display() as display if self.status.eink_available else None:
+
             # Show recording status
-            self.display.clear()
-            text = self.display.render_text("Recording...", 10, 10, 2)
-            self.display.display_image(text, DisplayMode.FULL)
+            if display:
+                display.clear()
+                text = display.render_text("Recording...", 10, 10, 2)
+                display.display_image(text, DisplayMode.FULL)
 
             # Record
-            self.audio.record("/tmp/recording.wav", duration)
+            audio.record("/tmp/recording.wav", duration)
 
             # Show complete
-            self.display.clear()
-            text = self.display.render_text("Complete!", 10, 10, 2)
-            self.display.display_image(text, DisplayMode.FULL)
-
-    def cleanup(self):
-        """Clean up all resources."""
-        if self.display:
-            self.display.clear()
-        if self.led:
-            self.led.turn_off_all()
-        if self.camera:
-            self.camera.close()
-        if self.audio:
-            self.audio.close()
+            if display:
+                display.clear()
+                text = display.render_text("Complete!", 10, 10, 2)
+                display.display_image(text, DisplayMode.FULL)
+        # All resources automatically cleaned up
 
 # Usage
 manager = HardwareManager()
-if manager.initialize():
-    try:
-        manager.capture_and_display()
-        manager.record_and_show_status()
-    finally:
-        manager.cleanup()
+manager.capture_and_display()
+manager.record_and_show_status()
 ```
 
 ## Hardware Testing
@@ -413,6 +405,39 @@ python -m distiller_sdk.hardware.camera._camera_unit_test
 # E-ink display test
 python -m distiller_sdk.hardware.eink._display_test
 ```
+
+## Thread Safety
+
+All hardware modules in v3.0 are thread-safe and can be used concurrently:
+
+```python
+import threading
+from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.sam import LED
+
+# Safe concurrent operations
+with Audio() as audio, LED(use_sudo=True) as led:
+    def record_task():
+        audio.record("recording.wav", duration=5)
+
+    def led_animation():
+        led.blink_led(led_id=0, red=255, green=0, blue=0, timing=500)
+
+    # Both operations are thread-safe
+    t1 = threading.Thread(target=record_task)
+    t2 = threading.Thread(target=led_animation)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+# Automatic cleanup
+```
+
+**Thread Safety Guarantees:**
+- All public methods use internal locking for thread safety
+- Multiple threads can safely call methods on the same instance
+- No external synchronization required for concurrent operations
+- Context managers properly handle cleanup in multi-threaded code
 
 ## Important Notes
 

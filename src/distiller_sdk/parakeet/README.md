@@ -1,6 +1,6 @@
 # Parakeet ASR Module
 
-The Parakeet module provides high-performance Automatic Speech Recognition (ASR) with Voice Activity
+The Parakeet module implements real-time Automatic Speech Recognition (ASR) with Voice Activity
 Detection (VAD) using ONNX models. It's designed for real-time speech-to-text conversion on the
 Raspberry Pi CM5 platform, offering both push-to-talk and continuous speech recognition
 capabilities.
@@ -11,7 +11,7 @@ Parakeet is a lightweight ASR engine that uses:
 
 - NVIDIA NeMo Parakeet models (ONNX format) for speech recognition
 - Silero VAD for voice activity detection
-- Optimized for ARM64 processors
+- Uses Sherpa-ONNX with ARM64 NEON acceleration
 - Support for streaming and batch transcription
 
 ## Prerequisites
@@ -47,15 +47,12 @@ Required model files are downloaded during SDK build:
 ```python
 from distiller_sdk.parakeet import Parakeet
 
-# Initialize Parakeet
-parakeet = Parakeet()
-
-# Transcribe an audio file
-for text in parakeet.transcribe("/path/to/audio.wav"):
-    print(f"Transcribed: {text}")
-
-# Clean up resources
-parakeet.cleanup()
+# Use context manager for automatic cleanup
+with Parakeet() as parakeet:
+    # Transcribe an audio file
+    for text in parakeet.transcribe("/path/to/audio.wav"):
+        print(f"Transcribed: {text}")
+# Automatic cleanup
 ```
 
 ### Push-to-Talk Recording
@@ -63,23 +60,21 @@ parakeet.cleanup()
 ```python
 from distiller_sdk.parakeet import Parakeet
 
-parakeet = Parakeet()
+with Parakeet() as parakeet:
+    # Start recording
+    print("Press Enter to start recording...")
+    input()
+    parakeet.start_recording()
 
-# Start recording
-print("Press Enter to start recording...")
-input()
-parakeet.start_recording()
+    # Stop and transcribe
+    print("Recording... Press Enter to stop...")
+    input()
+    audio_data = parakeet.stop_recording()
 
-# Stop and transcribe
-print("Recording... Press Enter to stop...")
-input()
-audio_data = parakeet.stop_recording()
-
-# Transcribe the recorded audio
-for text in parakeet.transcribe_buffer(audio_data):
-    print(f"Transcribed: {text}")
-
-parakeet.cleanup()
+    # Transcribe the recorded audio
+    for text in parakeet.transcribe_buffer(audio_data):
+        print(f"Transcribed: {text}")
+# Automatic cleanup
 ```
 
 ### Automatic Speech Recognition with VAD
@@ -87,19 +82,17 @@ parakeet.cleanup()
 ```python
 from distiller_sdk.parakeet import Parakeet
 
-# Initialize with custom VAD silence duration
-parakeet = Parakeet(vad_silence_duration=1.0)
-
-# Start continuous recognition with VAD
-print("Listening... (Press Ctrl+C to stop)")
-try:
-    for text in parakeet.auto_record_and_transcribe():
-        if text:  # Only print non-empty transcriptions
-            print(f"Detected speech: {text}")
-except KeyboardInterrupt:
-    print("Stopping...")
-finally:
-    parakeet.cleanup()
+# Use context manager with custom VAD silence duration
+with Parakeet(vad_silence_duration=1.0) as parakeet:
+    # Start continuous recognition with VAD
+    print("Listening... (Press Ctrl+C to stop)")
+    try:
+        for text in parakeet.auto_record_and_transcribe():
+            if text:  # Only print non-empty transcriptions
+                print(f"Detected speech: {text}")
+    except KeyboardInterrupt:
+        print("Stopping...")
+# Automatic cleanup
 ```
 
 ## API Reference
@@ -128,11 +121,13 @@ Initialize the Parakeet ASR engine.
 **Example:**
 
 ```python
-parakeet = Parakeet(
+with Parakeet(
     model_config={"num_threads": 2},
     audio_config={"rate": 16000, "channels": 1},
     vad_silence_duration=0.5
-)
+) as parakeet:
+    # Use parakeet for transcription
+    pass
 ```
 
 #### `transcribe(audio_path: str) -> Generator[str, None, None]`
@@ -150,8 +145,9 @@ Transcribe audio from a file.
 **Example:**
 
 ```python
-for text in parakeet.transcribe("recording.wav"):
-    print(text)
+with Parakeet() as parakeet:
+    for text in parakeet.transcribe("recording.wav"):
+        print(text)
 ```
 
 #### `transcribe_buffer(audio_data: bytes) -> Generator[str, None, None]`
@@ -169,10 +165,11 @@ Transcribe audio from a WAV format byte buffer.
 **Example:**
 
 ```python
-with open("audio.wav", "rb") as f:
-    audio_data = f.read()
-for text in parakeet.transcribe_buffer(audio_data):
-    print(text)
+with Parakeet() as parakeet:
+    with open("audio.wav", "rb") as f:
+        audio_data = f.read()
+    for text in parakeet.transcribe_buffer(audio_data):
+        print(text)
 ```
 
 #### `start_recording() -> bool`
@@ -186,8 +183,9 @@ Start recording audio (push-to-talk start).
 **Example:**
 
 ```python
-if parakeet.start_recording():
-    print("Recording started")
+with Parakeet() as parakeet:
+    if parakeet.start_recording():
+        print("Recording started")
 ```
 
 #### `stop_recording() -> bytes`
@@ -201,10 +199,14 @@ Stop recording audio and return the recorded data.
 **Example:**
 
 ```python
-audio_data = parakeet.stop_recording()
-if audio_data:
-    # Process the audio data
-    pass
+with Parakeet() as parakeet:
+    parakeet.start_recording()
+    # ... recording ...
+    audio_data = parakeet.stop_recording()
+    if audio_data:
+        # Process the audio data
+        for text in parakeet.transcribe_buffer(audio_data):
+            print(text)
 ```
 
 #### `record_and_transcribe_ptt() -> Generator[str, None, None]`
@@ -218,8 +220,9 @@ Interactive push-to-talk demo with user prompts.
 **Example:**
 
 ```python
-for text in parakeet.record_and_transcribe_ptt():
-    print(f"You said: {text}")
+with Parakeet() as parakeet:
+    for text in parakeet.record_and_transcribe_ptt():
+        print(f"You said: {text}")
 ```
 
 #### `auto_record_and_transcribe() -> Generator[str, None, None]`
@@ -233,19 +236,137 @@ Automatic speech recognition with voice activity detection.
 **Example:**
 
 ```python
-for text in parakeet.auto_record_and_transcribe():
-    if text:
-        print(f"Detected: {text}")
+with Parakeet() as parakeet:
+    for text in parakeet.auto_record_and_transcribe():
+        if text:
+            print(f"Detected: {text}")
 ```
 
 #### `cleanup()`
 
 Release audio resources and clean up.
 
+**Note:** When using context manager (v3.0+), `cleanup()` is called automatically upon exiting the `with` block. Manual cleanup is only needed for legacy code not using context managers.
+
 **Example:**
 
 ```python
-parakeet.cleanup()
+# Manual cleanup (legacy pattern)
+parakeet = Parakeet()
+try:
+    for text in parakeet.transcribe("audio.wav"):
+        print(text)
+finally:
+    parakeet.cleanup()
+
+# Preferred v3.0+ pattern (automatic cleanup)
+with Parakeet() as parakeet:
+    for text in parakeet.transcribe("audio.wav"):
+        print(text)
+# Automatic cleanup
+```
+
+#### `__enter__()`
+
+Enter context manager.
+
+**Returns:**
+
+- Parakeet instance for context manager usage
+
+**Example:**
+
+```python
+with Parakeet() as parakeet:
+    # Use parakeet
+    pass
+```
+
+#### `__exit__(exc_type, exc_val, exc_tb)`
+
+Exit context manager and automatically cleanup resources.
+
+**Parameters:**
+
+- `exc_type`: Exception type (if any)
+- `exc_val`: Exception value (if any)
+- `exc_tb`: Exception traceback (if any)
+
+**Returns:**
+
+- False (does not suppress exceptions)
+
+**Note:** Automatically calls `cleanup()` to release audio resources.
+
+## Exception Handling
+
+The Parakeet module uses specific exceptions for better error handling:
+
+```python
+from distiller_sdk.parakeet import Parakeet, ParakeetError
+
+try:
+    with Parakeet() as parakeet:
+        for text in parakeet.transcribe("audio.wav"):
+            print(text)
+except ParakeetError as e:
+    print(f"Parakeet error: {e}")
+    # Handle Parakeet-specific errors (model loading, audio device, etc.)
+except FileNotFoundError as e:
+    print(f"Audio file not found: {e}")
+    # Handle missing audio files
+except PermissionError:
+    print("Permission denied - add user to 'audio' group")
+    # Handle permission issues
+except Exception as e:
+    print(f"Unexpected error: {e}")
+    # Handle other errors
+# Automatic cleanup via context manager
+```
+
+### Common ParakeetError Scenarios
+
+```python
+from distiller_sdk.parakeet import Parakeet, ParakeetError
+
+try:
+    with Parakeet() as parakeet:
+        # This may raise ParakeetError if models are missing
+        for text in parakeet.transcribe("audio.wav"):
+            print(text)
+except ParakeetError as e:
+    if "model" in str(e).lower():
+        print("Model files not found - run ./build.sh to download models")
+    elif "audio" in str(e).lower():
+        print("Audio device error - check microphone connection")
+    else:
+        print(f"Parakeet error: {e}")
+```
+
+## Thread Safety
+
+All Parakeet module operations are thread-safe. The module uses internal locks to protect shared resources:
+
+```python
+import threading
+from distiller_sdk.parakeet import Parakeet
+
+with Parakeet() as parakeet:
+    def transcribe_task(audio_file):
+        """Transcribe in background thread"""
+        for text in parakeet.transcribe(audio_file):
+            print(f"{audio_file}: {text}")
+
+    # Multiple transcription tasks can run concurrently
+    threads = []
+    for audio_file in ["file1.wav", "file2.wav", "file3.wav"]:
+        t = threading.Thread(target=transcribe_task, args=(audio_file,))
+        threads.append(t)
+        t.start()
+
+    # Wait for all transcriptions to complete
+    for t in threads:
+        t.join()
 ```
 
 ## Advanced Usage
@@ -262,20 +383,28 @@ for i in range(p.get_device_count()):
         print(f"Device {i}: {info['name']}")
 p.terminate()
 
-# Use specific device
-parakeet = Parakeet(
+# Use specific device with context manager
+with Parakeet(
     audio_config={"device": "USB Audio Device"}
-)
+) as parakeet:
+    for text in parakeet.transcribe("audio.wav"):
+        print(text)
 ```
 
 ### Adjusting VAD Sensitivity
 
 ```python
 # More aggressive VAD (shorter silence = faster response)
-parakeet = Parakeet(vad_silence_duration=0.3)
+with Parakeet(vad_silence_duration=0.3) as parakeet:
+    for text in parakeet.auto_record_and_transcribe():
+        if text:
+            print(f"Detected: {text}")
 
 # More conservative VAD (longer silence = fewer false triggers)
-parakeet = Parakeet(vad_silence_duration=2.0)
+with Parakeet(vad_silence_duration=2.0) as parakeet:
+    for text in parakeet.auto_record_and_transcribe():
+        if text:
+            print(f"Detected: {text}")
 ```
 
 ### Batch Processing Multiple Files
@@ -284,18 +413,16 @@ parakeet = Parakeet(vad_silence_duration=2.0)
 import os
 from distiller_sdk.parakeet import Parakeet
 
-parakeet = Parakeet()
-
 audio_files = ["file1.wav", "file2.wav", "file3.wav"]
 transcriptions = {}
 
-for audio_file in audio_files:
-    transcript = []
-    for text in parakeet.transcribe(audio_file):
-        transcript.append(text)
-    transcriptions[audio_file] = " ".join(transcript)
-
-parakeet.cleanup()
+with Parakeet() as parakeet:
+    for audio_file in audio_files:
+        transcript = []
+        for text in parakeet.transcribe(audio_file):
+            transcript.append(text)
+        transcriptions[audio_file] = " ".join(transcript)
+# Automatic cleanup
 
 # Print all transcriptions
 for file, text in transcriptions.items():
@@ -305,6 +432,7 @@ for file, text in transcriptions.items():
 ### Real-time Streaming with Callback
 
 ```python
+import time
 from distiller_sdk.parakeet import Parakeet
 
 def on_speech_detected(text):
@@ -313,16 +441,14 @@ def on_speech_detected(text):
     # Add your custom processing here
     # e.g., send to server, trigger actions, etc.
 
-parakeet = Parakeet(vad_silence_duration=0.5)
-
-try:
-    for text in parakeet.auto_record_and_transcribe():
-        if text:
-            on_speech_detected(text)
-except KeyboardInterrupt:
-    pass
-finally:
-    parakeet.cleanup()
+with Parakeet(vad_silence_duration=0.5) as parakeet:
+    try:
+        for text in parakeet.auto_record_and_transcribe():
+            if text:
+                on_speech_detected(text)
+    except KeyboardInterrupt:
+        pass
+# Automatic cleanup
 ```
 
 ## Troubleshooting
@@ -401,10 +527,10 @@ parakeet = Parakeet(vad_silence_duration=2.0)  # Less sensitive
 
 ```python
 # Record a clear test phrase
-parakeet = Parakeet()
-print("Say 'The quick brown fox jumps over the lazy dog'")
-for text in parakeet.record_and_transcribe_ptt():
-    print(f"Transcribed: {text}")
+with Parakeet() as parakeet:
+    print("Say 'The quick brown fox jumps over the lazy dog'")
+    for text in parakeet.record_and_transcribe_ptt():
+        print(f"Transcribed: {text}")
 ```
 
 ## Performance Considerations
@@ -422,15 +548,14 @@ for text in parakeet.record_and_transcribe_ptt():
 from distiller_sdk.parakeet import Parakeet
 from distiller_sdk.piper import Piper
 
-parakeet = Parakeet()
-piper = Piper()
-
-print("Voice Assistant Ready. Say something...")
-for text in parakeet.auto_record_and_transcribe():
-    if text:
-        print(f"You said: {text}")
-        response = f"You said: {text}"
-        piper.speak_stream(response, volume=50)
+with Parakeet() as parakeet, Piper() as piper:
+    print("Voice Assistant Ready. Say something...")
+    for text in parakeet.auto_record_and_transcribe():
+        if text:
+            print(f"You said: {text}")
+            response = f"You said: {text}"
+            piper.speak_stream(response, volume=50)
+# Automatic cleanup for both modules
 ```
 
 ### With Hardware LED Feedback
@@ -439,19 +564,19 @@ for text in parakeet.auto_record_and_transcribe():
 from distiller_sdk.parakeet import Parakeet
 from distiller_sdk.hardware.sam import LED
 
-parakeet = Parakeet()
-led = LED()
+with Parakeet() as parakeet, LED(use_sudo=True) as led:
+    # Visual feedback during recording
+    parakeet.start_recording()
+    led.set_rgb_color(0, 255, 0, 0)  # Red = recording
 
-# Visual feedback during recording
-parakeet.start_recording()
-led.set_color(255, 0, 0)  # Red = recording
+    # ... recording ...
 
-audio_data = parakeet.stop_recording()
-led.set_color(0, 255, 0)  # Green = processing
+    audio_data = parakeet.stop_recording()
+    led.set_rgb_color(0, 0, 255, 0)  # Green = processing
 
-for text in parakeet.transcribe_buffer(audio_data):
-    print(f"Transcribed: {text}")
-led.turn_off()
+    for text in parakeet.transcribe_buffer(audio_data):
+        print(f"Transcribed: {text}")
+# Automatic cleanup - LEDs turned off
 ```
 
 ## License and Credits

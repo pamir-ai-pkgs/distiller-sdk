@@ -31,10 +31,10 @@ sudo apt-get update
 
 # Install required packages
 sudo apt-get install -y \
-    python3.11 python3.11-venv python3.11-dev \
-    libasound2-dev alsa-utils \
-    libcamera-dev rpicam-apps \
-    build-essential git curl
+ python3.11 python3.11-venv python3.11-dev \
+ libasound2-dev alsa-utils \
+ libcamera-dev rpicam-apps \
+ build-essential git curl
 ```
 
 ## Installation Methods
@@ -52,7 +52,7 @@ wget https://github.com/pamir-ai-pkgs/distiller-sdk/releases/latest/download/dis
 
 ```bash
 sudo dpkg -i distiller-sdk_*_arm64.deb
-sudo apt-get install -f  # Install any missing dependencies
+sudo apt-get install -f # Install any missing dependencies
 ```
 
 3. **Verify installation**:
@@ -141,7 +141,20 @@ Make it persistent:
 echo "export DISTILLER_EINK_FIRMWARE=EPD128x250" >> ~/.bashrc
 ```
 
-### 3. Verify Hardware Access
+### 3. Verify Hardware Availability
+
+Check which hardware is available on your system:
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+
+status = HardwareStatus()
+
+print(f"E-ink Display: {'' if status.eink_available else ''}")
+print(f"Camera: {'' if status.camera_available else ''}")
+print(f"LED Controller: {'' if status.led_available else ''}")
+print(f"Audio: {'' if status.audio_available else ''}")
+```
 
 Test each hardware component:
 
@@ -226,9 +239,9 @@ FROM arm64v8/python:3.11-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libasound2 \
-    libcamera0 \
-    && rm -rf /var/lib/apt/lists/*
+ libasound2 \
+ libcamera0 \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copy SDK
 COPY --from=host /opt/distiller-sdk /opt/distiller-sdk
@@ -253,7 +266,7 @@ The SDK uses `uv` for package management. After installation:
 ```bash
 cd /opt/distiller-sdk
 source activate.sh
-uv add requests  # Example package
+uv add requests # Example package
 ```
 
 ### Update Packages
@@ -280,8 +293,8 @@ To remove the SDK:
 
 ```bash
 sudo apt-get remove distiller-sdk
-sudo apt-get purge distiller-sdk  # Also remove config files
-sudo rm -rf /opt/distiller-sdk    # Remove all files
+sudo apt-get purge distiller-sdk # Also remove config files
+sudo rm -rf /opt/distiller-sdk # Remove all files
 ```
 
 ## Upgrading

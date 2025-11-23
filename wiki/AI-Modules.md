@@ -1,11 +1,11 @@
 # AI Modules
 
 The Distiller SDK includes pre-trained AI models for automatic speech recognition (ASR) and
-text-to-speech (TTS) synthesis. These models are optimized for edge deployment on ARM64 platforms.
+text-to-speech (TTS) synthesis. These models use CTranslate2 quantization and ONNX Runtime for ARM64.
 
 ## Parakeet ASR
 
-Parakeet provides real-time automatic speech recognition with integrated Voice Activity Detection
+Parakeet implements real-time automatic speech recognition with integrated Voice Activity Detection
 (VAD) using Sherpa-ONNX models.
 
 ### Features
@@ -14,23 +14,20 @@ Parakeet provides real-time automatic speech recognition with integrated Voice A
 - Voice Activity Detection (VAD)
 - Push-to-talk and automatic recording modes
 - Low latency transcription
-- Optimized for ARM64
+- Uses ARM64 NEON SIMD instructions
 
 ### Basic Usage
 
 ```python
 from distiller_sdk.parakeet import Parakeet
 
-# Initialize
-asr = Parakeet()
-
-# Push-to-talk mode
-print("Press Enter to start recording, press again to stop...")
-for text in asr.record_and_transcribe_ptt():
-    print(f"Transcribed: {text}")
-
-# Cleanup
-asr.cleanup()
+# Use context manager for automatic cleanup
+with Parakeet() as asr:
+    # Push-to-talk mode
+    print("Press Enter to start recording, press again to stop...")
+    for text in asr.record_and_transcribe_ptt():
+        print(f"Transcribed: {text}")
+# Automatic cleanup on exit
 ```
 
 ### Automatic Recording with VAD
@@ -47,21 +44,25 @@ for text in asr.auto_record_and_transcribe():
 ### Manual Recording Control
 
 ```python
-# Start recording
-asr.start_recording()
-print("Recording... speak now")
-
-# Let user speak for a few seconds
 import time
-time.sleep(5)
+from distiller_sdk.parakeet import Parakeet
 
-# Stop and get audio data
-audio_data = asr.stop_recording()
-print(f"Recorded {len(audio_data)} bytes")
+with Parakeet() as asr:
+    # Start recording
+    asr.start_recording()
+    print("Recording... speak now")
 
-# Transcribe the buffer
-for text in asr.transcribe_buffer(audio_data):
-    print(f"Transcription: {text}")
+    # Let user speak for a few seconds
+    time.sleep(5)
+
+    # Stop and get audio data
+    audio_data = asr.stop_recording()
+    print(f"Recorded {len(audio_data)} bytes")
+
+    # Transcribe the buffer
+    for text in asr.transcribe_buffer(audio_data):
+        print(f"Transcription: {text}")
+# Automatic cleanup
 ```
 
 ### Advanced Configuration
@@ -79,29 +80,28 @@ asr = Parakeet(
 
 ```python
 from distiller_sdk.parakeet import Parakeet
-from distiller_sdk.hardware.eink import Display
+from distiller_sdk.hardware.eink import Display, DisplayMode
 
-asr = Parakeet()
-display = Display()
+# Use context managers for both ASR and display
+with Parakeet() as asr, Display() as display:
+    # Display transcriptions on E-ink
+    for text in asr.auto_record_and_transcribe():
+        # Clear and show text
+        display.clear()
+        buffer = display.render_text(text, x=5, y=10, scale=1)
+        display.display_image(buffer, mode=DisplayMode.FULL)
 
-# Display transcriptions on E-ink
-for text in asr.auto_record_and_transcribe():
-    # Clear and show text
+        # Check for exit command
+        if "exit" in text.lower():
+            break
+
     display.clear()
-    buffer = display.render_text(text, x=5, y=10, scale=1)
-    display.display_image(buffer)
-
-    # Check for exit command
-    if "exit" in text.lower():
-        break
-
-display.clear()
-asr.cleanup()
+# Automatic cleanup
 ```
 
 ## Piper TTS
 
-Piper provides high-quality text-to-speech synthesis with streaming audio output.
+Piper implements text-to-speech synthesis with streaming audio output.
 
 ### Features
 
@@ -116,32 +116,35 @@ Piper provides high-quality text-to-speech synthesis with streaming audio output
 ```python
 from distiller_sdk.piper import Piper
 
-# Initialize
-tts = Piper()
+# Use context manager for automatic cleanup
+with Piper() as tts:
+    # Speak text directly to speakers
+    tts.speak_stream("Hello, world!", volume=50)
 
-# Speak text directly to speakers
-tts.speak_stream("Hello, world!", volume=50)
-
-# Custom sound card (if needed)
-tts.speak_stream(
-    "Testing audio output",
-    volume=75,
-    sound_card_name="snd_pamir_ai_soundcard"
-)
+    # Custom sound card (if needed)
+    tts.speak_stream(
+        "Testing audio output",
+        volume=75,
+        sound_card_name="snd_pamir_ai_soundcard"
+    )
+# Automatic cleanup
 ```
 
 ### Generate WAV Files
 
 ```python
-# Generate and save WAV file
-text = "This is a test of text to speech synthesis"
-wav_path = tts.get_wav_file_path(text)
-print(f"WAV file saved to: {wav_path}")
+from distiller_sdk.piper import Piper
+from distiller_sdk.hardware.audio import Audio
+
+with Piper() as tts:
+    # Generate and save WAV file
+    text = "This is a test of text to speech synthesis"
+    wav_path = tts.get_wav_file_path(text)
+    print(f"WAV file saved to: {wav_path}")
 
 # Play the generated file
-from distiller_sdk.hardware.audio import Audio
-audio = Audio()
-audio.play(wav_path)
+with Audio() as audio:
+    audio.play(wav_path)
 ```
 
 ### Voice Management
@@ -163,28 +166,26 @@ for voice in voices:
 from distiller_sdk.parakeet import Parakeet
 from distiller_sdk.piper import Piper
 
-asr = Parakeet()
-tts = Piper()
+# Use context managers for both ASR and TTS
+with Parakeet() as asr, Piper() as tts:
+    # Echo back what user says
+    print("Say something...")
+    for text in asr.auto_record_and_transcribe():
+        print(f"You said: {text}")
 
-# Echo back what user says
-print("Say something...")
-for text in asr.auto_record_and_transcribe():
-    print(f"You said: {text}")
+        # Speak it back
+        response = f"I heard you say: {text}"
+        tts.speak_stream(response, volume=60)
 
-    # Speak it back
-    response = f"I heard you say: {text}"
-    tts.speak_stream(response, volume=60)
-
-    if "goodbye" in text.lower():
-        tts.speak_stream("Goodbye!", volume=70)
-        break
-
-asr.cleanup()
+        if "goodbye" in text.lower():
+            tts.speak_stream("Goodbye!", volume=70)
+            break
+# Automatic cleanup
 ```
 
 ## Whisper ASR (Optional)
 
-Whisper provides advanced speech recognition with support for multiple languages and translation.
+Whisper implements advanced speech recognition with support for multiple languages and translation.
 Note: Whisper models are not included by default due to their size.
 
 ### Installation
@@ -208,20 +209,12 @@ just build
 ```python
 from distiller_sdk.whisper import Whisper
 
-# Initialize with model size
-whisper = Whisper(model_size="base")  # tiny, base, small, medium
-
-# Transcribe audio file
-text = whisper.transcribe_file("audio.wav")
-print(f"Transcription: {text}")
-
-# With language detection
-result = whisper.transcribe_file(
-    "audio.wav",
-    language=None  # Auto-detect
-)
-print(f"Detected language: {result['language']}")
-print(f"Text: {result['text']}")
+# Use context manager for automatic cleanup
+with Whisper(model_size="base") as whisper:  # tiny, base, small, medium
+    # Transcribe audio file
+    for text in whisper.transcribe("audio.wav"):
+        print(f"Transcription: {text}")
+# Automatic cleanup
 ```
 
 ### Translation
@@ -242,20 +235,22 @@ print(f"Translation: {result}")
 from distiller_sdk.hardware.audio import Audio
 from distiller_sdk.whisper import Whisper
 
-audio = Audio()
-whisper = Whisper(model_size="base")
+# Use context managers for both audio and Whisper
+with Audio() as audio, Whisper(model_size="base") as whisper:
+    # Record and transcribe
+    audio.record("/tmp/recording.wav", duration=10)
 
-# Record and transcribe
-audio.record("/tmp/recording.wav", duration=10)
-text = whisper.transcribe_file("/tmp/recording.wav")
-print(f"You said: {text}")
+    for text in whisper.transcribe("/tmp/recording.wav"):
+        print(f"You said: {text}")
+# Automatic cleanup
 ```
 
 ## Combined AI Pipeline
 
-Create sophisticated voice interaction systems:
+Create sophisticated voice interaction systems using HardwareStatus and context managers:
 
 ```python
+from distiller_sdk.hardware_status import HardwareStatus
 from distiller_sdk.parakeet import Parakeet
 from distiller_sdk.piper import Piper
 from distiller_sdk.hardware.eink import Display, DisplayMode
@@ -263,22 +258,27 @@ from distiller_sdk.hardware.sam import LED
 import time
 
 class VoiceAssistant:
+    """Voice assistant with automatic hardware detection and resource management."""
+
     def __init__(self):
-        self.asr = Parakeet()
-        self.tts = Piper()
-        self.display = Display()
-        self.led = LED(use_sudo=True)
+        # Check hardware availability
+        self.status = HardwareStatus()
 
-    def show_status(self, text, led_color=(0, 0, 255)):
+        if not self.status.audio_available:
+            raise RuntimeError("Audio hardware required for voice assistant")
+
+    def show_status(self, display, led, text, led_color=(0, 0, 255)):
         """Update display and LED status."""
-        # Update display
-        self.display.clear()
-        buffer = self.display.render_text(text, x=5, y=10, scale=1)
-        self.display.display_image(buffer, mode=DisplayMode.PARTIAL)
+        # Update display (if available)
+        if display:
+            display.clear()
+            buffer = display.render_text(text, x=5, y=10, scale=1)
+            display.display_image(buffer, mode=DisplayMode.PARTIAL)
 
-        # Update LED
-        r, g, b = led_color
-        self.led.set_rgb_color(0, r, g, b)
+        # Update LED (if available)
+        if led:
+            r, g, b = led_color
+            led.set_rgb_color(0, r, g, b)
 
     def process_command(self, text):
         """Process voice commands."""
@@ -305,34 +305,40 @@ class VoiceAssistant:
         return response, False
 
     def run(self):
-        """Main assistant loop."""
-        self.show_status("Ready", (0, 255, 0))  # Green
-        self.tts.speak_stream("Voice assistant ready", volume=50)
+        """Main assistant loop with context managers."""
+        # Use context managers for all resources
+        with Parakeet() as asr, \
+             Piper() as tts, \
+             Display() as display if self.status.eink_available else None, \
+             LED(use_sudo=True) as led if self.status.led_available else None:
 
-        print("Listening... (say 'goodbye' to exit)")
+            self.show_status(display, led, "Ready", (0, 255, 0))  # Green
+            tts.speak_stream("Voice assistant ready", volume=50)
 
-        for text in self.asr.auto_record_and_transcribe():
-            # Show listening status
-            self.show_status("Processing...", (255, 255, 0))  # Yellow
+            print("Listening... (say 'goodbye' to exit)")
 
-            # Process command
-            response, should_exit = self.process_command(text)
+            for text in asr.auto_record_and_transcribe():
+                # Show listening status
+                self.show_status(display, led, "Processing...", (255, 255, 0))  # Yellow
 
-            # Show response
-            self.show_status(response[:30], (0, 0, 255))  # Blue
-            self.tts.speak_stream(response, volume=60)
+                # Process command
+                response, should_exit = self.process_command(text)
 
-            if should_exit:
-                break
+                # Show response
+                self.show_status(display, led, response[:30], (0, 0, 255))  # Blue
+                tts.speak_stream(response, volume=60)
 
-            # Ready for next command
-            self.show_status("Listening...", (0, 255, 0))  # Green
+                if should_exit:
+                    break
 
-        # Cleanup
-        self.show_status("OFF", (0, 0, 0))
-        self.display.clear()
-        self.led.turn_off_all()
-        self.asr.cleanup()
+                # Ready for next command
+                self.show_status(display, led, "Listening...", (0, 255, 0))  # Green
+
+            # Final cleanup
+            self.show_status(display, led, "OFF", (0, 0, 0))
+            if display:
+                display.clear()
+        # All resources automatically cleaned up
 
 # Run assistant
 assistant = VoiceAssistant()

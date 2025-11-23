@@ -23,6 +23,23 @@ multiple e-ink display types with intelligent image conversion capabilities.
 
 ## Quick Start
 
+### Hardware Detection
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+from distiller_sdk.hardware.eink import Display
+
+# Check display availability before initialization
+status = HardwareStatus()
+
+if status.eink_available:
+    with Display() as display:
+        display.clear()
+else:
+    print("E-ink display not available")
+    # Graceful degradation
+```
+
 ### Auto-Conversion (Recommended)
 
 ```python
@@ -265,7 +282,25 @@ Put display to sleep for power saving.
 
 ##### close()
 
-Cleanup display resources.
+Cleanup display resources. Automatically called when using context manager.
+
+##### __enter__()
+
+Enter context manager.
+
+- Returns: Display instance for context manager usage
+- Enables automatic resource cleanup
+
+##### __exit__(exc_type, exc_val, exc_tb)
+
+Exit context manager and automatically cleanup resources.
+
+- Parameters:
+  - `exc_type`: Exception type (if any)
+  - `exc_val`: Exception value (if any)
+  - `exc_tb`: Exception traceback (if any)
+- Returns: False (does not suppress exceptions)
+- Ensures cleanup even if exceptions occur
 
 ##### render_text(text, font_size=20, font_path=None, x=10, y=10, wrap_text=False, max_width=None, line_height=1.2, mode=DisplayMode.FULL)
 
@@ -485,7 +520,65 @@ try:
     with Display() as display:
         display.display_image("nonexistent.png")
 except DisplayError as e:
-    print(f"Failed to display image: {e}")
+    print(f"Display error: {e}")
+    # Handle display-specific errors (hardware init failure, invalid image, etc.)
+except PermissionError:
+    print("Permission denied - try running with sudo or check GPIO permissions")
+    # Handle permission issues
+except FileNotFoundError as e:
+    print(f"File not found: {e}")
+    # Handle missing files
+except Exception as e:
+    print(f"Unexpected error: {e}")
+    # Handle other errors
+# Automatic cleanup via context manager
+```
+
+### Hardware Detection with Error Handling
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+from distiller_sdk.hardware.eink import Display, DisplayError
+
+# Check availability before initialization
+status = HardwareStatus()
+
+if not status.eink_available:
+    print("E-ink display not available")
+    # Graceful degradation
+else:
+    try:
+        with Display() as display:
+            display.display_png_auto("image.png")
+    except DisplayError as e:
+        print(f"Display operation failed: {e}")
+        # Handle display errors
+```
+
+## Thread Safety
+
+All Display module operations are thread-safe. You can safely use Display instances from multiple threads:
+
+```python
+import threading
+from distiller_sdk.hardware.eink import Display, DisplayMode
+
+with Display() as display:
+    def display_task_1():
+        """Display images in background thread"""
+        display.display_png_auto("image1.png", mode=DisplayMode.FULL)
+
+    def display_task_2():
+        """Draw shapes in background thread"""
+        display.draw_rect(10, 10, 50, 30, fill=True, color=0)
+
+    # Both operations are thread-safe
+    t1 = threading.Thread(target=display_task_1)
+    t2 = threading.Thread(target=display_task_2)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
 ```
 
 ## Hardware Details
