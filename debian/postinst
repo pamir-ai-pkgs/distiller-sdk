@@ -50,10 +50,13 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 	export UV_NO_CACHE=1
 	export UV_LINK_MODE=copy
 
-	uv sync --frozen --no-editable --compile-bytecode || {
+	uv sync --frozen --compile-bytecode || {
 		echo "ERROR: Failed to install package dependencies" >&2
 		exit 1
 	}
+
+	# Clean up any build artifacts created during sync
+	rm -rf /opt/distiller-sdk/build
 
 	VENV_PATH="/opt/distiller-sdk/.venv"
 
