@@ -89,19 +89,14 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 	fi
 
 	# Platform-specific device checks
-	if [ "$PLATFORM" = "radxa" ]; then
+	if [ "$PLATFORM" = "myd-lr3576" ]; then
 		[ -e "$SPI_DEVICE" ] || {
-			echo "WARNING: /dev/spidev3.0 not found!"
-			echo "Enable overlay: spi3-m1-cs0-spidev"
-		}
-		[ -e "$GPIO_CHIP" ] || echo "WARNING: $GPIO_CHIP not found!"
-	elif [ "$PLATFORM" = "armsom-rk3576" ]; then
-		[ -e "$SPI_DEVICE" ] || {
-			echo "WARNING: /dev/spidev3.0 not found!"
-			echo "Enable SPI3 in device tree or /boot/extlinux/extlinux.conf"
+			echo "WARNING: $SPI_DEVICE not found!"
+			echo "Enable SPI in device tree overlay"
 		}
 		[ -e "$GPIO_CHIP" ] || echo "WARNING: $GPIO_CHIP not found!"
 	else
+		# Raspberry Pi CM5
 		[ -e "$SPI_DEVICE" ] || {
 			echo "WARNING: $SPI_DEVICE not found!"
 			echo "Please enable SPI in raspi-config or /boot/config.txt"

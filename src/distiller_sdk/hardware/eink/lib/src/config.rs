@@ -80,7 +80,7 @@ impl FromStr for FirmwareType {
 /// Hardware configuration for GPIO and SPI
 #[derive(Debug, Clone)]
 pub struct HardwareConfig {
-    /// Platform identifier (cm5, radxa-zero3, etc)
+    /// Platform identifier (cm5, myd-lr3576)
     pub platform: String,
     /// SPI device path
     pub spi_device: String,

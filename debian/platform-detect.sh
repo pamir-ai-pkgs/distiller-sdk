@@ -1,38 +1,22 @@
 #!/bin/bash
 
 # Platform detection helper script for Distiller SDK
-# Supports Raspberry Pi CM5 (BCM2712), Rockchip RK3566 (Radxa Zero 3/3W), and Armbian platforms
+# Supports Raspberry Pi CM5 (BCM2712) and MYIR MYD-LR3576 (RK3576) platforms
 #
 # Environment variable override:
-#   DISTILLER_PLATFORM=cm5|radxa|armbian|unknown
+#   DISTILLER_PLATFORM=cm5|myd-lr3576|unknown
 
 # Validate if the provided platform is supported
 validate_platform() {
 	local platform="$1"
 	case "$platform" in
-	cm5 | radxa | armbian | armsom-rk3576 | unknown)
+	cm5 | myd-lr3576 | unknown)
 		return 0
 		;;
 	*)
 		return 1
 		;;
 	esac
-}
-
-# Detect if running on Armbian by checking kernel naming patterns
-# This is useful during Armbian build when /etc/armbian-release doesn't exist yet
-is_armbian_kernel() {
-	# Check running kernel first
-	if uname -r 2>/dev/null | grep -qE '(vendor|current|edge|legacy)-(rk35xx|rockchip64)'; then
-		return 0
-	fi
-
-	# Check installed kernels in /lib/modules (useful during build/chroot)
-	if ls /lib/modules/ 2>/dev/null | grep -qE '(vendor|current|edge|legacy)-(rk35xx|rockchip64)'; then
-		return 0
-	fi
-
-	return 1
 }
 
 detect_platform() {
@@ -47,10 +31,20 @@ detect_platform() {
 		echo "Warning: Invalid DISTILLER_PLATFORM value: $DISTILLER_PLATFORM" >&2
 	fi
 
-	# Armbian detection
-	if [ -f /etc/armbian-release ] || [ -f /boot/armbianEnv.txt ] || is_armbian_kernel; then
-		echo "armbian"
+	# Raspberry Pi CM5 detection via cpuinfo
+	if grep -q "Raspberry Pi Compute Module 5" /proc/cpuinfo 2>/dev/null; then
+		echo "cm5"
 		return
+	fi
+
+	# MYIR MYD-LR3576 detection (check model string)
+	if [ -f /proc/device-tree/model ]; then
+		local model
+		model=$(tr '\0' ' ' </proc/device-tree/model 2>/dev/null)
+		if echo "$model" | grep -qiE "MYIR|MYD-LR3576"; then
+			echo "myd-lr3576"
+			return
+		fi
 	fi
 
 	# Device tree compatibility checks
@@ -60,11 +54,9 @@ detect_platform() {
 		if echo "$compat" | grep -q -e "raspberrypi,5" -e "bcm2712"; then
 			echo "cm5"
 			return
-		elif echo "$compat" | grep -q -e "radxa,zero3" -e "rockchip,rk3566"; then
-			echo "radxa"
-			return
-		elif echo "$compat" | grep -q -e "armsom,cm5-io" -e "rockchip,rk3576"; then
-			echo "armsom-rk3576"
+		elif echo "$compat" | grep -q "rockchip,rk3576"; then
+			# RK3576 - assume MYIR board
+			echo "myd-lr3576"
 			return
 		fi
 	fi
@@ -76,7 +68,7 @@ get_spi_device() {
 	local platform="${1:-$(detect_platform)}"
 
 	case "$platform" in
-	armbian | radxa | armsom-rk3576)
+	myd-lr3576)
 		echo "/dev/spidev3.0"
 		;;
 	cm5)
@@ -92,10 +84,7 @@ get_gpio_chip() {
 	local platform="${1:-$(detect_platform)}"
 
 	case "$platform" in
-	armbian | radxa)
-		echo "/dev/gpiochip3"
-		;;
-	armsom-rk3576)
+	myd-lr3576)
 		echo "/dev/gpiochip4"
 		;;
 	cm5)
@@ -111,12 +100,9 @@ get_gpio_pins() {
 	local platform="${1:-$(detect_platform)}"
 
 	case "$platform" in
-	armbian | radxa)
-		echo "dc_pin=8 rst_pin=2 busy_pin=1"
-		;;
-	armsom-rk3576)
-		# TODO: Determine actual GPIO pins for e-ink display
-		echo "dc_pin=TODO rst_pin=TODO busy_pin=TODO"
+	myd-lr3576)
+		# TBD: Determine actual GPIO pins during hardware bringup
+		echo "dc_pin=0 rst_pin=0 busy_pin=0"
 		;;
 	cm5)
 		echo "dc_pin=7 rst_pin=13 busy_pin=9"
@@ -131,11 +117,8 @@ get_config_file() {
 	local platform="${1:-$(detect_platform)}"
 
 	case "$platform" in
-	armbian | radxa)
-		echo "/opt/distiller-sdk/configs/radxa-zero3.conf"
-		;;
-	armsom-rk3576)
-		echo "/opt/distiller-sdk/configs/armsom-rk3576.conf"
+	myd-lr3576)
+		echo "/opt/distiller-sdk/configs/myd-lr3576.conf"
 		;;
 	cm5)
 		echo "/opt/distiller-sdk/configs/cm5.conf"
@@ -150,11 +133,8 @@ get_platform_description() {
 	local platform="${1:-$(detect_platform)}"
 
 	case "$platform" in
-	armbian | radxa)
-		echo "Radxa Zero 3/3W (RK3566)"
-		;;
-	armsom-rk3576)
-		echo "ArmSom CM5 IO (RK3576)"
+	myd-lr3576)
+		echo "MYIR MYD-LR3576 (RK3576)"
 		;;
 	cm5)
 		echo "Raspberry Pi CM5"
@@ -164,3 +144,8 @@ get_platform_description() {
 		;;
 	esac
 }
+
+# Main execution - if script is called directly (not sourced)
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+	detect_platform
+fi

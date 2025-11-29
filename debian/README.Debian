@@ -4,7 +4,7 @@ distiller-sdk for Debian
 This package installs the Distiller SDK to /opt/distiller-sdk as a
 self-contained Python environment.
 
-Supported Platforms: Raspberry Pi CM5, Radxa Zero 3/3W
+Supported Platforms: Raspberry Pi CM5, MYIR MYD-LR3576
 
 Installation
 -----------

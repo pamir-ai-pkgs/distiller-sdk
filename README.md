@@ -1,6 +1,6 @@
 # Distiller SDK
 
-Python SDK for the Distiller platform (Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO), providing hardware control,
+Python SDK for the Distiller platform (Raspberry Pi CM5, MYIR MYD-LR3576), providing hardware control,
 audio processing, computer vision, and AI capabilities using **uv** package management.
 
 ## Quick Start
@@ -8,7 +8,7 @@ audio processing, computer vision, and AI capabilities using **uv** package mana
 ### Prerequisites
 
 - **Python 3.11+** (automatically installed with package)
-- **ARM64 Linux system** (Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO [Experimental - E-ink incomplete])
+- **ARM64 Linux system** (Raspberry Pi CM5, MYIR MYD-LR3576)
 - **uv package manager** (auto-installed during setup)
 
 ### Installation
@@ -866,7 +866,7 @@ python -m distiller_sdk.hardware.eink._display_test
 
 ### Hardware
 
-- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO (experimental), or compatible ARM64 system
+- **Platform**: Raspberry Pi CM5, MYIR MYD-LR3576, or compatible ARM64 system
 - **RAM**: 2GB minimum, 4GB recommended
 - **Storage**: 2GB for full installation with models
 - **Peripherals**: E-ink display (SPI), Camera (V4L2), Audio (ALSA)
@@ -880,7 +880,7 @@ python -m distiller_sdk.hardware.eink._display_test
 
 ## Platform Information
 
-- **Supported Platforms**: Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO (experimental - e-ink incomplete)
+- **Supported Platforms**: Raspberry Pi CM5, MYIR MYD-LR3576
 - **Python**: 3.11+
 - **Package Manager**: uv (latest)
 - **Architecture**: ARM64

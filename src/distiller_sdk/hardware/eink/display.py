@@ -522,7 +522,7 @@ class Display:
             # Check for SPI device (platform-dependent)
             spi_devices = [
                 "/dev/spidev0.0",  # Raspberry Pi CM5
-                "/dev/spidev3.0",  # Radxa Zero 3/3W, ArmSom CM5 IO
+                "/dev/spidev3.0",  # MYIR MYD-LR3576
                 "/dev/spidev1.0",  # Alternative
             ]
 
@@ -567,8 +567,7 @@ class Display:
             # Check for GPIO chip (platform-dependent)
             gpio_chips = [
                 "/dev/gpiochip0",  # Raspberry Pi CM5
-                "/dev/gpiochip3",  # Radxa Zero 3/3W
-                "/dev/gpiochip4",  # ArmSom CM5 IO
+                "/dev/gpiochip4",  # MYIR MYD-LR3576
                 "/dev/gpiochip1",  # Alternative
             ]
 

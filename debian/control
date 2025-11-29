@@ -37,9 +37,8 @@ Description: Distiller SDK - Universal ARM64 SDK for hardware control
  and TTS/ASR capabilities.
  .
  This universal package automatically detects and configures for:
-  - Raspberry Pi CM5
-  - Radxa Zero 3/3W (RK3566)
-  - ArmSom CM5 IO (RK3576) - experimental, e-ink GPIO pins incomplete
+  - Raspberry Pi CM5 (BCM2712)
+  - MYIR MYD-LR3576 (RK3576)
  .
  Platform detection is performed at installation time using device tree
  information. The correct GPIO pins and SPI device are configured automatically.

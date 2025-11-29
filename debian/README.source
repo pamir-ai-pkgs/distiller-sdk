@@ -65,7 +65,6 @@ Platform Support
 
 Supports multiple ARM64 platforms:
 - Raspberry Pi CM5 (BCM2712)
-- Radxa Zero 3/3W (RK3566)
-- ArmSom CM5 IO (RK3576)
+- MYIR MYD-LR3576 (RK3576)
 
 Platform detection occurs during postinst via /opt/distiller-sdk/platform-detect.sh

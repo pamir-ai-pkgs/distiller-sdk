@@ -38,7 +38,7 @@ The Distiller SDK is a Python package that includes:
 
 ## Requirements
 
-- **Platform**: Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO (experimental), or compatible ARM64 system
+- **Platform**: Raspberry Pi CM5, MYIR MYD-LR3576, or compatible ARM64 system
 - **OS**: ARM64 Linux (Debian/Ubuntu-based)
 - **Python**: 3.11 or higher
 - **RAM**: 2GB minimum, 4GB recommended
