@@ -709,6 +709,47 @@ class LED:
         self.set_rgb_color(led_id, red, green, blue)
         self.set_animation_mode(led_id, "static")
 
+    # Additional convenience aliases for simpler API
+
+    def set_color(self, led_id: int, red: int, green: int, blue: int) -> None:
+        """
+        Alias for set_rgb_color() for simpler API.
+
+        Args:
+            led_id: LED index (0-15)
+            red: Red value (0-255)
+            green: Green value (0-255)
+            blue: Blue value (0-255)
+        """
+        self.set_rgb_color(led_id, red, green, blue)
+
+    def animate(self, led_id: int, pattern: str, duration: float = 1.0) -> None:
+        """
+        Simple animation API - applies pattern to specific LED.
+
+        Args:
+            led_id: LED index (0-15)
+            pattern: Animation pattern name (rainbow, blink, fade, pulse, breathe)
+            duration: Duration in seconds
+
+        Raises:
+            LEDError: If LED ID invalid or pattern unknown
+        """
+        timing_ms = int(duration * 1000)
+        pattern_lower = pattern.lower()
+
+        if pattern_lower in ["rainbow", "rainbow_led"]:
+            self.rainbow_led(led_id, timing_ms)
+        elif pattern_lower in ["blink", "pulse"]:
+            self.blink_led(led_id, 255, 255, 255, timing_ms)
+        elif pattern_lower in ["fade", "breathe"]:
+            self.fade_led(led_id, 255, 255, 255, timing_ms)
+        elif pattern_lower == "static":
+            self.static_led(led_id, 255, 255, 255)
+        else:
+            # Default to rainbow for unknown patterns
+            self.rainbow_led(led_id, timing_ms)
+
     # Legacy compatibility methods (matching old interface)
 
     def connect(self) -> bool:
