@@ -1,608 +1,782 @@
-# CLAUDE.md
+# CLAUDE.md - Distiller SDK
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Python SDK for Distiller hardware: e-ink display, audio I/O, camera, LED control, ASR/TTS.
+**Version**: 3.2.0 | **Platform**: ARM64 Linux | **Python**: 3.11+ | **Install**: `/opt/distiller-sdk/`
 
-## Project Overview
+## Commands
 
-Distiller SDK - Python SDK for the Distiller platform providing hardware control for e-ink displays, audio I/O, camera, LED control, and AI capabilities (ASR/TTS) using uv package management. Built as a Debian package targeting ARM64 Linux systems (Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO).
+| Task | Command |
+|------|---------|
+| Setup | `just setup` |
+| Lint | `just lint` |
+| Fix | `just fix` |
+| Build | `./build.sh && just build` |
+| Build (whisper) | `./build.sh --whisper && just build` |
+| Clean | `just clean` |
+| Verify install | `just verify` |
+| Pre-commit hooks | `just setup-hooks` |
 
-**Important Context**: This is a sub-project within a larger Google Repo-based multi-repository structure (parent: `/home/utsav/dev/pamir-ai/`). Git operations work normally within this directory, but the `.git` is a symlink to `.repo/projects/distiller-sdk.git`. See parent repo's CLAUDE.md for multi-repo commands.
+## Integration & Usage
 
-## Quick Reference
+### Using SDK in Dependent Projects
+
+When integrating distiller-sdk into services or applications:
 
 ```bash
-# Most common development commands
-just setup                    # Install dependencies (first time setup)
-just lint                     # Check code quality
-just fix                      # Auto-fix formatting
-./build.sh                    # Download models and build Rust library
-just build                    # Build Debian package
-just verify                   # Verify installed package works
+# Method 1: Activate script (recommended)
+source /opt/distiller-sdk/activate.sh
 
-# Testing individual modules (requires hardware)
+# Method 2: Manual environment setup
+export PYTHONPATH="/opt/distiller-sdk:$PYTHONPATH"
+export LD_LIBRARY_PATH="/opt/distiller-sdk/lib:$LD_LIBRARY_PATH"
+source /opt/distiller-sdk/.venv/bin/activate
+```
+
+### Utility Functions
+
+```python
+from distiller_sdk import get_model_path, get_library_path
+
+# Get model path for AI modules
+parakeet_models = get_model_path("parakeet")  # /opt/distiller-sdk/src/distiller_sdk/parakeet/models
+piper_models = get_model_path("piper")
+whisper_models = get_model_path("whisper")
+
+# Get native library path
+lib_path = get_library_path()  # /opt/distiller-sdk/lib (or lib/ in dev)
+```
+
+**Auto-detection**: Functions check for Debian package installation (`/opt/distiller-sdk`) first, then fall back to development paths.
+
+### Verify Installation
+
+```bash
+# Import test
+source /opt/distiller-sdk/activate.sh
+python -c "import distiller_sdk; print('SDK OK')"
+
+# Check version
+python -c "import distiller_sdk; print(distiller_sdk.__version__)"
+
+# Platform detection
+/opt/distiller-sdk/platform-detect.sh
+```
+
+## Structure
+
+```
+src/distiller_sdk/
+├── __init__.py                 # Version, get_model_path(), get_library_path()
+├── exceptions.py               # Exception hierarchy (see Patterns section)
+├── hardware_status.py          # HardwareStatus, HardwareState enums
+├── hardware/
+│   ├── audio/audio.py          # Audio class (ALSA)
+│   ├── camera/camera.py        # Camera class (V4L2/OpenCV)
+│   ├── eink/display.py         # Display class (Rust ctypes)
+│   ├── eink/lib/               # Rust library source
+│   └── sam/led.py              # LED class (sysfs)
+├── parakeet/parakeet.py        # Parakeet ASR (sherpa-onnx)
+├── piper/piper.py              # Piper TTS
+└── whisper/fast_whisper.py     # Whisper ASR (optional)
+
+configs/                        # Platform hardware configs
+├── cm5.conf
+└── myd-lr3576.conf
+
+debian/
+├── platform-detect.sh          # Platform detection helper
+├── postinst                    # Installation script
+└── control                     # Package metadata
+```
+
+## Hardware Modules
+
+### Audio (`hardware/audio/audio.py`)
+
+| Method | Description |
+|--------|-------------|
+| `record_to_file(path, duration)` | Record to WAV file |
+| `play_file(path)` | Play audio file via aplay |
+| `start_stream_recording(callback)` | Streaming record with callback |
+| `stop_stream_recording()` | Stop streaming |
+| `set_mic_gain(gain)` | Set mic gain 0-100 |
+| `set_speaker_volume(vol)` | Set speaker volume 0-100 |
+| `get_status()` | Returns HardwareStatus |
+
+**Paths**: `/sys/devices/platform/axi/.../input_gain`, `/volume_level`
+**Permissions**: Requires `audio` group
+
+### Camera (`hardware/camera/camera.py`)
+
+| Method | Description |
+|--------|-------------|
+| `capture_frame()` | Single frame capture |
+| `start_streaming(callback)` | Continuous streaming |
+| `stop_streaming()` | Stop streaming |
+| `get_status()` | Returns HardwareStatus |
+
+**Backend**: OpenCV (V4L2). **Recommends**: rpicam-apps on CM5
+
+### E-ink Display (`hardware/eink/display.py`)
+
+| Method | Description |
+|--------|-------------|
+| `display_image(path, mode)` | Display image (FULL/PARTIAL) |
+| `display_buffer(data, width, height)` | Display raw buffer |
+| `clear()` | Clear display |
+| `get_status()` | Returns HardwareStatus |
+
+**Firmware types**: EPD128x250 (default), EPD240x416
+**Config priority**: `DISTILLER_EINK_FIRMWARE` env → config file → default
+**Rust library**: `src/distiller_sdk/hardware/eink/lib/libdistiller_display_sdk_shared.so`
+
+**CRITICAL - EPD128x250 dimensions**:
+- Physical: 250×128 landscape (mounted orientation)
+- Vendor expects: 128×250 portrait data
+- SDK auto-transforms landscape → portrait
+- Sending 250×128 directly causes byte alignment errors
+
+### LED (`hardware/sam/led.py`)
+
+| Method | Description |
+|--------|-------------|
+| `set_rgb_color(led_id, r, g, b)` | Set LED color |
+| `blink_led(led_id, r, g, b, timing)` | Blink animation |
+| `fade_led(led_id, r, g, b, timing)` | Fade animation |
+| `rainbow_led(led_id, timing)` | Rainbow animation |
+| `set_trigger(led_id, trigger)` | Linux LED trigger |
+| `turn_off_all()` | Turn off all LEDs |
+| `get_status()` | Returns HardwareStatus |
+
+**Animation timing**: 100, 200, 500, 1000ms (kernel-driven, no Python threads)
+**Triggers**: heartbeat-rgb, breathing-rgb, rainbow-rgb
+**Path**: `/sys/class/leds/pamir:led*/`
+
+## AI Modules
+
+### Parakeet ASR (`parakeet/parakeet.py`)
+
+| Method | Description |
+|--------|-------------|
+| `transcribe(audio_path)` | Transcribe file |
+| `transcribe_buffer(data)` | Transcribe buffer |
+| `start_recording()` | Push-to-talk start |
+| `stop_recording()` | Push-to-talk stop → WAV bytes |
+| `auto_record_and_transcribe()` | VAD-based auto-record |
+| `get_status()` | Returns HardwareStatus |
+
+**Backend**: sherpa-onnx | **Sample rate**: 16kHz mono | **Models**: `parakeet/models/`
+
+### Piper TTS (`piper/piper.py`)
+
+| Method | Description |
+|--------|-------------|
+| `get_wav_file_path(text)` | Generate WAV file |
+| `speak_stream(text, volume)` | Stream playback (requires sudo) |
+| `list_voices()` | List available voices |
+| `get_status()` | Returns HardwareStatus |
+
+**Voice**: en_US-amy-medium | **Binary**: `piper/piper/` | **Models**: `piper/models/`
+
+### Whisper ASR (`whisper/fast_whisper.py`) - Optional
+
+| Method | Description |
+|--------|-------------|
+| `transcribe(audio_path)` | Transcribe file |
+| `transcribe_buffer(data)` | Transcribe buffer |
+| `start_recording()` | Push-to-talk start |
+| `stop_recording()` | Push-to-talk stop → WAV bytes |
+| `get_status()` | Returns HardwareStatus |
+
+**Backend**: faster-whisper | **Sample rate**: 48kHz mono | **Models**: `whisper/models/`
+**Install**: `./build.sh --whisper` (adds ~300-500MB)
+
+## Platform Support
+
+| Platform | SPI Device | GPIO Chip | GPIO Pins (dc/rst/busy) | Config | Status |
+|----------|------------|-----------|-------------------------|--------|--------|
+| Raspberry Pi CM5 | `/dev/spidev0.0` | gpiochip0 | 7/13/9 | cm5.conf | ✓ Production |
+| MYIR MYD-LR3576 | `/dev/spidev3.0` | gpiochip4 | TBD | myd-lr3576.conf | ⚠️ Hardware bringup |
+
+**Detection priority**: `DISTILLER_PLATFORM` env → MYIR model string → device tree → "unknown"
+**Override**: `export DISTILLER_PLATFORM=cm5|myd-lr3576`
+
+**Platform detection script**: `/opt/distiller-sdk/platform-detect.sh`
+
+Functions available:
+- `detect_platform()` - Returns: cm5, myd-lr3576, unknown
+- `get_spi_device(platform)` - Returns SPI device path
+- `get_gpio_chip(platform)` - Returns GPIO chip path
+- `get_gpio_pins(platform)` - Returns GPIO pin assignments
+- `get_config_file(platform)` - Returns platform config path
+- `get_platform_description(platform)` - Returns human-readable name
+
+## Build System
+
+### `./build.sh` (Preparation)
+1. Downloads Parakeet ONNX models from HuggingFace (~150MB)
+2. Downloads Piper binary + voice model (~50MB)
+3. Optional: Downloads Whisper models with `--whisper` (~300-500MB)
+4. Builds Rust e-ink library for ARM64
+
+**Options**:
+- `--whisper`: Include Whisper model downloads
+- `--skip-rust`: Skip Rust library build (if already built)
+
+### `just build` (Packaging)
+1. Runs `./build.sh` via `prepare` recipe
+2. Runs `debuild` to create Debian package
+3. Outputs `.deb` to `dist/`
+
+### Installation (`dpkg -i`)
+1. Extracts to `/opt/distiller-sdk/`
+2. Detects platform via `debian/platform-detect.sh`
+3. Creates uv venv at `/opt/distiller-sdk/.venv`
+4. Runs `uv sync --frozen --no-editable --compile-bytecode`
+5. Generates `activate.sh`
+6. Sets permissions (755 for dirs/binaries, 644 for .py files)
+7. Sets ownership to `distiller:distiller`
+8. Verifies Python and SDK imports
+9. Checks platform-specific devices (SPI, GPIO)
+
+### Dependencies & Integration
+
+**Packages depending on distiller-sdk >= 3.0.0**:
+- `distiller-services` - WiFi provisioning service
+- `distiller-telemetry` - Device registration/telemetry
+- `distiller-test-harness` - Test suite for SDK
+- `distiller-agent-sdk` - Claude Agent SDK wrapper
+- `device-diagnostics` - Health monitoring service
+
+**Impact of SDK changes**: When modifying SDK APIs or exceptions, rebuild and test dependent packages:
+```bash
+cd distiller-sdk && just build
+sudo dpkg -i dist/distiller-sdk_*.deb
+
+cd ../distiller-services && just build
+cd ../distiller-telemetry && just build
+# Test that dependent packages still work
+```
+
+## Verification Commands
+
+```bash
+# SDK installation check
+source /opt/distiller-sdk/activate.sh
+python -c "import distiller_sdk; print('SDK OK')"
+
+# Hardware availability check
+python -c "
+from distiller_sdk.hardware_status import HardwareStatus
+s = HardwareStatus()
+print(f'E-ink: {s.eink_available}')
+print(f'Camera: {s.camera_available}')
+print(f'LED: {s.led_available}')
+print(f'Audio: {s.audio_available}')
+"
+
+# Platform detection
+/opt/distiller-sdk/platform-detect.sh
+
+# Check models
+ls -la /opt/distiller-sdk/src/distiller_sdk/parakeet/models
+ls -la /opt/distiller-sdk/src/distiller_sdk/piper/models
+ls -la /opt/distiller-sdk/src/distiller_sdk/whisper/models  # If --whisper used
+
+# Verify native library
+ls -la /opt/distiller-sdk/lib/libdistiller_display_sdk_shared.so
+ldd /opt/distiller-sdk/lib/libdistiller_display_sdk_shared.so
+
+# Check device nodes
+ls -la /dev/spidev*    # E-ink display (should show spidev)
+ls -la /dev/gpiochip*  # GPIO (should show gpiochip)
+ls -la /dev/video*     # Camera (should show video devices)
+
+# Test audio devices
+aplay -l               # Playback devices
+arecord -l             # Capture devices
+```
+
+## Development Workflow
+
+### Pre-commit Hooks Setup
+
+Install pre-commit hooks to enforce code quality automatically:
+
+```bash
+just setup-hooks
+```
+
+**Hooks run on `git commit`**:
+- Code formatting (ruff format)
+- Linting (ruff check --fix)
+- Type checking (mypy)
+- File hygiene (trailing whitespace, EOF, YAML/JSON syntax)
+
+**Manual validation**:
+```bash
+# Run all hooks on all files
+uv run pre-commit run --all-files
+
+# Run specific hook
+uv run pre-commit run ruff-format --all-files
+uv run pre-commit run mypy --all-files
+```
+
+**Bypass hooks** (emergencies only): `git commit --no-verify`
+
+### Local Development Cycle
+
+```bash
+# 1. Make changes to SDK code
+vim src/distiller_sdk/hardware/audio/audio.py
+
+# 2. Run code quality checks
+just lint                    # ruff + mypy
+just fix                     # Auto-fix formatting
+
+# 3. Test changes locally
+# Run module-specific tests:
 python -m distiller_sdk.hardware.audio._audio_test
 python -m distiller_sdk.hardware.camera._camera_unit_test
 python -m distiller_sdk.hardware.eink._display_test
+python -m distiller_sdk.hardware.sam.led_interactive_demo
 
-# Quick sanity checks
-python -c "import distiller_sdk; print('SDK imported successfully!')"
-source /opt/distiller-sdk/activate.sh  # After dpkg -i installation
+# 4. Build and install locally
+just build
+sudo dpkg -i dist/distiller-sdk_*.deb
+
+# 5. Test in dependent projects
+cd ../distiller-services
+just run  # Verify services still work
+
+# 6. Commit changes (triggers pre-commit hooks)
+git add .
+git commit -m "feat: add new audio feature"
 ```
 
-## Build Commands
+### Testing Strategy
 
 ```bash
-# Download AI models (Parakeet ASR, Piper TTS)
-./build.sh                    # Standard models (~200MB)
-./build.sh --whisper          # Include Whisper models (~500MB+)
-./build.sh --skip-rust        # Skip Rust library build
-
-# Build Debian package using Justfile
-just build                    # Standard build (arm64 default)
-just build amd64              # Cross-build for amd64
-just clean                    # Clean all build artifacts
-just prepare whisper          # Download models including Whisper
-
-# Install locally for testing
-sudo dpkg -i dist/distiller-sdk_*_arm64.deb
-sudo apt-get install -f       # Fix dependencies
-
-# Verify installation
-source /opt/distiller-sdk/activate.sh
-python -c "import distiller_sdk; print('SDK imported successfully!')"
-```
-
-### Build Process Flow
-Understanding what happens during the build:
-
-1. **`./build.sh`** (Preparation phase):
-   - Downloads Parakeet ASR models from HuggingFace (~150MB)
-   - Downloads Piper TTS models and binary from GitHub releases (~50MB)
-   - Optionally downloads Whisper models if `--whisper` flag used (~300-500MB)
-   - Builds Rust e-ink library (`libdistiller_display_sdk_shared.so`) for ARM64
-   - Places models in `src/distiller_sdk/parakeet/models/`, `src/distiller_sdk/piper/models/`, etc.
-
-2. **`just build`** (Package creation phase):
-   - Calls `./build.sh` automatically (via `prepare` recipe)
-   - Runs `debuild` to create Debian package
-   - Copies all Python source, models, and Rust library into package
-   - Runs lintian checks for Debian policy compliance
-   - Outputs `.deb` package to `dist/` directory
-
-3. **`sudo dpkg -i`** (Installation phase):
-   - Extracts package to `/opt/distiller-sdk/`
-   - Runs `debian/postinst` script which:
-     - Detects platform (CM5, Radxa, etc.)
-     - Creates uv virtual environment at `/opt/distiller-sdk/.venv`
-     - Installs Python dependencies via `uv sync`
-     - Sets up platform-specific e-ink config
-     - Verifies hardware devices are present
-     - Generates `activate.sh` script
-
-**Key insight**: Models and Rust library are downloaded/built ONCE during `./build.sh`, then packaged into the `.deb`. The installed package at `/opt/distiller-sdk` is self-contained with its own venv.
-
-## Development Setup
-
-There are two modes of development:
-1. **Local development** - Using local `.venv` for quick iteration on Python code
-2. **Package testing** - Testing the installed Debian package at `/opt/distiller-sdk`
-
-### Local Development (Recommended for Python changes)
-```bash
-# Initial setup (creates .venv via uv sync)
-just setup
-source .venv/bin/activate     # Activate virtual environment
-
-# Code quality checks
-just lint                     # Run ruff check + format check + mypy
-just fix                      # Auto-fix formatting issues
-
-# Development workflow for quick iteration
-# 1. Edit Python code in src/distiller_sdk/
-# 2. Test immediately (no rebuild needed - changes take effect immediately)
-python -m distiller_sdk.hardware.eink._display_test
+# Individual module tests (in SDK repo)
 python -m distiller_sdk.hardware.audio._audio_test
+python -m distiller_sdk.hardware.camera._camera_unit_test
+python -m distiller_sdk.hardware.eink._display_test
+python -m distiller_sdk.hardware.sam.led_interactive_demo
 
-# When done with changes
-just lint                     # Check code quality before building
-just build                    # Build Debian package
+# Full test suite (separate repo: distiller-test-harness)
+cd ../distiller-test-harness && just test
+cd ../distiller-test-harness && just test-quick  # Skip slow tests
 ```
 
-### Pre-commit Hooks (Recommended for Contributors)
-
-Pre-commit hooks ensure code quality standards are automatically enforced before commits reach the repository. This creates consistency across all developers and catches issues early.
-
-**One-time Setup:**
-```bash
-# Run after cloning the repository or running 'just setup'
-just setup-hooks
-
-# This installs pre-commit and configures hooks for:
-# - Code formatting (ruff format) - auto-fixes
-# - Linting (ruff check --fix) - auto-fixes fixable issues
-# - Type checking (mypy --strict) - blocks commit if errors exist
-# - File hygiene (trailing whitespace, EOF, YAML/JSON syntax) - auto-fixes
-```
-
-**How Pre-commit Works:**
-1. When you run `git commit`, hooks execute automatically
-2. Auto-fixable issues (formatting, linting, whitespace) are fixed and files re-staged
-3. If fixes were applied, the commit is blocked - you must `git add` the fixes and commit again
-4. Type errors or other non-fixable issues block the commit until manually resolved
-5. All hooks run only on staged files (fast, typically <3 seconds)
-
-**Manual Hook Operations:**
-```bash
-# Run all hooks on all files (useful after setup or before pushing)
-uv run pre-commit run --all-files
-
-# Run specific hook on all files
-uv run pre-commit run ruff-format --all-files
-uv run pre-commit run mypy --all-files
-
-# Update hook versions
-uv run pre-commit autoupdate
-
-# Bypass hooks for emergency commits (use sparingly)
-git commit --no-verify
-```
-
-**Integration with Existing Workflow:**
-- Pre-commit uses the same tools as `just lint` and `just fix`
-- Configuration is in `.pre-commit-config.yaml` (mirrors `pyproject.toml` settings)
-- Mypy hook uses `--strict --ignore-missing-imports` matching project standards
-- Hooks are compatible with Google Repo multi-repository structure
-
-**Troubleshooting:**
-```bash
-# If hooks aren't running
-just setup-hooks              # Reinstall hooks
-
-# Clean pre-commit cache
-uv run pre-commit clean
-
-# Manually install hooks
-uv run pre-commit install
-```
-
-### Testing Installed Package
-```bash
-# After installing with: sudo dpkg -i dist/distiller-sdk_*_arm64.deb
-source /opt/distiller-sdk/activate.sh
-
-# Or set up Python path manually
-export PYTHONPATH="/opt/distiller-sdk:$PYTHONPATH"
-export LD_LIBRARY_PATH="/opt/distiller-sdk/lib:$LD_LIBRARY_PATH"
-
-# Verify installation
-just verify                   # Quick import check
-python -c "import distiller_sdk; print('SDK imported successfully!')"
-```
-
-## Testing
-
-### Quick Import Tests (No hardware required)
-```bash
-# Sanity check - verify imports work
-python -c "import distiller_sdk; print('SDK imported successfully!')"
-
-# Test all major module imports
-python -c "from distiller_sdk.hardware.audio import Audio; from distiller_sdk.hardware.camera import Camera; from distiller_sdk.hardware.eink import Display; from distiller_sdk.parakeet import Parakeet; from distiller_sdk.piper import Piper; print('All imports successful!')"
-
-# After dpkg installation
-source /opt/distiller-sdk/activate.sh
-just verify  # Convenience command for import check
-```
-
-### Hardware Module Tests (Requires physical hardware)
-```bash
-# These tests require actual Distiller hardware
-python -m distiller_sdk.hardware.audio._audio_test      # Audio I/O test
-python -m distiller_sdk.hardware.camera._camera_unit_test  # Camera test
-python -m distiller_sdk.hardware.eink._display_test     # E-ink display test
-python -m distiller_sdk.hardware.sam.led_interactive_demo  # LED control demo
-
-# Note: These tests will fail gracefully with error messages if hardware is not present
-```
-
-### Comprehensive Test Suite
-For the full test suite with 66+ test cases, use the `distiller-test-harness` repository:
-```bash
-cd ../distiller-test-harness
-just setup                             # Install test dependencies
-just test                              # Run all tests (verbose)
-just test-quick                        # Skip slow and hardware tests
-uv run pytest -m hardware              # Hardware-only tests
-uv run pytest sdk_tests/test_audio.py  # Specific module tests
-```
-
-## Dependency Management
-
-### Adding/Removing Python Dependencies
-```bash
-# Add a new dependency (updates pyproject.toml and uv.lock)
-uv add <package-name>
-
-# Add development dependency
-uv add --dev <package-name>
-
-# Remove a dependency
-uv remove <package-name>
-
-# Update dependencies to latest compatible versions
-uv sync
-
-# Show dependency tree
-uv tree
-
-# After modifying dependencies, update Debian control file if needed
-# Edit debian/control to add system-level dependencies
-```
-
-### Important Dependency Notes
-- Python dependencies are managed in `pyproject.toml`
-- System-level dependencies (ALSA, V4L2, etc.) are in `debian/control`
-- The SDK installation creates a uv-managed venv at `/opt/distiller-sdk/.venv`
-- Some dependencies require system libraries (e.g., pyaudio needs portaudio19-dev)
-
-## Package Inspection & Debugging
-
-```bash
-# Inspect built package contents
-dpkg -c dist/distiller-sdk_*_arm64.deb
-
-# Check package metadata
-dpkg-deb -I dist/distiller-sdk_*_arm64.deb
-
-# Run lintian checks (already runs during build)
-lintian --pedantic dist/distiller-sdk_*_arm64.deb
-
-# Check installed package files
-dpkg -L distiller-sdk
-
-# Debug platform detection
-source debian/platform-detect.sh
-detect_platform
-get_platform_description $(detect_platform)
-get_spi_device $(detect_platform)
-get_gpio_chip $(detect_platform)
-
-# Check changelog
-dch -i    # Edit changelog interactively
-```
-
-## Architecture
-
-### Module Structure
-```
-src/distiller_sdk/
-├── hardware/           # Hardware abstraction layer
-│   ├── audio/         # ALSA-based audio I/O with streaming
-│   │   ├── audio.py             # Main Audio class (ALSA interface)
-│   │   └── _audio_test.py       # Hardware test script
-│   ├── camera/        # V4L2 camera capture (OpenCV)
-│   │   ├── camera.py            # Main Camera class (V4L2 interface)
-│   │   └── _camera_unit_test.py # Hardware test script
-│   ├── eink/          # E-ink display control via ctypes to Rust library
-│   │   ├── display.py           # Main Display class (ctypes bindings)
-│   │   ├── _display_test.py     # Hardware test script
-│   │   ├── lib/                 # Rust library source
-│   │   │   ├── src/             # Rust source code
-│   │   │   ├── Cargo.toml       # Rust dependencies
-│   │   │   ├── Makefile.rust    # Rust build system
-│   │   │   └── libdistiller_display_sdk_shared.so  # Built library
-│   │   └── composer/            # Image processing utilities
-│   │       ├── dithering.py     # Floyd-Steinberg, ordered dithering
-│   │       ├── image_ops.py     # Image scaling, cropping
-│   │       ├── text.py          # Text rendering on e-ink
-│   │       └── template_renderer.py  # Template-based rendering
-│   └── sam/           # LED control via sysfs GPIO
-│       ├── led.py               # Main LED class (sysfs interface with animations)
-│       └── led_interactive_demo.py  # Interactive demo
-├── parakeet/          # ASR engine (sherpa-onnx) with VAD
-│   ├── parakeet.py              # Main Parakeet class
-│   └── models/                  # ONNX models (downloaded by build.sh)
-├── piper/             # TTS engine (Piper)
-│   ├── piper.py                 # Main Piper class
-│   ├── models/                  # Voice models (downloaded by build.sh)
-│   └── piper/                   # Piper binary and libs
-└── whisper/           # Optional Whisper ASR (faster-whisper)
-    ├── whisper.py               # Main Whisper class
-    └── models/                  # Whisper models (optional download)
-
-configs/                # Platform-specific hardware configs
-├── cm5.conf                     # Raspberry Pi CM5 settings
-├── radxa-zero3.conf            # Radxa Zero 3/3W settings
-└── armsom-rk3576.conf          # ArmSom CM5 IO settings
-
-debian/                 # Debian packaging files
-├── platform-detect.sh          # Multi-platform detection helper
-├── postinst                    # Post-installation script
-├── control                     # Package metadata and dependencies
-├── rules                       # debuild build rules
-└── changelog                   # Version history
-```
-
-**Key Files to Know**:
-- `build.sh`: Downloads AI models and builds Rust library
-- `Justfile`: Build automation (setup, build, lint, clean, changelog)
-- `pyproject.toml`: Python package metadata, dependencies, version
-- `debian/platform-detect.sh`: Platform detection logic (sourced by postinst)
-- `debian/postinst`: Critical installation script that sets up uv venv and platform config
-
-### Platform Detection System
-Multi-platform support via `platform-detect.sh` helper script:
-- **Raspberry Pi CM5** (BCM2712): `/dev/spidev0.0`, `/dev/gpiochip0`, GPIO pins: dc=7, rst=13, busy=9
-- **Radxa Zero 3/3W** (RK3566): `/dev/spidev3.0`, `/dev/gpiochip3`, GPIO pins: dc=8, rst=2, busy=1
-- **ArmSom CM5 IO** (RK3576) [Experimental - E-ink incomplete]: `/dev/spidev3.0`, `/dev/gpiochip4`, GPIO pins: TBD (dc/rst/busy pins not configured)
-- **Armbian** builds: Kernel pattern detection via `/lib/modules/` patterns
-- Override with `DISTILLER_PLATFORM=cm5|radxa|armsom-rk3576|armbian` environment variable
-
-Platform-specific configurations in `configs/`:
-- `cm5.conf` - Raspberry Pi CM5 hardware settings
-- `radxa-zero3.conf` - Radxa Zero 3/3W hardware settings
-- `armsom-rk3576.conf` - ArmSom CM5 IO hardware settings (GPIO pins incomplete)
-
-Detection priority:
-1. `DISTILLER_PLATFORM` environment variable (validated against supported platforms)
-2. Armbian detection (`/etc/armbian-release`, `/boot/armbianEnv.txt`, kernel patterns)
-3. Device tree compatibility (`/proc/device-tree/compatible`)
-4. Defaults to "unknown"
-
-### E-ink Display Architecture
-The display system uses ctypes bindings to a Rust-compiled shared library (`libdistiller_display_sdk_shared.so`):
-- **Firmware types**:
-  - **EPD128x250**: Physical 250×128 landscape (default mounting), vendor controller expects 128×250 portrait data; SDK transforms landscape → portrait for vendor
-  - **EPD240x416**: 240×416 (dimensions match physical orientation)
-- **Critical**: EPD128x250 vendor controller requires 128×250 portrait data despite physical 250×128 landscape mounting; sending 250×128 directly causes byte alignment issues
-- **Configuration priority**: 1) `DISTILLER_EINK_FIRMWARE` env var, 2) config files, 3) default EPD128x250
-- **Image processing**: Supports PNG/JPEG/GIF/BMP/TIFF/WebP with auto-scaling, dithering, and transformations
-- **Bitpacking**: 1-bit packed data with standalone transformation functions for rotation/flipping
-- **Composer submodule**: Template rendering, text overlay, shape drawing
-- **Rust library**: Located in `src/distiller_sdk/hardware/eink/lib/`, built via `Makefile.rust` for ARM64 target
-
-### Audio System
-ALSA-based audio with both file and streaming operations:
-- **Static vs instance methods**: `set_mic_gain_static()` for system-wide, `set_mic_gain()` for instance
-- **Recording modes**: File recording, streaming with callback
-- **Playback**: Direct file playback or stream playback with format control
-- Thread-safe recording state management
-
-### Camera System
-V4L2 camera interface via OpenCV:
-- Single frame capture or continuous streaming
-- Configurable camera settings (brightness, contrast, etc.)
-- Frame callback mechanism for processing
-
-### LED System
-sysfs-based RGB LED control with kernel-driven animations:
-- **Basic control**: Per-LED RGB color setting, brightness control (0-255)
-- **Animation modes**: Kernel-based looping animations (static, blink, fade, rainbow) with timing control (100/200/500/1000ms)
-- **Linux LED triggers**: Hardware-accelerated system-driven effects (heartbeat-rgb, breathing-rgb, rainbow-rgb)
-- **Multi-LED support**: Control individual LEDs or all LEDs simultaneously
-- **Hardware-accelerated**: Animations loop continuously in kernel driver, no Python threading
-
-### AI Integration
-- **Parakeet**: Streaming ASR with VAD (Voice Activity Detection) using sherpa-onnx
-- **Piper**: TTS with direct audio output or WAV file generation
-- **Whisper** (optional): High-quality ASR alternative
-
-## Debian Packaging
-
-### Package Build System
-Justfile-based build system (replaces legacy `build-deb.sh`):
-- Uses `debuild` with lintian profile for compliance checking
-- Target architecture specified via `arch` parameter: `just build arm64` or `just build amd64`
-- Platform-agnostic single package (replaces old per-platform packages)
-- Provides/Replaces/Breaks `distiller-cm5-sdk` for migration from v2.x
-- Build artifacts placed in `dist/` directory
-
-### Package Dependencies
-**This package is the foundation dependency** for other Distiller packages:
-- `distiller-services` (WiFi provisioning) depends on `distiller-sdk >= 3.0.0`
-- `distiller-telemetry` (device registration) depends on `distiller-sdk >= 3.0.0`
-- `distiller-test-harness` (test suite) depends on `distiller-sdk >= 3.0.0`
-
-**Important**: When bumping SDK version, dependent packages may need updates to their Debian control files if the API changes. The `>= 3.0.0` constraint allows for compatible minor/patch updates.
-
-### Post-installation Flow (`debian/postinst`)
-1. Remove legacy `/opt/distiller-cm5-sdk/` installation if present
-2. Detect platform using `debian/platform-detect.sh` helper functions
-3. Copy platform-specific config to `/opt/distiller-sdk/eink.conf`
-4. Create uv virtual environment with `--system-site-packages` (fallback to regular venv if needed)
-5. Run `uv sync --frozen --no-editable --compile-bytecode` for production install
-6. Set appropriate file permissions (readable by all, executables in .venv/bin)
-7. Verify Python environment and SDK imports
-8. Check for required devices (SPI, GPIO) and warn if missing with platform-specific instructions
-9. Update `ldconfig` cache for shared libraries
-
-### Installation Location
-All files install to `/opt/distiller-sdk/`:
-- Python source in `src/distiller_sdk/`
-- AI models in `parakeet/models/`, `piper/models/`, `whisper/models/` (optional)
-- Native libraries in `lib/` (Rust e-ink library)
-- Virtual environment in `.venv/` (created during postinst)
-- Activation script: `activate.sh` (generated during postinst)
-- Platform configs in `configs/`
-
-## Important Patterns
-
-### Hardware Manager Pattern
-When coordinating multiple hardware components, use a manager class to initialize, coordinate, and cleanup resources. See README.md Hardware Manager Pattern example.
+## Patterns
 
 ### Context Manager Usage
-Display class supports context manager for automatic cleanup:
+
+**Always use context managers** for automatic cleanup:
+
 ```python
 with Display() as display:
     display.display_image("image.png", mode=DisplayMode.FULL)
-# Automatically cleaned up
+# Display automatically cleaned up
+
+with Audio() as audio:
+    audio.record("output.wav", duration=5)
+# Audio resources released
+
+with LED(use_sudo=True) as led:
+    led.set_rgb_color(0, 255, 0, 0)
+# LEDs turned off on exit
 ```
 
-### Error Handling
-All hardware modules raise custom exceptions (`DisplayError`, `LEDError`, etc.) for error conditions. Always handle hardware initialization failures gracefully as devices may not be present.
+### Hardware Status Checking
 
-### LED Animation Management
-LED animations use kernel-based looping (hardware-accelerated, no Python threading):
+Check hardware availability before use to avoid exceptions:
+
 ```python
-# Set animation mode (loops continuously in kernel driver)
+from distiller_sdk.hardware_status import HardwareStatus
+
+status = HardwareStatus()
+
+# Quick boolean checks
+if status.eink_available:
+    from distiller_sdk.hardware.eink import Display
+    with Display() as display:
+        display.clear()
+else:
+    print("E-ink display not available")
+
+# Detailed status information
+from distiller_sdk.hardware.audio import Audio
+audio_status = Audio.get_status()
+if audio_status.available:
+    print(f"Audio ready: {audio_status.message}")
+    print(f"Capabilities: {audio_status.capabilities}")
+else:
+    print(f"Audio unavailable: {audio_status.message}")
+    if audio_status.error:
+        print(f"Error: {audio_status.error}")
+```
+
+**HardwareStatus attributes**:
+- `state: HardwareState` - AVAILABLE, UNAVAILABLE, PERMISSION_DENIED, PARTIALLY_AVAILABLE
+- `available: bool` - Quick check
+- `capabilities: Dict[str, Any]` - Feature availability
+- `error: Optional[Exception]` - Exception if detection failed
+- `diagnostic_info: Dict[str, Any]` - Additional diagnostics
+- `message: str` - Human-readable status
+
+### Exception Handling
+
+**Exception hierarchy**:
+```
+DistillerError (base)
+├── HardwareError
+│   ├── AudioError
+│   ├── DisplayError
+│   ├── CameraError
+│   └── LEDError
+├── AIError
+│   ├── ParakeetError
+│   ├── PiperError
+│   └── WhisperError
+├── ConfigurationError
+└── ResourceError
+```
+
+**Pattern 1: Specific exception handling**
+```python
+from distiller_sdk.hardware.eink import Display, DisplayMode
+from distiller_sdk.exceptions import DisplayError
+
+try:
+    with Display() as display:
+        display.display_image("image.png", mode=DisplayMode.FULL)
+except DisplayError as e:
+    print(f"Display error: {e}")
+except FileNotFoundError:
+    print("Image file not found")
+```
+
+**Pattern 2: Hierarchical exception handling**
+```python
+from distiller_sdk.exceptions import HardwareError, AudioError, DistillerError
+
+try:
+    with Audio() as audio:
+        audio.record("output.wav", duration=5)
+except AudioError as e:
+    print(f"Audio-specific error: {e}")
+except HardwareError as e:
+    print(f"Generic hardware error: {e}")
+except DistillerError as e:
+    print(f"SDK error: {e}")
+```
+
+**Pattern 3: Multi-module error handling**
+```python
+from distiller_sdk.parakeet import Parakeet
+from distiller_sdk.piper import Piper
+from distiller_sdk.exceptions import ParakeetError, PiperError, AIError
+
+try:
+    with Parakeet() as asr:
+        for text in asr.transcribe("audio.wav"):
+            print(f"Transcribed: {text}")
+except ParakeetError as e:
+    print(f"ASR error: {e}")
+
+try:
+    with Piper() as tts:
+        tts.speak_stream("Hello world", volume=50)
+except PiperError as e:
+    print(f"TTS error: {e}")
+```
+
+### Multi-Hardware Coordination
+
+Combine multiple hardware modules safely:
+
+```python
+from distiller_sdk.hardware_status import HardwareStatus
+from distiller_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.eink import Display, DisplayMode
+from distiller_sdk.hardware.sam import LED
+from distiller_sdk.parakeet import Parakeet
+from distiller_sdk.piper import Piper
+from distiller_sdk.exceptions import HardwareError, AIError
+
+# Check availability first
+status = HardwareStatus()
+if not (status.camera_available and status.eink_available):
+    print("Required hardware not available")
+    exit(1)
+
+# Use context managers for all hardware
+try:
+    with Camera() as camera, \
+         Display() as display, \
+         LED(use_sudo=True) as led, \
+         Parakeet() as asr, \
+         Piper() as tts:
+
+        # LED indicates activity
+        led.blink_led(0, red=0, green=0, blue=255, timing=300)
+
+        # Capture image
+        image = camera.capture_image("/tmp/capture.png")
+
+        # Display on e-ink
+        display.display_png_auto("/tmp/capture.png", mode=DisplayMode.FULL)
+
+        # Voice interaction
+        tts.speak_stream("Say something", volume=50)
+        for text in asr.record_and_transcribe_ptt():
+            print(f"You said: {text}")
+            tts.speak_stream(f"You said: {text}", volume=50)
+
+        # Success indicator
+        led.set_rgb_color(0, red=0, green=255, blue=0)
+
+except HardwareError as e:
+    print(f"Hardware error: {e}")
+except AIError as e:
+    print(f"AI module error: {e}")
+# All resources automatically cleaned up
+```
+
+### LED Animations
+
+Animations are kernel-driven (no Python threads). Set animation and it loops until changed:
+
+```python
+# Start animation (loops continuously)
 led.blink_led(led_id=0, red=255, green=0, blue=0, timing=500)
-led.fade_led(led_id=1, red=0, green=255, blue=0, timing=1000)
-led.rainbow_led(led_id=2, timing=1000)
 
-# Or use animation mode directly
-led.set_animation_mode(led_id=0, mode="blink", timing=500)  # Modes: static, blink, fade, rainbow
+# Animation runs in background...
 
-# Use Linux LED triggers for system-driven effects
-led.set_trigger(led_id=0, trigger="heartbeat-rgb")  # Triggers: heartbeat-rgb, breathing-rgb, rainbow-rgb
-
-# Stop animation by setting to static mode
+# Stop animation by setting static color
 led.set_rgb_color(led_id=0, red=0, green=0, blue=0)  # Returns to static mode
 
-# Turn off all LEDs
-led.turn_off_all()
+# Or turn off completely
+led.turn_off(led_id=0)
 ```
 
-### Transformation Chaining
-For e-ink display transformations, note that dimensions swap after 90/270° rotations:
-```python
-# For EPD128x250: physical 250×128 landscape (default), vendor expects 128×250 portrait
-# Users create content in landscape, SDK transforms to portrait for vendor controller
-# Example showing dimension swap after rotation
-result = flip_bitpacked_vertical(
-    rotate_bitpacked_ccw_90(data, 128, 250),
-    250, 128  # Dimensions swapped after 90° rotation
-)
-```
+**Thread safety**: All modules are thread-safe. Multiple instances can run concurrently without locking issues.
 
-## Development Notes
+## Troubleshooting
 
-- **Target platform**: ARM64 only, but builds can run on x86_64 for Debian package creation
-- **Python version**: 3.11+ required (managed by uv)
-- **Ruff config**: Line length 100, target Python 3.11
-- **Hardware access**: May require sudo or user groups (audio, video, spi, gpio, i2c)
-- **Model downloads**: Hugging Face for Parakeet/Whisper, GitHub releases for Piper
-- **Rust library**: E-ink display uses Rust library in `src/distiller_sdk/hardware/eink/lib/`
-  - Built with `Makefile.rust` targeting `aarch64-unknown-linux-gnu`
-  - Auto-rebuilds when source files (.rs), Cargo.toml, or Cargo.lock change
-  - Outputs `libdistiller_display_sdk_shared.so` used via ctypes
+### Environment Setup Issues
 
-### Rust E-ink Library Development
-The e-ink display functionality is implemented in Rust and exposed to Python via ctypes.
-
-**Important**: The Rust library is automatically built during `./build.sh` execution. You typically don't need to build it manually unless modifying the Rust code.
-
+**Import errors**: `ModuleNotFoundError: No module named 'distiller_sdk'`
 ```bash
-cd src/distiller_sdk/hardware/eink/lib
+# Check PYTHONPATH
+echo $PYTHONPATH  # Should include /opt/distiller-sdk
 
-# Check if rebuild needed
-make -f Makefile.rust check-rebuild
+# Fix: Source activate script
+source /opt/distiller-sdk/activate.sh
 
-# Build library manually (if modifying Rust code)
-make -f Makefile.rust build
+# Or set manually
+export PYTHONPATH="/opt/distiller-sdk:$PYTHONPATH"
+source /opt/distiller-sdk/.venv/bin/activate
+```
 
-# Clean build artifacts
-make -f Makefile.rust clean
+**Library loading errors**: `OSError: libdistiller_display_sdk_shared.so: cannot open shared object file`
+```bash
+# Check LD_LIBRARY_PATH
+echo $LD_LIBRARY_PATH  # Should include /opt/distiller-sdk/lib
 
-# Show target info
-make -f Makefile.rust target-info
+# Fix: Update library path
+export LD_LIBRARY_PATH="/opt/distiller-sdk/lib:$LD_LIBRARY_PATH"
 
-# After rebuilding Rust library, test the changes
-cd ../../../..  # Back to SDK root
+# Or update system cache
+sudo ldconfig
+
+# Verify library
+ldd /opt/distiller-sdk/lib/libdistiller_display_sdk_shared.so
+```
+
+**Permission denied**: `PermissionError: [Errno 13] Permission denied`
+```bash
+# Add user to required groups
+sudo usermod -aG audio,video,spi,gpio,i2c $USER
+
+# Logout and login for groups to take effect
+# Verify group membership
+groups
+```
+
+### Hardware Issues
+
+**E-ink display not responding**:
+```bash
+# 1. Check SPI device
+ls -la /dev/spidev*
+# Expected: /dev/spidev0.0 (CM5) or /dev/spidev3.0 (MYD-LR3576)
+
+# 2. Verify platform detection
+/opt/distiller-sdk/platform-detect.sh
+# Should return: cm5 or myd-lr3576
+
+# 3. Check firmware configuration
+python -c "from distiller_sdk.hardware.eink import get_default_firmware; print(get_default_firmware())"
+# Should return: EPD128x250 or EPD240x416
+
+# 4. Override firmware if needed
+export DISTILLER_EINK_FIRMWARE=EPD128x250
+
+# 5. Test display
 python -m distiller_sdk.hardware.eink._display_test
 ```
 
-**Rust Library Location**: `src/distiller_sdk/hardware/eink/lib/`
-- Source code: `src/` directory (Rust)
-- Build output: `libdistiller_display_sdk_shared.so` (copied to package `lib/` during install)
-- Python bindings: `src/distiller_sdk/hardware/eink/display.py` (ctypes interface)
+**Garbled display output (EPD128x250)**:
+- **Root cause**: Sending 250×128 data directly instead of letting SDK transform
+- **Solution**: SDK auto-transforms landscape (250×128) → portrait (128×250) for vendor
+- Don't manually rotate or transform - SDK handles it
 
-## Development Workflows
-
-### Quick Python-only Changes
-For changes to Python code only (no Rust library changes):
+**Audio recording/playback fails**:
 ```bash
-# 1. Make changes to Python files in src/distiller_sdk/
-# 2. Test immediately (no build needed)
-source .venv/bin/activate
-python -m distiller_sdk.hardware.audio._audio_test
+# 1. Check audio devices
+aplay -l    # Playback devices
+arecord -l  # Capture devices
 
-# 3. When ready to package
-just lint                          # Check code quality
-just build                         # Build Debian package
+# 2. Test audio output
+speaker-test -t wav -c 2
+
+# 3. Verify user in audio group
+groups | grep audio
+
+# 4. Fix permissions
+sudo usermod -aG audio $USER
+# Logout and login
+
+# 5. Check ALSA mixer
+alsamixer
+# Adjust volumes, ensure not muted
 ```
 
-### Changes Involving Rust Library
-For changes to the Rust e-ink library:
+**Camera not found**:
 ```bash
-# 1. Make changes to Rust code in src/distiller_sdk/hardware/eink/lib/src/
-# 2. Rebuild Rust library
-cd src/distiller_sdk/hardware/eink/lib
-make -f Makefile.rust build
-cd ../../../..
+# 1. Check camera device
+ls -la /dev/video*
+v4l2-ctl --list-devices
 
-# 3. Test changes
-python -m distiller_sdk.hardware.eink._display_test
+# 2. Verify user in video group
+groups | grep video
 
-# 4. When ready, rebuild full package
-./build.sh                         # Downloads models and builds Rust library
-just build                         # Build Debian package
+# 3. Fix permissions
+sudo usermod -aG video $USER
+
+# 4. On Raspberry Pi CM5, check rpicam-apps
+rpicam-still --list-cameras
+
+# 5. Test camera
+python -m distiller_sdk.hardware.camera._camera_unit_test
 ```
 
-### Adding New Hardware Platform Support
-To add support for a new platform (e.g., new SBC):
+**LED control fails**:
 ```bash
-# 1. Create config file
-cp configs/cm5.conf configs/new-platform.conf
-# Edit configs/new-platform.conf with correct SPI/GPIO settings
+# 1. Check LED sysfs interface
+ls -la /sys/class/leds/pamir:led*
 
-# 2. Update platform detection
-# Edit debian/platform-detect.sh:
-#   - Add new platform to validate_platform() function
-#   - Add detection logic to detect_platform() function
-#   - Add config mapping to get_config_file() function
-#   - Add hardware descriptions to get_spi_device(), get_gpio_chip(), etc.
+# 2. Try with sudo
+python -c "
+from distiller_sdk.hardware.sam import LED
+with LED(use_sudo=True) as led:
+    led.set_rgb_color(0, 255, 0, 0)
+"
 
-# 3. Test platform detection
-source debian/platform-detect.sh
-detect_platform
-get_platform_description new-platform
-
-# 4. Update documentation in CLAUDE.md and README.md
+# 3. Add to sudoers (for passwordless LED control)
+echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/tee /sys/class/leds/*" | sudo tee /etc/sudoers.d/distiller-led
 ```
 
-### Version Bumping and Release
+### Model & Build Issues
+
+**Models not found**: `FileNotFoundError: [Errno 2] No such file or directory: '.../models'`
 ```bash
-# 1. Update version in pyproject.toml
-# Edit version = "3.2.0" -> "3.3.0"
+# 1. Check if models downloaded
+ls -la /opt/distiller-sdk/src/distiller_sdk/parakeet/models
+ls -la /opt/distiller-sdk/src/distiller_sdk/piper/models
 
-# 2. Update Debian changelog
-just changelog                     # Opens editor with dch -i
-# Add meaningful changelog entry
-
-# 3. Build and test
-just clean
-./build.sh
+# 2. If missing, rebuild with model download
+cd distiller-sdk
+./build.sh              # Standard models
+./build.sh --whisper    # Include Whisper
 just build
-sudo dpkg -i dist/distiller-sdk_*_arm64.deb
-just verify                        # Verify installation
-
-# 4. Commit and tag (within this repo)
-git add pyproject.toml debian/changelog
-git commit -m "chore: bump version to 3.3.0"
-git tag v3.3.0
-git push && git push --tags
+sudo dpkg -i dist/distiller-sdk_*.deb
 ```
 
-## Common Pitfalls
+**Rust library build fails**:
+```bash
+# 1. Check Rust toolchain
+rustc --version
+# If not installed:
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup target add aarch64-unknown-linux-gnu
 
-1. **EPD128x250 dimension specification**: The display is physically mounted as 250×128 landscape (default orientation), but the vendor controller expects 128×250 portrait data due to firmware logic. Users create content in landscape (250×128), and the SDK automatically transforms it to portrait (128×250) for the vendor. Sending 250×128 directly causes byte alignment issues and garbled output. This is a vendor controller quirk, not an error.
-2. **Platform detection during build**: Armbian builds must detect platform via kernel patterns in `/lib/modules/` before `/etc/armbian-release` exists
-3. **uv installation**: `postinst` script handles multiple uv installation paths via PATH export including root/user `.local/bin` and `.cargo/bin`
-4. **Audio permissions**: Recording/playback requires user in `audio` group
-5. **SPI/GPIO access**: E-ink display requires SPI enabled in device tree and proper GPIO permissions
-6. **Rust build dependencies**: E-ink library build requires Rust toolchain with `aarch64-unknown-linux-gnu` target
-7. **ArmSom RK3576 GPIO pins**: GPIO pin configuration for e-ink display is incomplete in `configs/armsom-rk3576.conf`
-8. **Justfile architecture**: Default build architecture is `arm64`; specify `just build amd64` for cross-platform builds
-9. **Model size**: Standard build is ~200MB; including Whisper adds ~300-500MB more via `just prepare whisper`
-10. **Rust library not in Python path**: When testing locally, ensure `LD_LIBRARY_PATH` includes the Rust library location
-11. **Model files not downloaded**: Run `./build.sh` before first build to download AI models from HuggingFace
+# 2. Rebuild library
+cd src/distiller_sdk/hardware/eink/lib
+make -f Makefile.rust build
+
+# 3. Verify library built
+ls -la libdistiller_display_sdk_shared.so
+```
+
+**Platform not detected**: Returns "unknown"
+```bash
+# 1. Check device tree
+cat /proc/device-tree/model
+cat /proc/device-tree/compatible
+
+# 2. Override manually
+export DISTILLER_PLATFORM=cm5  # or myd-lr3576
+
+# 3. Verify override
+/opt/distiller-sdk/platform-detect.sh
+```
+
+### Debugging Commands
+
+```bash
+# Check SDK package installation
+dpkg -L distiller-sdk
+
+# Verify imports
+python -c "
+from distiller_sdk.hardware.audio import Audio
+from distiller_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.eink import Display
+from distiller_sdk.parakeet import Parakeet
+from distiller_sdk.piper import Piper
+print('All imports successful!')
+"
+
+# Test hardware modules
+python -m distiller_sdk.hardware.audio._audio_test
+python -m distiller_sdk.hardware.camera._camera_unit_test
+python -m distiller_sdk.hardware.eink._display_test
+python -m distiller_sdk.hardware.sam.led_interactive_demo
+```
+
+## Rust Library Development
+
+```bash
+cd src/distiller_sdk/hardware/eink/lib
+make -f Makefile.rust build    # Build for ARM64
+make -f Makefile.rust clean    # Clean artifacts
+```
+
+**Target**: `aarch64-unknown-linux-gnu` | Auto-rebuilds when `.rs`, `Cargo.toml`, or `Cargo.lock` change.
+
+**Cross-compilation setup**:
+```bash
+# Install ARM64 target
+rustup target add aarch64-unknown-linux-gnu
+
+# Build
+cd src/distiller_sdk/hardware/eink/lib
+cargo build --release --target aarch64-unknown-linux-gnu
+
+# Output
+ls -la target/aarch64-unknown-linux-gnu/release/libdistiller_display_sdk_shared.so
+```
