@@ -454,9 +454,17 @@ class Camera:
         self._is_streaming = False
         logger.info("Camera streaming stopped")
 
-    def get_frame(self) -> np.ndarray[Any, Any]:
+    def get_frame(
+        self,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> np.ndarray[Any, Any]:
         """
         Get the latest frame from the camera.
+
+        Args:
+            width: Optional width to resize to
+            height: Optional height to resize to
 
         Returns:
             np.ndarray: The latest camera frame
@@ -503,6 +511,12 @@ class Camera:
                 elif self.format == "gray":
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+                # Resize if dimensions specified
+                if width is not None and height is not None:
+                    current_height, current_width = frame.shape[:2]
+                    if current_width != width or current_height != height:
+                        frame = cast(np.ndarray[Any, Any], cv2.resize(frame, (width, height)))
+
                 # Update the current frame with thread safety
                 with self._frame_lock:
                     self._frame = frame
@@ -513,14 +527,29 @@ class Camera:
         with self._frame_lock:
             if self._frame is None:
                 raise CameraError("No frame available")
-            return self._frame.copy()
+            frame = self._frame.copy()
 
-    def capture_image(self, filepath: Optional[str] = None) -> np.ndarray[Any, Any]:
+        # Resize if dimensions specified
+        if width is not None and height is not None:
+            current_height, current_width = frame.shape[:2]
+            if current_width != width or current_height != height:
+                frame = cast(np.ndarray[Any, Any], cv2.resize(frame, (width, height)))
+
+        return frame
+
+    def capture_image(
+        self,
+        filepath: Optional[str] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> np.ndarray[Any, Any]:
         """
         Capture a still image from the camera.
 
         Args:
             filepath: Optional path to save the image
+            width: Optional width to resize to
+            height: Optional height to resize to
 
         Returns:
             np.ndarray: The captured image
@@ -564,10 +593,18 @@ class Camera:
             elif self.format == "gray":
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+            # Resize if dimensions specified
+            if width is not None and height is not None:
+                current_height, current_width = frame.shape[:2]
+                if current_width != width or current_height != height:
+                    frame = cast(np.ndarray[Any, Any], cv2.resize(frame, (width, height)))
+                    # Save resized image back to file
+                    cv2.imwrite(filepath, frame)
+
             return cast(np.ndarray[Any, Any], frame)
         else:
             # If no filepath is provided, use get_frame
-            return self.get_frame()
+            return self.get_frame(width=width, height=height)
 
     def adjust_setting(self, setting: str, value: Union[int, float, bool]) -> bool:
         """
@@ -681,6 +718,23 @@ class Camera:
             "auto_wb",
             "sharpness",
         ]
+
+    def capture(
+        self,
+        filepath: str,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> None:
+        """
+        Convenience method - capture and save image with optional resize.
+        Alias for capture_image(filepath, width, height).
+
+        Args:
+            filepath: Path to save image
+            width: Optional width
+            height: Optional height
+        """
+        self.capture_image(filepath, width, height)
 
     def close(self) -> None:
         """Release camera resources."""
