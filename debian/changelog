@@ -1,3 +1,20 @@
+distiller-sdk (3.3.0) unstable; urgency=medium
+
+  [ utsavbalar1231 ]
+  * build(debian): improve Debian policy compliance
+  * fix(debian): ensure PATH includes user binaries in preinst
+  * docs(eink): clarify EPD128x250 orientation and vendor controller quirk
+  * fix(eink/composer): add explicit int conversions for numpy array indexing
+  * fix(eink/composer): improve display cleanup error handling
+  * fix(piper): use unique temp files to prevent output conflicts
+  * feat(audio): add context manager support
+  * docs(eink): update dithering method name in examples
+  * feat(eink): add rotation parameter to display methods
+  * refactor(eink): apply Rust clippy suggestions
+  * build(debian): improve package build artifact cleanup
+
+ -- PamirAI Incorporated <founders@pamir.ai>  Fri, 05 Dec 2025 12:57:48 +0530
+
 distiller-sdk (3.2.0) unstable; urgency=medium
 
   [ utsavbalar1231 ]

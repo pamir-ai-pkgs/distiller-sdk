@@ -241,7 +241,7 @@ wheels = [
 
 [[package]]
 name = "distiller-sdk"
-version = "3.1.1"
+version = "3.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "build" },
@@ -256,7 +256,7 @@ dependencies = [
     { name = "spidev" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "types-pyaudio" },
     { name = "types-qrcode" },
@@ -274,10 +274,13 @@ requires-dist = [
     { name = "sounddevice", specifier = ">=0.5.2" },
     { name = "soundfile", specifier = ">=0.13.1" },
     { name = "spidev", specifier = ">=3.7" },
-    { name = "types-pyaudio", marker = "extra == 'dev'" },
-    { name = "types-qrcode", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "types-pyaudio" },
+    { name = "types-qrcode" },
+]
 
 [[package]]
 name = "faster-whisper"
