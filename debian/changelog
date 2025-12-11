@@ -1,3 +1,10 @@
+distiller-sdk (3.3.1) unstable; urgency=medium
+
+  [ utsavbalar1231 ]
+  * feat(sam): improve LED animation and color control
+
+ -- PamirAI Incorporated <founders@pamir.ai>  Thu, 11 Dec 2025 15:46:10 +0530
+
 distiller-sdk (3.3.0) unstable; urgency=medium
 
   [ utsavbalar1231 ]

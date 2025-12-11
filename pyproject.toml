@@ -5,7 +5,7 @@ requires = [ "setuptools>=61", "wheel" ]
 
 [project]
 name = "distiller-sdk"
-version = "3.3.0"
+version = "3.3.1"
 readme = "README.md"
 authors = [
   { name = "PamirAI Incorporated", email = "support@pamir.ai" },
