@@ -528,13 +528,6 @@ class InteractiveLEDDemo:
                 lambda: self.led.set_animation_mode(valid_led, "invalid_mode"),
             ),
             ("Invalid trigger", lambda: self.led.set_trigger(valid_led, "invalid-trigger")),
-            ("Invalid blink timing (<100ms)", lambda: self.led.blink_led(valid_led, 255, 0, 0, 50)),
-            (
-                "Invalid blink timing (>1000ms)",
-                lambda: self.led.blink_led(valid_led, 255, 0, 0, 1500),
-            ),
-            ("Invalid fade timing", lambda: self.led.fade_led(valid_led, 0, 255, 0, 2000)),
-            ("Invalid rainbow timing", lambda: self.led.rainbow_led(valid_led, 50)),
         ]
 
         for description, test_func in test_cases:

@@ -168,7 +168,11 @@ class LED:
 
     def set_rgb_color(self, led_id: int, red: int, green: int, blue: int) -> None:
         """
-        Set RGB color for a specific LED.
+        Set RGB color for a specific LED. Automatically switches to static mode.
+
+        This method sets the LED to display a static color, stopping any running
+        animation. To change the color of a running animation without stopping it,
+        use set_animation_color() instead.
 
         Args:
             led_id: LED number (0, 1, 2, etc.)
@@ -189,6 +193,9 @@ class LED:
                 raise LEDError(f"{component.capitalize()} value {value} out of range (0-255)")
 
         led_path = self._get_led_path(led_id)
+
+        # Set mode to static first to stop any animation
+        self._write_sysfs_file(led_path / "mode", "static")
 
         # Set RGB components
         self._write_sysfs_file(led_path / "red", str(red))
@@ -217,6 +224,44 @@ class LED:
             return (red, green, blue)
         except ValueError as e:
             raise LEDError(f"Failed to parse RGB values for LED {led_id}: {e}")
+
+    def set_animation_color(self, led_id: int, red: int, green: int, blue: int) -> None:
+        """
+        Set RGB color for an animation without stopping it.
+
+        Use this method to change the color of a running animation (blink, fade).
+        The animation continues with the new color values on the next frame.
+        For static color display, use set_rgb_color() instead.
+
+        Note: This has no effect on rainbow mode, which generates its own colors.
+
+        Args:
+            led_id: LED number (0, 1, 2, etc.)
+            red: Red component (0-255)
+            green: Green component (0-255)
+            blue: Blue component (0-255)
+
+        Raises:
+            LEDError: If LED ID is invalid or values are out of range
+
+        Example:
+            # Start blinking red
+            led.blink_led(0, 255, 0, 0, 500)
+            time.sleep(2)
+            # Change to blinking green (animation continues)
+            led.set_animation_color(0, 0, 255, 0)
+        """
+        # Validate color values
+        for component, value in [("red", red), ("green", green), ("blue", blue)]:
+            if not 0 <= value <= 255:
+                raise LEDError(f"{component.capitalize()} value {value} out of range (0-255)")
+
+        led_path = self._get_led_path(led_id)
+
+        # Set RGB components only (don't touch mode - let animation continue)
+        self._write_sysfs_file(led_path / "red", str(red))
+        self._write_sysfs_file(led_path / "green", str(green))
+        self._write_sysfs_file(led_path / "blue", str(blue))
 
     def set_animation_mode(self, led_id: int, mode: str, timing: Optional[int] = None) -> None:
         """
@@ -410,17 +455,41 @@ class LED:
 
     def turn_off(self, led_id: int) -> None:
         """
-        Turn off a specific LED.
+        Turn off a specific LED and stop any animations.
+
+        This method fully cleans up LED state:
+        1. Clears any active trigger (returns control to manual)
+        2. Sets mode to static (stops kernel animation work)
+        3. Sets brightness to 0
 
         Args:
             led_id: LED number (0, 1, 2, etc.)
         """
+        # Clear trigger first (returns control to manual)
+        self.set_trigger(led_id, "none")
+        # Set mode to static to stop animation work
+        self.set_animation_mode(led_id, "static")
+        # Set brightness to 0
         self.set_brightness(led_id, 0)
 
     def turn_off_all(self) -> None:
-        """Turn off all available LEDs."""
+        """Turn off all available LEDs and stop all animations."""
         for led_id in self.available_leds:
             self.turn_off(led_id)
+
+    def reset_all(self) -> None:
+        """
+        Reset all LEDs to off state, stopping animations and clearing triggers.
+
+        This is a comprehensive cleanup method that ensures all LEDs are fully
+        reset to a known state. Use this when you need to ensure no animations
+        or triggers are running on any LED.
+        """
+        for led_id in self.available_leds:
+            self.set_trigger(led_id, "none")
+            self.set_animation_mode(led_id, "static")
+            self.set_rgb_color(led_id, 0, 0, 0)
+            self.set_brightness(led_id, 0)
 
     def set_color_all(self, red: int, green: int, blue: int) -> None:
         """

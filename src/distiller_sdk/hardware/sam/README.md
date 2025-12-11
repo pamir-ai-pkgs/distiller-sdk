@@ -2,7 +2,7 @@
 
 ## Overview
 
-The LED module provides **comprehensive RGB LED control** for the CM5 device through the Linux sysfs
+The LED module provides **comprehensive RGB LED control** for Distiller devices through the Linux sysfs
 interface. It supports multiple LEDs with individual control of RGB colors, brightness settings,
 kernel-based animation modes, and Linux LED triggers.
 
@@ -22,7 +22,7 @@ provides both a high-level Python API and legacy compatibility with the previous
 
 - The SAM driver must be loaded and create LED devices at `/sys/class/leds/pamir:led*`
 - **Root privileges required**: LED control requires write access to sysfs files
-- Python 3.6+ with pathlib and subprocess support
+- Python 3.11+ with pathlib and subprocess support
 
 ### Permission Requirements
 
@@ -34,7 +34,7 @@ The LED sysfs interface requires root privileges for write operations. You have 
 
 ## Installation
 
-The LED module is part of the CM5 Linux SDK and can be imported from:
+The LED module is part of the Distiller SDK and can be imported from:
 
 ```python
 from distiller_sdk.hardware.sam.led import LED, LEDError, create_led_with_sudo
@@ -95,7 +95,7 @@ led = create_led_with_sudo()
 For a comprehensive demonstration of all LED features, run the interactive demo:
 
 ```bash
-python led_interactive_demo.py
+python -m distiller_sdk.hardware.sam.led_interactive_demo
 ```
 
 This interactive demo includes:
@@ -163,7 +163,10 @@ print(f"Found LEDs: {leds}")  # Output: Found LEDs: [0, 1, 2]
 
 #### `set_rgb_color(led_id: int, red: int, green: int, blue: int) -> None`
 
-Set RGB color for a specific LED.
+Set RGB color for a specific LED. **Automatically switches to static mode.**
+
+This method sets the LED to display a static color, stopping any running animation.
+To change the color of a running animation without stopping it, use `set_animation_color()` instead.
 
 Parameters:
 
@@ -176,6 +179,37 @@ Raises:
 
 - `LEDError`: If LED ID is invalid or color values are out of range
 
+#### `set_animation_color(led_id: int, red: int, green: int, blue: int) -> None`
+
+Set RGB color for an animation without stopping it.
+
+Use this method to change the color of a running animation (blink, fade).
+The animation continues with the new color values on the next frame.
+For static color display, use `set_rgb_color()` instead.
+
+**Note:** This has no effect on rainbow mode, which generates its own colors.
+
+Parameters:
+
+- `led_id`: LED number (0, 1, 2, etc.)
+- `red`: Red component (0-255)
+- `green`: Green component (0-255)
+- `blue`: Blue component (0-255)
+
+Raises:
+
+- `LEDError`: If LED ID is invalid or color values are out of range
+
+Example:
+
+```python
+# Start blinking red
+led.blink_led(0, 255, 0, 0, 500)
+time.sleep(2)
+# Change to blinking green (animation continues)
+led.set_animation_color(0, 0, 255, 0)
+```
+
 #### `get_rgb_color(led_id: int) -> Tuple[int, int, int]`
 
 Get current RGB color for a specific LED.
@@ -187,7 +221,7 @@ Returns:
 Example:
 
 ```python
-# Set LED 0 to purple
+# Set LED 0 to purple (static)
 led.set_rgb_color(0, 128, 0, 255)
 
 # Read back the color
@@ -429,7 +463,12 @@ led.rainbow_led(1, timing=200)
 
 #### `turn_off(led_id: int) -> None`
 
-Turn off a specific LED.
+Turn off a specific LED and stop any animations.
+
+This method fully cleans up LED state:
+1. Clears any active trigger (returns control to manual)
+2. Sets mode to static (stops kernel animation work)
+3. Sets brightness to 0
 
 ### Bulk Operations
 
@@ -443,7 +482,14 @@ Set the same brightness for all available LEDs.
 
 #### `turn_off_all() -> None`
 
-Turn off all available LEDs.
+Turn off all available LEDs and stop all animations.
+
+#### `reset_all() -> None`
+
+Reset all LEDs to off state, stopping animations and clearing triggers.
+
+This is a comprehensive cleanup method that ensures all LEDs are fully reset to a known state.
+Use this when you need to ensure no animations or triggers are running on any LED.
 
 Example:
 
@@ -675,10 +721,6 @@ try:
     led.rainbow_led(2, timing=200)              # LED 2: Rainbow
     time.sleep(5)
 
-    # Cleanup
-    led.set_trigger(0, "none")
-    led.set_trigger(1, "none")
-    led.set_trigger(2, "none")
     led.turn_off_all()
     print("\nDemo complete!")
 
