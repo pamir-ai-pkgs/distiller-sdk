@@ -3,8 +3,9 @@ set -e
 
 case "$1" in
 remove | upgrade | deconfigure)
-	# Remove virtual environment
-	[ -d "/opt/distiller-sdk/.venv" ] && rm -rf /opt/distiller-sdk/.venv
+	# Remove virtual environment and build artifacts
+	rm -rf /opt/distiller-sdk/.venv 2>/dev/null || true
+	rm -rf /opt/distiller-sdk/build 2>/dev/null || true
 
 	# Remove generated files
 	rm -f /opt/distiller-sdk/.python-version 2>/dev/null || true
