@@ -855,6 +855,14 @@ class Display:
         if len(buffer) != self.ARRAY_SIZE:
             raise DisplayError(f"Buffer must be exactly {self.ARRAY_SIZE} bytes, got {len(buffer)}")
 
+        # Validate coordinates are within display bounds
+        if x < 0 or y < 0:
+            raise DisplayError(f"Text position ({x}, {y}) must be non-negative")
+        if x >= self.WIDTH or y >= self.HEIGHT:
+            raise DisplayError(
+                f"Text position ({x}, {y}) exceeds display dimensions ({self.WIDTH}x{self.HEIGHT})"
+            )
+
         # Create mutable copy of buffer
         buffer_array = (ctypes.c_ubyte * len(buffer))(*buffer)
         text_bytes = text.encode("utf-8")
@@ -892,7 +900,7 @@ class Display:
             y: Y position of rectangle
             width: Rectangle width
             height: Rectangle height
-            filled: Whether to fill the rectangle
+            filled: Whether to fill rectangle (True) or outline only (False)
             value: Fill/line value (True=white, False=black)
 
         Returns:
@@ -903,6 +911,22 @@ class Display:
         """
         if len(buffer) != self.ARRAY_SIZE:
             raise DisplayError(f"Buffer must be exactly {self.ARRAY_SIZE} bytes, got {len(buffer)}")
+
+        # Validate rectangle coordinates and dimensions
+        if x < 0 or y < 0:
+            raise DisplayError(f"Rectangle position ({x}, {y}) must be non-negative")
+        if width <= 0 or height <= 0:
+            raise DisplayError(f"Rectangle dimensions ({width}x{height}) must be positive")
+
+        # Check if rectangle fits within display bounds
+        if x >= self.WIDTH or y >= self.HEIGHT:
+            raise DisplayError(
+                f"Rectangle position ({x}, {y}) exceeds display dimensions ({self.WIDTH}x{self.HEIGHT})"
+            )
+        if x + width > self.WIDTH or y + height > self.HEIGHT:
+            raise DisplayError(
+                f"Rectangle ({width}x{height} at ({x}, {y}) exceeds display dimensions ({self.WIDTH}x{self.HEIGHT})"
+            )
 
         # Create mutable copy of buffer
         buffer_array = (ctypes.c_ubyte * len(buffer))(*buffer)
