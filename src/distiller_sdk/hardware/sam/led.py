@@ -465,12 +465,22 @@ class LED:
         Args:
             led_id: LED number (0, 1, 2, etc.)
         """
-        # Clear trigger first (returns control to manual)
-        self.set_trigger(led_id, "none")
-        # Set mode to static to stop animation work
-        self.set_animation_mode(led_id, "static")
-        # Set brightness to 0
-        self.set_brightness(led_id, 0)
+        try:
+            # Clear trigger first (returns control to manual)
+            self.set_trigger(led_id, "none")
+            # Set mode to static to stop animation work
+            self.set_animation_mode(led_id, "static")
+            # Set brightness to 0
+            self.set_brightness(led_id, 0)
+        except Exception:
+            # If any step fails, ensure LED is in a known state
+            try:
+                self.set_trigger(led_id, "none")
+                self.set_animation_mode(led_id, "static")
+                self.set_brightness(led_id, 0)
+            except Exception:
+                # Last resort - try to at least turn off LED directly
+                pass  # Prevent exception cascade
 
     def turn_off_all(self) -> None:
         """Turn off all available LEDs and stop all animations."""
