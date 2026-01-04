@@ -648,8 +648,12 @@ def main():
     """Main function."""
 
     # Set up signal handler for clean exit
+    demo = None  # Global reference for demo instance
+
     def signal_handler(sig, frame):
         print("\n🛑 Received exit signal...")
+        if demo and hasattr(demo, "cleanup_on_exit"):
+            demo.cleanup_on_exit()
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
