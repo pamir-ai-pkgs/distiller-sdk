@@ -832,6 +832,41 @@ class Display:
 
         return bytes(output_data)
 
+    def display_text(
+        self,
+        text: str,
+        x: int = 0,
+        y: int = 0,
+        scale: int = 1,
+        invert: bool = False,
+        mode: DisplayMode = DisplayMode.FULL,
+    ) -> None:
+        """
+        Render and display text in a single call.
+
+        Convenience method that renders text to a landscape buffer (250x128)
+        and automatically transforms it to firmware format (128x250) for display.
+
+        Args:
+            text: Text string to display
+            x: X position for text (0 = left edge in landscape view)
+            y: Y position for text (0 = top edge in landscape view)
+            scale: Text scale factor (1=normal, 2=double, etc.)
+            invert: False = black text on white background (default, like paper)
+                    True = white text on black background
+            mode: Display refresh mode (FULL or PARTIAL)
+
+        Raises:
+            DisplayError: If text rendering or display fails
+        """
+        buf = self.render_text(text, x, y, scale, invert=False)
+        # render_text outputs white text on black; invert for white bg (paper look)
+        # If user wants inverted (white on black), skip the color inversion
+        self.display_image(
+            buf, mode=mode, rotate=90, flip_horizontal=True, flip_vertical=True,
+            src_width=250, src_height=128, invert_colors=not invert
+        )
+
     def overlay_text(
         self, buffer: bytes, text: str, x: int = 0, y: int = 0, scale: int = 1, invert: bool = False
     ) -> bytes:
