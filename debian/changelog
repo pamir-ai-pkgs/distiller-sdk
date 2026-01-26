@@ -1,3 +1,16 @@
+distiller-sdk (3.3.2) stable; urgency=medium
+
+  [ utsavbalar1231 ]
+  * fix(debian): reduce installed package size by ~1.2GB
+  * feat(eink): add coordinate validation for drawing functions
+  * fix(sam): improve LED turn_off error handling
+  * fix(sam): add cleanup on signal exit in LED demo
+  * fix(eink): correct text rendering in Rust library
+  * feat(eink): add display_text convenience method
+  * fix(debian): improve uv environment setup in postinst
+
+ -- PamirAI Incorporated <founders@pamir.ai>  Tue, 27 Jan 2026 00:51:06 +0530
+
 distiller-sdk (3.3.1) unstable; urgency=medium
 
   [ utsavbalar1231 ]
