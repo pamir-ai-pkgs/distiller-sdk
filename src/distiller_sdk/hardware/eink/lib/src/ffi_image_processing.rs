@@ -439,7 +439,7 @@ pub unsafe extern "C" fn text_render(
         return 0;
     };
 
-    let renderer = TextRenderer::new(spec.width, spec.height);
+    let renderer = TextRenderer::new(spec.height, spec.width);  // Landscape: 250x128
     let scale = if scale == 0 { 1 } else { scale };
     let buffer = renderer.render_text(text_str, x, y, scale, invert != 0);
 
@@ -495,7 +495,7 @@ pub unsafe extern "C" fn text_overlay(
         return 0;
     };
 
-    let renderer = TextRenderer::new(spec.width, spec.height);
+    let renderer = TextRenderer::new(spec.height, spec.width);  // Landscape: 250x128
     let buffer_size = spec.array_size();
     let buffer_slice = unsafe { slice::from_raw_parts_mut(buffer, buffer_size) };
 

@@ -497,23 +497,25 @@ impl TextRenderer {
                 }
 
                 let font_byte = FONT_6X8_DATA[font_byte_idx];
-                let bit_set = (font_byte >> row) & 1 == 1;
+                let bit_set = (font_byte >> (7 - row)) & 1 == 1;
                 let pixel_value = if invert { !bit_set } else { bit_set };
 
-                if pixel_value {
-                    // Draw scaled pixel
-                    for sy in 0..scale {
-                        for sx in 0..scale {
-                            let px = x + col * scale + sx;
-                            let py = y + row * scale + sy;
+                // Draw scaled pixel - must handle both SET and CLEAR for invert to work
+                for sy in 0..scale {
+                    for sx in 0..scale {
+                        let px = x + col * scale + sx;
+                        let py = y + row * scale + sy;
 
-                            if px < self.width && py < self.height {
-                                let pixel_idx = (py * self.width + px) as usize;
-                                let byte_idx = pixel_idx / 8;
-                                let bit_idx = pixel_idx % 8;
+                        if px < self.width && py < self.height {
+                            let pixel_idx = (py * self.width + px) as usize;
+                            let byte_idx = pixel_idx / 8;
+                            let bit_idx = pixel_idx % 8;
 
-                                if byte_idx < buffer.len() {
+                            if byte_idx < buffer.len() {
+                                if pixel_value {
                                     buffer[byte_idx] |= 1 << (7 - bit_idx);
+                                } else {
+                                    buffer[byte_idx] &= !(1 << (7 - bit_idx));
                                 }
                             }
                         }
