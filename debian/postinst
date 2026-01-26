@@ -41,16 +41,16 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 
 	[ -d ".venv" ] && rm -rf ".venv"
 
+	export UV_NO_CACHE=1
+	export UV_LINK_MODE=copy
+	export UV_NO_MANAGED_PYTHON=1
+
 	uv venv --python $(which python3) || {
-		echo "ERROR: Failed to create virtual environment with uv"
+		echo "ERROR: Failed to create virtual environment" >&2
 		exit 1
 	}
 
-	export UV_COMPILE_BYTECODE=1
-	export UV_NO_CACHE=1
-	export UV_LINK_MODE=copy
-
-	uv sync --frozen --compile-bytecode || {
+	uv sync --frozen || {
 		echo "ERROR: Failed to install package dependencies" >&2
 		exit 1
 	}
