@@ -75,19 +75,27 @@ impl DisplayFirmware for EPD128x250Firmware {
             .data(((height - 1) % 256) as u8)
             .data(((height - 1) / 256) as u8)
             .data(0x00)
-            // Data entry mode
+            // Data entry mode (SSD1681 datasheet §8.1, CMD 0x11):
+            // 0x03 = Y-increment + X-increment (bits [1:0])
+            // Bit 0=1: X-address counter increments (left→right)
+            // Bit 1=1: Y-address counter increments (top→bottom)
+            // Y-increment ensures buffer row 0 → physical top when display
+            // is landscape-mounted. Changed from 0x01 (Y-decrement) to fix
+            // inverted image orientation after rotate=90 transform.
             .cmd(0x11)
-            .data(0x01) // Normal mode
+            .data(0x03)
             // Set Ram-X address start/end position
             .cmd(0x44)
             .data(0x00)
             .data((width / 8 - 1) as u8)
-            // Set Ram-Y address start/end position
+            // Set RAM Y address start/end position (SSD1681 §8.1, CMD 0x45):
+            // Y-increment mode: start=0, end=height-1 (top→bottom scan)
+            // Matches data entry mode 0x03 above.
             .cmd(0x45)
+            .data(0x00)
+            .data(0x00)
             .data(((height - 1) % 256) as u8)
             .data(((height - 1) / 256) as u8)
-            .data(0x00)
-            .data(0x00)
             // BorderWavefrom
             .cmd(0x3C)
             .data(0x05)
@@ -101,10 +109,11 @@ impl DisplayFirmware for EPD128x250Firmware {
             // Set RAM x address count
             .cmd(0x4E)
             .data(0x00)
-            // Set RAM y address count
+            // Set RAM Y address count (SSD1681 §8.1, CMD 0x4F):
+            // Start at 0 to match Y-increment mode (data entry 0x03).
             .cmd(0x4F)
-            .data(((height - 1) % 256) as u8)
-            .data(((height - 1) / 256) as u8)
+            .data(0x00)
+            .data(0x00)
             .check_status()
     }
 
