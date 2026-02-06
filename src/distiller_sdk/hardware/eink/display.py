@@ -976,13 +976,21 @@ class Display:
         Raises:
             DisplayError: If text rendering or display fails
         """
-        buf = self.render_text(text, x, y, scale, invert=False)
-        # render_text outputs white text on black; invert for white bg (paper look)
-        # If user wants inverted (white on black), skip the color inversion
-        self.display_image(
-            buf, mode=mode, rotate=90, flip_horizontal=True, flip_vertical=True,
-            src_width=250, src_height=128, invert_colors=not invert
-        )
+        _FONT_HEIGHT = 8  # Rust font constant (6x8 bitmap font)
+        # EPD128x250 has ~10 inactive source lines at physical top edge;
+        # other display types have no such gap.
+        _TOP_MARGIN = 10 if (self.WIDTH == 128 and self.HEIGHT == 250) else 0
+        # Invert Y to compensate for portrait col mapping: col=0 → physical bottom.
+        # The margin keeps text within the panel's active pixel area.
+        y_render = max(0, self.WIDTH - _TOP_MARGIN - y - _FONT_HEIGHT * scale)
+        buf = self.render_text(text, x, y_render, scale, invert=False)
+        # render_text creates a landscape buffer (HEIGHT x WIDTH = 250x128).
+        # Rotate 90 CW then H-flip for correct text orientation on display.
+        buf = self._rotate_1bit(buf, self.HEIGHT, self.WIDTH, 90)
+        buf = self._flip_horizontal_1bit(buf, self.WIDTH, self.HEIGHT)
+        if not invert:
+            buf = self._invert_1bit(buf)
+        self._display_raw(buf, mode)
 
     def overlay_text(
         self, buffer: bytes, text: str, x: int = 0, y: int = 0, scale: int = 1, invert: bool = False
