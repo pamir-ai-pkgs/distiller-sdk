@@ -517,23 +517,39 @@ class Display:
         """
         Display an image on the e-ink screen.
 
+        .. deprecated::
+            Use :meth:`display_image_auto` instead, which provides automatic
+            scaling, dithering, and smart dimension detection.
+
         Args:
-            image: Either a PNG file path (string) or raw 1-bit image data (bytes)
+            image: Either a PNG file path (string) or raw 1-bit image
+                data (bytes)
             mode: Display refresh mode
-            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-                   If True, rotate 90 degrees CCW
-                   If False or 0, no rotation
-            flip_horizontal: If True, mirror the image horizontally (left-right)
-            flip_vertical: If True, mirror the image vertically (top-bottom)
-            invert_colors: If True, invert colors (black↔white)
-            src_width: Source width in pixels (required when transforming raw data)
-            src_height: Source height in pixels (required when transforming raw data)
+            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool
+                for backward compatibility
+            flip_horizontal: If True, mirror the image horizontally
+            flip_vertical: If True, mirror the image vertically
+            invert_colors: If True, invert colors (black/white swap)
+            src_width: Source width in pixels (required when transforming
+                raw data)
+            src_height: Source height in pixels (required when transforming
+                raw data)
 
         Raises:
             DisplayError: If display operation fails
         """
+        import warnings
+        warnings.warn(
+            "display_image() is deprecated. "
+            "Use display_image_auto() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         if not self._initialized:
-            raise DisplayError("Display not initialized. Call initialize() first.")
+            raise DisplayError(
+                "Display not initialized. Call initialize() first."
+            )
 
         # Handle backward compatibility for boolean rotate parameter
         if isinstance(rotate, bool):
@@ -542,36 +558,52 @@ class Display:
             rotation_degrees = rotate
 
         if isinstance(image, str):
-            # PNG file path
-            self._display_png(
-                image, mode, rotation_degrees, flip_horizontal, flip_vertical, invert_colors
+            # PNG file path -- delegate to display_image_auto
+            self.display_image_auto(
+                image, mode=mode, rotate=rotation_degrees,
+                flip_horizontal=flip_horizontal,
+                flip_vertical=flip_vertical,
+                invert_colors=invert_colors,
             )
         elif isinstance(image, (bytes, bytearray)):
-            # Raw image data
+            # Raw image data -- use original transform logic
+            # (needs src_width/src_height for non-standard dimensions)
             raw_data = bytes(image)
 
-            if flip_horizontal or flip_vertical or rotation_degrees != 0 or invert_colors:
+            if (
+                flip_horizontal
+                or flip_vertical
+                or rotation_degrees != 0
+                or invert_colors
+            ):
                 if src_width is None or src_height is None:
                     raise DisplayError(
-                        "src_width and src_height are required when transforming raw data"
+                        "src_width and src_height are required "
+                        "when transforming raw data"
                     )
 
-                # Apply transformations using Rust FFI functions
                 if flip_horizontal:
-                    raw_data = self._flip_horizontal_1bit(raw_data, src_width, src_height)
-
+                    raw_data = self._flip_horizontal_1bit(
+                        raw_data, src_width, src_height
+                    )
                 if flip_vertical:
-                    raw_data = self._flip_vertical_1bit(raw_data, src_width, src_height)
-
+                    raw_data = self._flip_vertical_1bit(
+                        raw_data, src_width, src_height
+                    )
                 if rotation_degrees != 0:
-                    raw_data = self._rotate_1bit(raw_data, src_width, src_height, rotation_degrees)
-
+                    raw_data = self._rotate_1bit(
+                        raw_data, src_width, src_height,
+                        rotation_degrees,
+                    )
                 if invert_colors:
                     raw_data = self._invert_1bit(raw_data)
 
             self._display_raw(raw_data, mode)
         else:
-            raise DisplayError(f"Invalid image type: {type(image)}. Expected str or bytes.")
+            raise DisplayError(
+                f"Invalid image type: {type(image)}. "
+                "Expected str or bytes."
+            )
 
     def _display_png(
         self,
@@ -648,91 +680,176 @@ class Display:
         """
         Display any supported image file format on the e-ink screen.
 
-        This method supports various image formats including:
-        - PNG, JPEG, GIF, BMP, TIFF, WebP, and more
-
-        The image must match the display dimensions exactly (no automatic scaling).
-        For automatic scaling and processing, use display_image_auto() instead.
+        .. deprecated::
+            Use :meth:`display_image_auto` instead, which provides automatic
+            scaling and smart dimension detection.
 
         Args:
             filename: Path to image file (any supported format)
             mode: Display refresh mode (FULL or PARTIAL)
 
         Raises:
-            DisplayError: If display operation fails or image dimensions don't match
+            DisplayError: If display operation fails or image dimensions
+                don't match
         """
-        if not self._initialized:
-            raise DisplayError("Display not initialized. Call initialize() first.")
-
-        if not os.path.exists(filename):
-            raise DisplayError(f"Image file not found: {filename}")
-
-        logger.debug(f"Displaying image file: {filename} (mode={mode.name})")
-        filename_bytes = filename.encode("utf-8")
-        result = self._lib.display_image_file(filename_bytes, int(mode))
-        self._check_result(result, f"Display image file '{filename}'")
-        logger.debug("Image file displayed successfully")
+        import warnings
+        warnings.warn(
+            "display_image_file() is deprecated. "
+            "Use display_image_auto() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.display_image_auto(filename, mode=mode)
 
     def display_image_auto(
         self,
-        filename: str,
+        image: Union[str, bytes],
         mode: DisplayMode = DisplayMode.FULL,
         scaling: ScalingMethod = ScalingMethod.LETTERBOX,
         dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-        rotate: Union[bool, int] = False,
+        rotate: Union[bool, int, str] = "auto",
+        flip_horizontal: bool = False,
+        flip_vertical: bool = False,
+        invert_colors: bool = False,
     ) -> None:
         """
         Display any image with automatic scaling and dithering.
 
-        This method supports various image formats and automatically:
-        - Scales the image to fit the display using the specified method
-        - Converts to 1-bit using the specified dithering algorithm
-        - Handles any image size and format
-        - Applies rotation if specified
+        This is the primary display method. Supports file paths (any image
+        format/size) and raw 1-bit packed bytes.
 
         Args:
-            filename: Path to image file (any supported format, any size)
+            image: Image file path (str) or raw 1-bit packed data (bytes)
             mode: Display refresh mode (FULL or PARTIAL)
-            scaling: How to scale the image to fit display
-            dithering: Dithering method for 1-bit conversion
-            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-                   If True, rotate 90 degrees counter-clockwise
-                   If False or 0, no rotation
-                   For EPD128x250 displays: create 250×128 landscape images and pass rotate=90
+            scaling: How to scale the image to fit display (file paths only)
+            dithering: Dithering method for 1-bit conversion (file paths only)
+            rotate: Rotation angle in degrees (0, 90, 180, 270), bool for
+                   backward compatibility, or "auto" for smart detection.
+                   Default is "auto" which detects image dimensions and
+                   applies optimal rotation for the display mounting.
+                   - False or 0: no rotation
+                   - True: 90 CW (backward compat)
+                   - 90, 180, 270: explicit rotation
+                   - "auto" (default): smart detection based on image vs display dims
+                   For EPD128x250: landscape images auto-rotate 90 to match
+                   vendor portrait (with Y-increment scanning)
+            flip_horizontal: Mirror the image horizontally (left-right)
+            flip_vertical: Mirror the image vertically (top-bottom)
+            invert_colors: Invert colors (black/white swap)
 
         Raises:
             DisplayError: If display operation fails
         """
         if not self._initialized:
-            raise DisplayError("Display not initialized. Call initialize() first.")
+            raise DisplayError(
+                "Display not initialized. Call initialize() first."
+            )
 
-        if not os.path.exists(filename):
-            raise DisplayError(f"Image file not found: {filename}")
+        if isinstance(image, str):
+            # File path input
+            if not os.path.exists(image):
+                raise DisplayError(f"Image file not found: {image}")
 
-        # Convert boolean rotate to degrees for backward compatibility
-        if isinstance(rotate, bool):
-            rotation_degrees = 90 if rotate else 0
+            # Resolve effective rotation (handles "auto" mode)
+            effective_rotation = self._compute_effective_rotation(
+                image, rotate
+            )
+
+            # If no flips or invert, use pure Rust FFI pipeline (fastest)
+            if (
+                not flip_horizontal
+                and not flip_vertical
+                and not invert_colors
+            ):
+                # Map rotation to transform type
+                transform = TransformType.NONE
+                if effective_rotation == 90:
+                    transform = TransformType.ROTATE_90
+                elif effective_rotation == 180:
+                    transform = TransformType.ROTATE_180
+                elif effective_rotation == 270:
+                    transform = TransformType.ROTATE_270
+
+                logger.debug(
+                    f"Auto-displaying image: {image} "
+                    f"(scale={scaling.name}, dither={dithering.name}, "
+                    f"rotate={effective_rotation})"
+                )
+                filename_bytes = image.encode("utf-8")
+                result = self._lib.display_image_auto(
+                    filename_bytes,
+                    int(mode),
+                    int(scaling),
+                    int(dithering),
+                    int(transform),
+                )
+                self._check_result(
+                    result, f"Auto-display image '{image}'"
+                )
+                logger.debug("Image auto-displayed successfully")
+            else:
+                # Need post-processing for flips/invert
+                logger.debug(
+                    f"Auto-displaying image with transforms: {image} "
+                    f"(flip_h={flip_horizontal}, flip_v={flip_vertical}"
+                    f", invert={invert_colors})"
+                )
+                raw_data = self._convert_png_auto(
+                    image, scaling, dithering, effective_rotation
+                )
+
+                if flip_horizontal:
+                    raw_data = self._flip_horizontal_1bit(
+                        raw_data, self.WIDTH, self.HEIGHT
+                    )
+                if flip_vertical:
+                    raw_data = self._flip_vertical_1bit(
+                        raw_data, self.WIDTH, self.HEIGHT
+                    )
+                if invert_colors:
+                    raw_data = self._invert_1bit(raw_data)
+
+                self._display_raw(raw_data, mode)
+
+        elif isinstance(image, (bytes, bytearray)):
+            # Raw bytes input
+            raw_data = bytes(image)
+            if len(raw_data) != self.ARRAY_SIZE:
+                raise DisplayError(
+                    f"Raw data must be exactly {self.ARRAY_SIZE} bytes, "
+                    f"got {len(raw_data)}"
+                )
+
+            # Resolve rotation (no "auto" for raw bytes)
+            if isinstance(rotate, str) and rotate == "auto":
+                effective_rotation = 0
+            elif isinstance(rotate, bool):
+                effective_rotation = 90 if rotate else 0
+            else:
+                effective_rotation = int(rotate) % 360
+
+            # Apply transforms sequentially
+            if flip_horizontal:
+                raw_data = self._flip_horizontal_1bit(
+                    raw_data, self.WIDTH, self.HEIGHT
+                )
+            if flip_vertical:
+                raw_data = self._flip_vertical_1bit(
+                    raw_data, self.WIDTH, self.HEIGHT
+                )
+            if effective_rotation != 0:
+                raw_data = self._rotate_1bit(
+                    raw_data, self.WIDTH, self.HEIGHT, effective_rotation
+                )
+            if invert_colors:
+                raw_data = self._invert_1bit(raw_data)
+
+            self._display_raw(raw_data, mode)
         else:
-            rotation_degrees = rotate % 360
-
-        # Map rotation to transform type
-        transform = TransformType.NONE
-        if rotation_degrees == 90:
-            transform = TransformType.ROTATE_90
-        elif rotation_degrees == 180:
-            transform = TransformType.ROTATE_180
-        elif rotation_degrees == 270:
-            transform = TransformType.ROTATE_270
-
-        logger.debug(
-            f"Auto-displaying image: {filename} (scale={scaling.name}, dither={dithering.name}, rotate={rotation_degrees}°)"
-        )
-        filename_bytes = filename.encode("utf-8")
-        result = self._lib.display_image_auto(
-            filename_bytes, int(mode), int(scaling), int(dithering), int(transform)
-        )
-        self._check_result(result, f"Auto-display image '{filename}'")
-        logger.debug("Image auto-displayed successfully")
+            raise DisplayError(
+                f"Invalid image type: {type(image)}. "
+                "Expected str or bytes."
+            )
 
     def clear(self) -> None:
         """
@@ -1056,6 +1173,65 @@ class Display:
             self.initialize()
         return self.WIDTH, self.HEIGHT
 
+    def _compute_effective_rotation(
+        self, image_path: str, user_rotation: Union[bool, int, str]
+    ) -> int:
+        """
+        Compute effective rotation based on user input and smart detection.
+
+        For explicit rotation values, returns them as-is.
+        For "auto" mode, detects image dimensions and determines optimal
+        rotation:
+        - EPD128x250 (landscape mounting quirk): landscape images -> 90,
+          portrait -> 0
+        - EPD240x416 (no quirk): always 0
+
+        Args:
+            image_path: Path to image file (for dimension detection in "auto")
+            user_rotation: User-specified rotation (False, True, 0-270, "auto")
+
+        Returns:
+            Effective rotation in degrees (0, 90, 180, or 270)
+        """
+        # Handle backward-compatible boolean
+        if isinstance(user_rotation, bool):
+            return 90 if user_rotation else 0
+
+        # Handle explicit integer rotation
+        if isinstance(user_rotation, int):
+            return user_rotation % 360
+
+        # Handle "auto" string
+        if isinstance(user_rotation, str) and user_rotation.lower() == "auto":
+            # EPD240x416 has no landscape mounting quirk
+            if self.WIDTH == 240 and self.HEIGHT == 416:
+                return 0
+
+            # EPD128x250: physical 250x128 landscape, vendor expects 128x250
+            # Detect image dimensions to determine if rotation is needed
+            try:
+                from PIL import Image as PILImage
+                with PILImage.open(image_path) as img:
+                    img_width, img_height = img.size
+
+                # If image is landscape (wider than tall), rotate 90
+                if img_width > img_height:
+                    return 90
+                # If image already portrait or square, no rotation needed
+                return 0
+            except Exception as e:
+                logger.warning(
+                    f"Auto-rotation detection failed: {e}. "
+                    "Using no rotation."
+                )
+                return 0
+
+        # Unknown rotation value
+        logger.warning(
+            f"Unknown rotation value: {user_rotation}. Using no rotation."
+        )
+        return 0
+
     def _convert_png_auto(
         self,
         image_path: str,
@@ -1221,7 +1397,7 @@ class Display:
         """
         expected_bytes = (width * height + 7) // 8
         if len(data) < expected_bytes:
-            raise ValueError(
+            raise DisplayError(
                 f"Input data too small. Expected {expected_bytes} bytes, got {len(data)}"
             )
 
@@ -1252,7 +1428,7 @@ class Display:
         """
         expected_bytes = (width * height + 7) // 8
         if len(data) < expected_bytes:
-            raise ValueError(
+            raise DisplayError(
                 f"Input data too small. Expected {expected_bytes} bytes, got {len(data)}"
             )
 
@@ -1318,33 +1494,37 @@ class Display:
         """
         Display any PNG image with automatic conversion to display specifications.
 
+        .. deprecated::
+            Use :meth:`display_image_auto` instead. Parameter mapping:
+            ``flop`` -> ``flip_horizontal``, ``flip`` -> ``flip_vertical``.
+
         Args:
             image_path: Path to source PNG file
             mode: Display refresh mode
             scaling: How to scale the image to fit display
             dithering: Dithering method for 1-bit conversion
-            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-                   If True, rotate 90 degrees counter-clockwise
-                   If False or 0, no rotation
-            flop: If True, flip image horizontally (left-right mirror)
-            flip: If True, flip image vertically (top-bottom mirror)
-            crop_x: X position for crop when using CROP_CENTER (None = center)
-            crop_y: Y position for crop when using CROP_CENTER (None = center)
-            cleanup_temp: Whether to cleanup temporary files (unused, kept for API compatibility)
+            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool
+            flop: If True, flip image horizontally (mapped to flip_horizontal)
+            flip: If True, flip image vertically (mapped to flip_vertical)
+            crop_x: Unused (kept for API compatibility)
+            crop_y: Unused (kept for API compatibility)
+            cleanup_temp: Unused (kept for API compatibility)
 
         Returns:
-            True if successful, False otherwise
-
-        Raises:
-            DisplayError: If display operation fails
+            True if successful
         """
-        # Convert image to raw 1-bit data
-        raw_data = self._convert_png_auto(
-            image_path, scaling, dithering, rotate, flop, flip, crop_x, crop_y
+        import warnings
+        warnings.warn(
+            "display_png_auto() is deprecated. Use display_image_auto() "
+            "instead. Parameter mapping: flop->flip_horizontal, "
+            "flip->flip_vertical.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-
-        # Display the raw data
-        self._display_raw(raw_data, mode)
+        self.display_image_auto(
+            image_path, mode=mode, scaling=scaling, dithering=dithering,
+            rotate=rotate, flip_horizontal=flop, flip_vertical=flip,
+        )
         return True
 
 
@@ -1364,27 +1544,36 @@ def display_png(
     """
     Convenience function to display a PNG image.
 
+    .. deprecated::
+        Use ``Display().display_image_auto()`` instead.
+
     Args:
         filename: Path to PNG file
         mode: Display refresh mode
-        rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-               If True, rotate 90 degrees CCW
-               If False or 0, no rotation
+        rotate: Rotation angle in degrees (0, 90, 180, 270) or bool
         auto_convert: If True, automatically convert any PNG to display format
-        scaling: How to scale the image to fit display (only used with auto_convert)
-        dithering: Dithering method for 1-bit conversion (only used with auto_convert)
-        flop: If True, flip image horizontally (only used with auto_convert)
-        flip: If True, flip image vertically (only used with auto_convert)
-        crop_x: X position for crop when using CROP_CENTER with auto_convert (None = center)
-        crop_y: Y position for crop when using CROP_CENTER with auto_convert (None = center)
+        scaling: Scaling method (only used with auto_convert)
+        dithering: Dithering method (only used with auto_convert)
+        flop: Flip horizontally (only used with auto_convert)
+        flip: Flip vertically (only used with auto_convert)
+        crop_x: Unused (kept for API compatibility)
+        crop_y: Unused (kept for API compatibility)
     """
+    import warnings
+    warnings.warn(
+        "display_png() is deprecated. "
+        "Use Display().display_image_auto() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     with Display() as display:
         if auto_convert:
-            display.display_png_auto(
-                filename, mode, scaling, dithering, rotate, flop, flip, crop_x, crop_y
+            display.display_image_auto(
+                filename, mode=mode, scaling=scaling, dithering=dithering,
+                rotate=rotate, flip_horizontal=flop, flip_vertical=flip,
             )
         else:
-            display.display_image(filename, mode, rotate)
+            display.display_image_auto(filename, mode=mode, rotate=rotate)
 
 
 def display_png_auto(
@@ -1401,22 +1590,31 @@ def display_png_auto(
     """
     Convenience function to display any PNG image with automatic conversion.
 
+    .. deprecated::
+        Use ``Display().display_image_auto()`` instead.
+
     Args:
         filename: Path to PNG file (any size, any format)
         mode: Display refresh mode
-        scaling: How to scale the image to fit display
-        dithering: Dithering method for 1-bit conversion
-        rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-               If True, rotate 90 degrees counter-clockwise
-               If False or 0, no rotation
-        flop: If True, flip image horizontally (left-right mirror)
-        flip: If True, flip image vertically (top-bottom mirror)
-        crop_x: X position for crop when using CROP_CENTER (None = center)
-        crop_y: Y position for crop when using CROP_CENTER (None = center)
+        scaling: Scaling method
+        dithering: Dithering method
+        rotate: Rotation angle in degrees (0, 90, 180, 270) or bool
+        flop: Flip horizontally (mapped to flip_horizontal)
+        flip: Flip vertically (mapped to flip_vertical)
+        crop_x: Unused (kept for API compatibility)
+        crop_y: Unused (kept for API compatibility)
     """
+    import warnings
+    warnings.warn(
+        "display_png_auto() is deprecated. "
+        "Use Display().display_image_auto() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     with Display() as display:
-        display.display_png_auto(
-            filename, mode, scaling, dithering, rotate, flop, flip, crop_x, crop_y
+        display.display_image_auto(
+            filename, mode=mode, scaling=scaling, dithering=dithering,
+            rotate=rotate, flip_horizontal=flop, flip_vertical=flip,
         )
 
 
