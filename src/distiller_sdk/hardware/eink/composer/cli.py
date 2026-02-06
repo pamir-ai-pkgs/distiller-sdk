@@ -571,7 +571,7 @@ def main():
             mode = DisplayMode.PARTIAL if args.partial else DisplayMode.FULL
 
             # Use display_image method
-            display.display_image(
+            display.display_image_auto(
                 temp_file, mode=mode, rotate=args.rotate, flip_horizontal=args.flip_h
             )
 

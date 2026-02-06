@@ -265,30 +265,18 @@ class TemplateRenderer:
 
             composer = self.render(ip_address, tunnel_url)
 
-            # Save to temporary file
+            # Save composer output to temp file — composer.save() produces a PNG
+            # with correct vendor portrait dimensions (e.g., 128×250 for EPD128x250)
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
                 temp_path = temp_file.name
 
-            # Use EXACT same logic as working web UI
-            import numpy as np
+            composer.save(temp_path, format="png")
 
-            # Get the image and transform it for hardware orientation (same as web UI)
-            img_array = composer.render()  # Get numpy array
-
-            # Hardware transform: flipud + rot90 converts 128×250 portrait to vendor format
-            img_array = np.flipud(img_array)
-            rotated_array = np.rot90(img_array, k=1)
-
-            # Save rotated image using OpenCV (same as web UI)
-            cv2.imwrite(temp_path, rotated_array)
-
-            # Display on hardware - match web UI method exactly
+            # Display using display_image_auto — no rotation needed since
+            # the composer already produces vendor-format portrait data
             display = Display(auto_init=False)
             display.initialize()
-
-            # Convert PNG to raw data and display (same as web UI)
-            raw_data = display.convert_png_to_raw(temp_path)
-            display._display_raw(raw_data, DisplayMode.FULL)
+            display.display_image_auto(temp_path, mode=DisplayMode.FULL)
 
             return True
 
