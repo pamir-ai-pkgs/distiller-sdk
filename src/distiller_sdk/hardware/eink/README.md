@@ -156,7 +156,7 @@ display_png_auto("portrait.png",
 - **EPD128x250**:
   - **Physical mounting**: 250×128 landscape (default orientation - how display is mounted and viewed)
   - **Vendor controller quirk**: Expects 128×250 portrait data (firmware logic is portrait-oriented)
-  - **User workflow**: Create content in 250×128 landscape, pass `rotate=90` to display methods
+  - **User workflow**: Create content in 250×128 landscape, pass `rotate="auto"` (or `rotate=270`) to display methods
   - **Critical**: Vendor firmware requires width=128, height=250 internally for proper bit packing
   - **Important**: Using _auto() methods without rotation on 250×128 images causes distortion/cropping
   - **Firmware name**: EPD128x250 (vendor naming - refers to controller portrait orientation)
@@ -165,7 +165,7 @@ display_png_auto("portrait.png",
 
 - **Auto-Detection**: Firmware automatically detected at runtime
 
-**Critical Note**: For EPD128x250, the display is physically mounted as 250×128 landscape (default orientation), but the vendor controller expects 128×250 portrait data due to firmware logic. Users should create content in landscape (250×128) and pass `rotate=90` to `display_image_auto()` or `display_png_auto()` for proper orientation. Without rotation, the scaling algorithms will try to fit 250×128 into 128×250, causing severe distortion.
+**Critical Note**: For EPD128x250, the display is physically mounted as 250×128 landscape (default orientation), but the vendor controller expects 128×250 portrait data due to firmware logic. Users should create content in landscape (250×128) and pass `rotate="auto"` (or `rotate=270`) to `display_image_auto()` for proper orientation. The `"auto"` mode detects image dimensions and applies the correct rotation automatically. Without rotation, the scaling algorithms will try to fit 250×128 into 128×250, causing severe distortion.
 
 ### Display Properties
 
@@ -223,16 +223,19 @@ Display any supported image file format on the e-ink screen.
 - `mode`: Display refresh mode (FULL or PARTIAL)
 - Note: Image must match display dimensions exactly (no automatic scaling)
 
-##### display_image_auto(filename, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, rotate=0)
+##### display_image_auto(image, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, rotate=False, flip_horizontal=False, flip_vertical=False, invert_colors=False)
 
-Display any image with automatic scaling and dithering.
+Display any image with automatic scaling and dithering. **This is the primary display method.**
 
-- `filename`: Path to image file (any supported format, any size)
+- `image`: Image file path (str) or raw 1-bit packed data (bytes)
 - `mode`: Display refresh mode
-- `scaling`: How to scale the image to fit display
-- `dithering`: Dithering method for 1-bit conversion
-- `rotate`: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-  - **For EPD128x250**: Create 250×128 landscape images and pass `rotate=90`
+- `scaling`: How to scale the image to fit display (file paths only)
+- `dithering`: Dithering method for 1-bit conversion (file paths only)
+- `rotate`: Rotation angle (0, 90, 180, 270), bool, or `"auto"` for smart dimension detection
+  - **For EPD128x250**: Create 250×128 landscape images and pass `rotate="auto"` or `rotate=270`
+- `flip_horizontal`: Mirror the image horizontally (left-right)
+- `flip_vertical`: Mirror the image vertically (top-bottom)
+- `invert_colors`: Invert colors (black↔white)
 
 ##### display_png_auto(image_path, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, rotate=0, flip_horizontal=False, flip_vertical=False) -> bool
 
@@ -267,26 +270,36 @@ Put display to sleep for power saving.
 
 Cleanup display resources.
 
-##### render_text(text, font_size=20, font_path=None, x=10, y=10, wrap_text=False, max_width=None, line_height=1.2, mode=DisplayMode.FULL)
+##### display_text(text, x=0, y=0, scale=1, invert=False, mode=DisplayMode.FULL)
 
-Render text directly to the display.
+High-level text display using the Rust bitmap font. Handles coordinate mapping and orientation automatically.
 
 - `text`: Text to display
-- `font_size`: Font size in pixels
-- `font_path`: Path to TTF font file (uses default if None)
-- `x`, `y`: Text position
-- `wrap_text`: Enable text wrapping
-- `max_width`: Maximum width for wrapping
-- `line_height`: Line spacing multiplier
-- `mode`: Display refresh mode
+- `x`, `y`: Text position in landscape coordinates (0,0 = top-left)
+- `scale`: Text scale factor (1=normal 6×8 font, 2=double, etc.)
+- `invert`: False = black text on white (default), True = white text on black
+- `mode`: Display refresh mode (FULL or PARTIAL)
 
-##### overlay_text(image_path, text, font_size=20, font_path=None, x=10, y=10, wrap_text=False, max_width=None, line_height=1.2, mode=DisplayMode.FULL)
+##### render_text(text, x=0, y=0, scale=1, invert=False) -> bytes
 
-Display an image with text overlay.
+Render text to a raw 1-bit buffer using the Rust bitmap font (does not send to display).
 
-- `image_path`: Path to background image
+- `text`: Text to render
+- `x`, `y`: Text position in pixels
+- `scale`: Text scale factor (1=normal, 2=double, etc.)
+- `invert`: Invert text colors
+- Returns: Raw 1-bit packed buffer (landscape orientation, HEIGHT×WIDTH)
+
+##### overlay_text(buffer, text, x=0, y=0, scale=1, invert=False) -> bytes
+
+Overlay text onto an existing 1-bit image buffer using the Rust bitmap font.
+
+- `buffer`: Existing 1-bit packed image buffer
 - `text`: Text to overlay
-- Other parameters same as render_text()
+- `x`, `y`: Text position in pixels
+- `scale`: Text scale factor
+- `invert`: Invert text colors
+- Returns: New 1-bit packed buffer with text overlaid
 
 ##### draw_rect(x, y, width, height, fill=True, color=0, mode=DisplayMode.PARTIAL)
 
