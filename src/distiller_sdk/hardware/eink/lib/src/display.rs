@@ -67,6 +67,12 @@ pub trait DisplayDriver {
     ///
     /// Returns `DisplayError` if cleanup fails
     fn cleanup(&mut self) -> Result<(), DisplayError>;
+    /// Set the partial refresh base map by writing to both RAM buffers
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if write fails
+    fn set_partial_base_map(&mut self, data: &[u8]) -> Result<(), DisplayError>;
     /// Get the display specifications
     fn get_spec(&self) -> &crate::firmware::DisplaySpec;
 }
@@ -116,12 +122,21 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
 
         match mode {
             DisplayMode::Partial => self.protocol.init_partial()?,
+            DisplayMode::Fast => self.protocol.init_fast(0x64)?,    // 100°C
+            DisplayMode::Turbo => self.protocol.init_fast(0x5A)?,   // 90°C
             DisplayMode::Full => {}, // Full mode uses default initialization
         }
 
         let write_ram_cmd = self.protocol.get_write_ram_command();
         self.protocol.write_cmd(write_ram_cmd)?;
         self.protocol.write_image_data(data)?;
+
+        // Turbo mode also writes zeros to secondary RAM (0x26)
+        if matches!(mode, DisplayMode::Turbo) {
+            let zeros = vec![0x00u8; spec.array_size()];
+            self.protocol.write_secondary_ram(&zeros)?;
+        }
+
         self.protocol.update_display(mode)?;
 
         Ok(())
@@ -184,6 +199,33 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
             self.initialized = false;
             log::info!("Display SDK cleaned up");
         }
+        Ok(())
+    }
+
+    fn set_partial_base_map(&mut self, data: &[u8]) -> Result<(), DisplayError> {
+        if !self.initialized {
+            return Err(DisplayError::NotInitialized);
+        }
+
+        let spec = self.protocol.get_spec();
+        if data.len() != spec.array_size() {
+            return Err(DisplayError::InvalidDataSize {
+                expected: spec.array_size(),
+                actual: data.len(),
+            });
+        }
+
+        // Write to primary RAM (0x24)
+        let write_ram_cmd = self.protocol.get_write_ram_command();
+        self.protocol.write_cmd(write_ram_cmd)?;
+        self.protocol.write_image_data(data)?;
+
+        // Write same data to secondary RAM (0x26)
+        self.protocol.write_secondary_ram(data)?;
+
+        // Perform full update to establish baseline
+        self.protocol.update_display(DisplayMode::Full)?;
+
         Ok(())
     }
 
@@ -350,6 +392,23 @@ pub fn display_cleanup() -> Result<(), DisplayError> {
     }
 
     Ok(())
+}
+
+/// Set the partial refresh base map by writing image to both RAM buffers
+///
+/// # Errors
+///
+/// Returns `DisplayError` if the display is not initialized or write fails
+pub fn display_set_partial_base_map(data: &[u8]) -> Result<(), DisplayError> {
+    let mut state = GLOBAL_STATE
+        .lock()
+        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
+
+    if let Some(display) = &mut state.display {
+        display.set_partial_base_map(data)
+    } else {
+        Err(DisplayError::NotInitialized)
+    }
 }
 
 /// Get the current display dimensions

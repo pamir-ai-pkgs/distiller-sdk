@@ -60,6 +60,8 @@ class DisplayMode(IntEnum):
 
     FULL = 0  # Full refresh - slow but high quality
     PARTIAL = 1  # Partial refresh - fast updates
+    FAST = 2  # Fast refresh (~1.5s) - temperature register override at 100°C
+    TURBO = 3  # Turbo refresh (~1s) - temperature register override at 90°C + dual RAM
 
 
 class FirmwareType:
@@ -243,6 +245,10 @@ class Display:
             ctypes.c_int,
             ctypes.c_int,
         ]
+
+        # display_set_partial_base_map(const uint8_t* data) -> bool
+        self._lib.display_set_partial_base_map.restype = c_bool
+        self._lib.display_set_partial_base_map.argtypes = [ctypes.POINTER(ctypes.c_ubyte)]
 
         # display_clear() -> bool
         self._lib.display_clear.restype = c_bool
@@ -690,9 +696,11 @@ class Display:
         - Handles any image size and format
         - Applies rotation if specified
 
+        For 4-level grayscale output (no dithering needed), use display_grayscale() instead.
+
         Args:
             filename: Path to image file (any supported format, any size)
-            mode: Display refresh mode (FULL or PARTIAL)
+            mode: Display refresh mode (FULL, PARTIAL, FAST, TURBO)
             scaling: How to scale the image to fit display
             dithering: Dithering method for 1-bit conversion
             rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
@@ -733,6 +741,106 @@ class Display:
         )
         self._check_result(result, f"Auto-display image '{filename}'")
         logger.debug("Image auto-displayed successfully")
+
+    def set_partial_base_map(self, image: Union[str, bytes]) -> None:
+        """
+        Set the base map for partial refresh by writing to both RAM buffers.
+
+        This must be called before using partial refresh to prevent ghosting.
+        The base image is written to both the primary (0x24) and secondary (0x26)
+        RAM buffers, then a full update is performed to establish the baseline.
+
+        Args:
+            image: Either a PNG file path (string) or raw 1-bit image data (bytes)
+
+        Raises:
+            DisplayError: If operation fails
+        """
+        if not self._initialized:
+            raise DisplayError("Display not initialized. Call initialize() first.")
+
+        if isinstance(image, str):
+            raw_data = self.convert_png_to_raw(image)
+        elif isinstance(image, (bytes, bytearray)):
+            raw_data = bytes(image)
+        else:
+            raise DisplayError(f"Invalid image type: {type(image)}. Expected str or bytes.")
+
+        if len(raw_data) != self.ARRAY_SIZE:
+            raise DisplayError(f"Data must be exactly {self.ARRAY_SIZE} bytes, got {len(raw_data)}")
+
+        data_array = (ctypes.c_ubyte * len(raw_data))(*raw_data)
+        result = self._lib.display_set_partial_base_map(data_array)
+        self._check_result(result, "Set partial base map")
+        logger.debug("Partial base map set successfully")
+
+    def display_grayscale(
+        self,
+        filename: str,
+        scaling: ScalingMethod = ScalingMethod.LETTERBOX,
+        rotate: Union[bool, int] = False,
+        invert: bool = False,
+    ) -> None:
+        """
+        Display an image with 4-level grayscale (black, dark gray, light gray, white).
+
+        Uses a custom LUT waveform and dual-RAM encoding to produce 4 gray levels
+        directly on the e-ink controller — no dithering needed.
+
+        This temporarily releases the Rust library hardware to use direct SPI/GPIO
+        access, then re-initializes for subsequent operations.
+
+        Args:
+            filename: Path to image file (any supported format, any size)
+            scaling: How to scale the image to fit display
+            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool
+                   If True, rotate 90 degrees. For EPD128x250 landscape, use rotate=90.
+            invert: If True, invert grayscale levels
+
+        Raises:
+            DisplayError: If display operation fails
+        """
+        if not self._initialized:
+            raise DisplayError("Display not initialized. Call initialize() first.")
+
+        if not os.path.exists(filename):
+            raise DisplayError(f"Image file not found: {filename}")
+
+        if isinstance(rotate, bool):
+            rotation_degrees = 90 if rotate else 0
+        else:
+            rotation_degrees = rotate % 360
+
+        logger.debug(f"Displaying 4-gray grayscale: {filename} (rotate={rotation_degrees}°)")
+
+        # Release Rust library hardware before using direct SPI/GPIO
+        self._lib.display_cleanup()
+        self._initialized = False
+        try:
+            from distiller_sdk.hardware.eink.grayscale_4g import Grayscale4Display
+
+            scaling_map = {
+                ScalingMethod.LETTERBOX: "letterbox",
+                ScalingMethod.CROP_CENTER: "crop",
+                ScalingMethod.STRETCH: "stretch",
+            }
+            scaling_str = scaling_map.get(scaling, "letterbox")
+            with Grayscale4Display() as g4:
+                g4.display_grayscale(
+                    filename,
+                    rotate=rotation_degrees,
+                    scaling=scaling_str,
+                    invert=invert,
+                )
+        finally:
+            # Re-initialize the Rust library for subsequent calls
+            result = self._lib.display_init()
+            try:
+                self._check_result(result, "Re-initialize after grayscale")
+                self._initialized = True
+            except DisplayError:
+                logger.warning("Failed to re-initialize after grayscale mode")
+        logger.debug("4-gray grayscale displayed successfully")
 
     def clear(self) -> None:
         """
@@ -1359,6 +1467,25 @@ def display_png_auto(
         display.display_png_auto(
             filename, mode, scaling, dithering, rotate, flop, flip, crop_x, crop_y
         )
+
+
+def display_grayscale(
+    filename: str,
+    scaling: ScalingMethod = ScalingMethod.LETTERBOX,
+    rotate: Union[bool, int] = False,
+    invert: bool = False,
+) -> None:
+    """
+    Convenience function to display an image with 4-level grayscale.
+
+    Args:
+        filename: Path to image file (any supported format, any size)
+        scaling: How to scale the image to fit display
+        rotate: Rotation angle in degrees (0, 90, 180, 270) or bool
+        invert: If True, invert grayscale levels
+    """
+    with Display() as display:
+        display.display_grayscale(filename, scaling=scaling, rotate=rotate, invert=invert)
 
 
 def clear_display() -> None:

@@ -15,6 +15,10 @@ pub enum DisplayMode {
     Full = 0,
     /// Partial refresh (fast, good quality)
     Partial = 1,
+    /// Fast refresh (~1.5s) - temperature register override at 100°C
+    Fast = 2,
+    /// Turbo refresh (~1s) - temperature register override at 90°C + dual RAM
+    Turbo = 3,
 }
 
 /// E-ink display protocol trait
@@ -61,6 +65,18 @@ pub trait EinkProtocol {
     ///
     /// Returns `DisplayError` if the update fails
     fn update_display(&mut self, mode: DisplayMode) -> Result<(), DisplayError>;
+    /// Initialize fast refresh mode with a temperature override
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if initialization fails
+    fn init_fast(&mut self, temp_value: u8) -> Result<(), DisplayError>;
+    /// Write data to the secondary RAM buffer (0x26)
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError` if write fails
+    fn write_secondary_ram(&mut self, data: &[u8]) -> Result<(), DisplayError>;
     /// Put the display into sleep mode
     ///
     /// # Errors
@@ -166,9 +182,22 @@ impl<G: GpioController, S: SpiController, F: DisplayFirmware> EinkProtocol
     }
 
     fn update_display(&mut self, mode: DisplayMode) -> Result<(), DisplayError> {
-        let is_partial = matches!(mode, DisplayMode::Partial);
-        let update_sequence = self.firmware.get_update_sequence(is_partial);
+        let update_sequence = self.firmware.get_update_sequence(mode);
         self.execute_sequence(update_sequence)?;
+        Ok(())
+    }
+
+    fn init_fast(&mut self, temp_value: u8) -> Result<(), DisplayError> {
+        let fast_sequence = self.firmware.get_fast_init_sequence(temp_value);
+        self.execute_sequence(fast_sequence)?;
+        Ok(())
+    }
+
+    fn write_secondary_ram(&mut self, data: &[u8]) -> Result<(), DisplayError> {
+        let secondary_cmd = self.firmware.get_secondary_ram_command();
+        self.write_cmd(secondary_cmd)?;
+        self.hardware.write_dc(true)?;
+        self.hardware.spi_write_all(data)?;
         Ok(())
     }
 
@@ -258,6 +287,20 @@ impl EinkProtocol for ConfigurableProtocol {
         match self {
             Self::EPD128x250(p) => p.update_display(mode),
             Self::EPD240x416(p) => p.update_display(mode),
+        }
+    }
+
+    fn init_fast(&mut self, temp_value: u8) -> Result<(), DisplayError> {
+        match self {
+            Self::EPD128x250(p) => p.init_fast(temp_value),
+            Self::EPD240x416(p) => p.init_fast(temp_value),
+        }
+    }
+
+    fn write_secondary_ram(&mut self, data: &[u8]) -> Result<(), DisplayError> {
+        match self {
+            Self::EPD128x250(p) => p.write_secondary_ram(data),
+            Self::EPD240x416(p) => p.write_secondary_ram(data),
         }
     }
 

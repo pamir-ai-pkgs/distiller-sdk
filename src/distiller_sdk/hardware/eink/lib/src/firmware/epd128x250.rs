@@ -115,19 +115,20 @@ impl DisplayFirmware for EPD128x250Firmware {
             .data(0x80) // Partial refresh border setting
     }
 
-    fn get_update_sequence(&self, is_partial: bool) -> CommandSequence {
-        if is_partial {
-            CommandSequence::new()
-                .cmd(0x22) // Display Update Control
-                .data(0xFF)
-                .cmd(0x20) // Activate Display Update Sequence
-                .check_status()
-        } else {
-            CommandSequence::new()
-                .cmd(0x22) // Display Update Control
+    fn get_update_sequence(&self, mode: crate::protocol::DisplayMode) -> CommandSequence {
+        use crate::protocol::DisplayMode;
+        match mode {
+            DisplayMode::Full => CommandSequence::new()
+                .cmd(0x22)
                 .data(0xF7)
-                .cmd(0x20) // Activate Display Update Sequence
-                .check_status()
+                .cmd(0x20)
+                .check_status(),
+            DisplayMode::Partial => CommandSequence::new()
+                .cmd(0x22)
+                .data(0xFF)
+                .cmd(0x20)
+                .check_status(),
+            DisplayMode::Fast | DisplayMode::Turbo => self.get_fast_update_sequence(),
         }
     }
 

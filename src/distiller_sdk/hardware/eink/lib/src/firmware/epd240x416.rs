@@ -280,8 +280,8 @@ impl DisplayFirmware for EPD240x416Firmware {
         self.get_fast_init_sequence()
     }
 
-    fn get_update_sequence(&self, is_partial: bool) -> CommandSequence {
-        if is_partial {
+    fn get_update_sequence(&self, _mode: crate::protocol::DisplayMode) -> CommandSequence {
+        if matches!(_mode, crate::protocol::DisplayMode::Partial) {
             // Fast update sequence
             CommandSequence::new()
                 .cmd(0x12) // Display refresh

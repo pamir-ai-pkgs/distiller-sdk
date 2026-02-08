@@ -101,6 +101,8 @@ pub unsafe extern "C" fn display_image_raw(data: *const u8, mode: c_int) -> c_in
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
+        2 => DisplayMode::Fast,
+        3 => DisplayMode::Turbo,
         _ => return ERR_INVALID_DATA,
     };
 
@@ -143,6 +145,8 @@ pub unsafe extern "C" fn display_image_png(filename: *const c_char, mode: c_int)
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
+        2 => DisplayMode::Fast,
+        3 => DisplayMode::Turbo,
         _ => return ERR_INVALID_DATA,
     };
 
@@ -185,6 +189,8 @@ pub unsafe extern "C" fn display_image_file(filename: *const c_char, mode: c_int
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
+        2 => DisplayMode::Fast,
+        3 => DisplayMode::Turbo,
         _ => return ERR_INVALID_DATA,
     };
 
@@ -238,6 +244,8 @@ pub unsafe extern "C" fn display_image_auto(
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
+        2 => DisplayMode::Fast,
+        3 => DisplayMode::Turbo,
         _ => return ERR_INVALID_DATA,
     };
 
@@ -269,6 +277,42 @@ pub unsafe extern "C" fn display_image_auto(
         Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Display image auto failed: {e}");
+            error_to_code(&e)
+        },
+    }
+}
+
+/// Set the partial refresh base map by writing to both RAM buffers.
+///
+/// # Safety
+///
+/// The caller must ensure:
+/// - `data` is a valid pointer to at least `array_size` bytes
+/// - `data` remains valid for the duration of this call
+///
+/// # Returns
+///
+/// - 1 on success
+/// - Negative error code on failure
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn display_set_partial_base_map(data: *const u8) -> c_int {
+    if data.is_null() {
+        return ERR_INVALID_DATA;
+    }
+
+    let array_size = match config::get_default_spec() {
+        Ok(spec) => spec.array_size(),
+        Err(e) => {
+            log::error!("Failed to get default firmware spec: {e}");
+            return error_to_code(&e);
+        },
+    };
+    let data_slice = unsafe { std::slice::from_raw_parts(data, array_size) };
+
+    match display::display_set_partial_base_map(data_slice) {
+        Ok(()) => SUCCESS,
+        Err(e) => {
+            log::error!("Set partial base map failed: {e}");
             error_to_code(&e)
         },
     }
