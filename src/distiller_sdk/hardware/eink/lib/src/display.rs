@@ -112,10 +112,10 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
             return Err(DisplayError::NotInitialized);
         }
 
-        let spec = self.protocol.get_spec();
-        if data.len() != spec.array_size() {
+        let array_size = self.protocol.get_spec().array_size();
+        if data.len() != array_size {
             return Err(DisplayError::InvalidDataSize {
-                expected: spec.array_size(),
+                expected: array_size,
                 actual: data.len(),
             });
         }
@@ -133,7 +133,7 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
 
         // Turbo mode also writes zeros to secondary RAM (0x26)
         if matches!(mode, DisplayMode::Turbo) {
-            let zeros = vec![0x00u8; spec.array_size()];
+            let zeros = vec![0x00u8; array_size];
             self.protocol.write_secondary_ram(&zeros)?;
         }
 
@@ -207,10 +207,10 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
             return Err(DisplayError::NotInitialized);
         }
 
-        let spec = self.protocol.get_spec();
-        if data.len() != spec.array_size() {
+        let array_size = self.protocol.get_spec().array_size();
+        if data.len() != array_size {
             return Err(DisplayError::InvalidDataSize {
-                expected: spec.array_size(),
+                expected: array_size,
                 actual: data.len(),
             });
         }

@@ -19,6 +19,13 @@
   - New file: `grayscale_4g.py`
   - New dependency: `gpiod>=2.4.0`
 
+#### Fixed
+
+- **Display orientation correction**: All display modes (FULL, FAST, TURBO, GRAYSCALE) now render with correct left-right orientation when mounted in landscape. The SSD1680's X-increment scan direction causes a horizontal mirror in landscape mounting. Fixed by applying a horizontal pre-flip to the source image before rotation:
+  - 1-bit modes: PIL `FLIP_LEFT_RIGHT` applied in Python before passing to Rust FFI
+  - Grayscale mode: PIL `FLIP_LEFT_RIGHT` applied before rotation in Python driver
+  - Grayscale RAM addressing updated to use data entry mode `0x01` (X inc, Y dec) matching the Rust SDK
+
 #### Changed
 
 - **BT.601 grayscale conversion**: RGB-to-grayscale formula changed from simple average `(R+G+B)/3` to perceptual luminance weighting `(77*R + 150*G + 29*B) >> 8`. This matches human eye sensitivity (green ~59%, red ~30%, blue ~11%) and produces more natural grayscale from color photos. Affects all 1-bit display modes.

@@ -237,16 +237,16 @@ class Grayscale4Display:
         self.close()
 
     def _set_partial_ram_area(self, x: int, y: int, w: int, h: int):
-        """Set the RAM address window matching the Rust SDK convention (Y decrement)."""
-        # Data entry mode: Y decrement, X increment (0x01) — matches Rust SDK
+        """Set the RAM address window matching the Rust SDK convention (X inc, Y dec)."""
+        # Data entry mode: X increment, Y decrement (0x01) — matches Rust SDK
         self.hw.send_command_data(0x11, 0x01)
 
-        # RAM X start/end
+        # RAM X start/end (low to high for X increment)
         self.hw.send_command(0x44)
         self.hw.send_data(x // 8)
         self.hw.send_data((x + w - 1) // 8)
 
-        # RAM Y start/end (high to low for Y decrement mode)
+        # RAM Y start/end (high to low for Y decrement)
         y_end = y + h - 1
         self.hw.send_command(0x45)
         self.hw.send_data(y_end % 256)
@@ -254,7 +254,7 @@ class Grayscale4Display:
         self.hw.send_data(y % 256)
         self.hw.send_data(y // 256)
 
-        # RAM address counter (start at top-left in Y-decrement terms)
+        # RAM address counter
         self.hw.send_command(0x4E)
         self.hw.send_data(x // 8)
         self.hw.send_command(0x4F)
@@ -363,8 +363,10 @@ class Grayscale4Display:
         # Convert to grayscale
         img = img.convert("L")
 
-        # Apply rotation (PIL ROTATE_90 is CCW, Rust SDK's rotate=90 is CW,
-        # so we swap 90↔270 to match the Rust SDK's orientation)
+        # Pre-flip horizontally to correct for the SSD1680's scan direction
+        # mirror (same approach as the 1-bit pipeline), then rotate.
+        # The flip must happen BEFORE rotation to match the 1-bit behavior.
+        img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
         if rotate == 90:
             img = img.transpose(Image.Transpose.ROTATE_270)
         elif rotate == 180:

@@ -732,15 +732,31 @@ class Display:
         elif rotation_degrees == 270:
             transform = TransformType.ROTATE_270
 
-        logger.debug(
-            f"Auto-displaying image: {filename} (scale={scaling.name}, dither={dithering.name}, rotate={rotation_degrees}°)"
-        )
-        filename_bytes = filename.encode("utf-8")
-        result = self._lib.display_image_auto(
-            filename_bytes, int(mode), int(scaling), int(dithering), int(transform)
-        )
-        self._check_result(result, f"Auto-display image '{filename}'")
-        logger.debug("Image auto-displayed successfully")
+        # Pre-flip the image horizontally to correct for the SSD1680's scan
+        # direction which causes a left-right mirror when mounted in landscape.
+        # The Rust FFI only supports a single transform, so we apply the flip
+        # in Python and let Rust handle the rotation + scale + dither.
+        import tempfile
+        from PIL import Image as PILImage
+        img = PILImage.open(filename)
+        img = img.transpose(PILImage.Transpose.FLIP_LEFT_RIGHT)
+        tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+        try:
+            img.save(tmp.name)
+            tmp.close()
+            actual_filename = tmp.name
+
+            logger.debug(
+                f"Auto-displaying image: {filename} (scale={scaling.name}, dither={dithering.name}, rotate={rotation_degrees}°)"
+            )
+            filename_bytes = actual_filename.encode("utf-8")
+            result = self._lib.display_image_auto(
+                filename_bytes, int(mode), int(scaling), int(dithering), int(transform)
+            )
+            self._check_result(result, f"Auto-display image '{filename}'")
+            logger.debug("Image auto-displayed successfully")
+        finally:
+            os.unlink(tmp.name)
 
     def set_partial_base_map(self, image: Union[str, bytes]) -> None:
         """

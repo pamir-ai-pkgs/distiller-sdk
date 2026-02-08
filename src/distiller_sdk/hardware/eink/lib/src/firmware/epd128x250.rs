@@ -77,7 +77,7 @@ impl DisplayFirmware for EPD128x250Firmware {
             .data(0x00)
             // Data entry mode
             .cmd(0x11)
-            .data(0x01) // Normal mode
+            .data(0x01) // Y decrement, X increment
             // Set Ram-X address start/end position
             .cmd(0x44)
             .data(0x00)
