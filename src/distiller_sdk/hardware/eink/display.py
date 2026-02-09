@@ -62,44 +62,12 @@ class DisplayMode(IntEnum):
     PARTIAL = 1  # Partial refresh - fast updates
 
 
-class FirmwareType:
-    """Supported e-ink display firmware types.
-
-    EPD128x250 Dimension Clarification:
-    - Vendor firmware name: EPD128x250
-    - Physical mounting: 250×128 landscape (default orientation - how display is mounted/viewed)
-    - Vendor controller quirk: Expects 128×250 portrait data (firmware logic is portrait-oriented)
-    - User workflow: Create content in 250×128 landscape, SDK transforms to 128×250 portrait
-    - Internal dimensions: width=128, height=250 (REQUIRED by vendor controller)
-    - Why: Vendor controller bit packing requires 128×250; sending 250×128 directly causes
-      byte alignment issues and garbled output
-    - SDK handles transformation automatically - users work in landscape (250×128)
-
-    EPD240x416:
-    - Dimensions: width=240, height=416 (matches physical orientation)
-    """
-
-    EPD128x250 = "EPD128x250"  # Physical: 250×128 landscape, vendor expects: 128×250 portrait
-    EPD240x416 = "EPD240x416"  # 240×416 display
-
-
 class ScalingMethod(IntEnum):
     """Image scaling methods for auto-conversion."""
 
     LETTERBOX = 0  # Maintain aspect ratio, add black borders
     CROP_CENTER = 1  # Center crop to fill display
     STRETCH = 2  # Stretch to fill display (may distort)
-
-
-class TransformType(IntEnum):
-    """Image transformation types."""
-
-    NONE = 0
-    ROTATE_90 = 1
-    ROTATE_180 = 2
-    ROTATE_270 = 3
-    FLIP_HORIZONTAL = 4
-    FLIP_VERTICAL = 5
 
 
 class DitheringMethod(IntEnum):
@@ -121,29 +89,13 @@ class Display:
     - Clear the display
     - Control display refresh modes (Full/Partial)
     - Manage display power states
-    - Support for multiple firmware types (EPD128x250, EPD240x416)
-    - Image transformations (rotation, flipping, inversion)
+    - Color inversion
     - Text rendering and overlay capabilities
-
-    Firmware Support:
-    - EPD128x250: Native orientation 128×250 (portrait), mounted as 250×128 (landscape, rotated 90°).
-      Vendor firmware requires width=128, height=250 internally for proper bit packing.
-    - EPD240x416: 240×416 display (dimensions match physical orientation)
-
-    Configuration:
-    - Set via environment variable: DISTILLER_EINK_FIRMWARE
-    - Config files: /opt/distiller-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf
-
-    Important: For EPD128x250, the internal representation (128×250) is REQUIRED by the
-    vendor firmware. Do not attempt to use 250×128 as it causes byte alignment issues.
     """
 
-    # Display constants (firmware-specific, updated after initialization)
-    # For EPD128x250: Physical mounting is 250×128 landscape (default), vendor controller expects 128×250 portrait
-    # Vendor controller REQUIRES width=128, height=250 for proper bit packing (portrait orientation)
-    WIDTH = 128  # Vendor controller requirement (portrait data)
-    HEIGHT = 250  # Users create landscape (250×128), pass rotate=90 to display methods
-    ARRAY_SIZE = (128 * 250) // 8  # Buffer size in bytes for 1-bit packed data
+    WIDTH = 250
+    HEIGHT = 128
+    ARRAY_SIZE = (250 * 128) // 8  # 4000
 
     def __init__(self, library_path: Optional[str] = None, auto_init: bool = True):
         """
@@ -226,23 +178,9 @@ class Display:
         self._lib.display_image_raw.restype = c_bool
         self._lib.display_image_raw.argtypes = [ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int]
 
-        # display_image_png(const char* filename, display_mode_t mode) -> bool
-        self._lib.display_image_png.restype = c_bool
-        self._lib.display_image_png.argtypes = [c_char_p, ctypes.c_int]
-
-        # display_image_file(const char* filename, display_mode_t mode) -> bool
-        self._lib.display_image_file.restype = c_bool
-        self._lib.display_image_file.argtypes = [c_char_p, ctypes.c_int]
-
-        # display_image_auto(const char* filename, display_mode_t mode, scale_mode, dither_mode, transform) -> bool
+        # display_image_auto(const char* filename, display_mode_t mode, scale_mode, dither_mode) -> bool
         self._lib.display_image_auto.restype = c_bool
-        self._lib.display_image_auto.argtypes = [
-            c_char_p,
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.c_int,
-        ]
+        self._lib.display_image_auto.argtypes = [c_char_p, c_int, c_int, c_int]
 
         # display_clear() -> bool
         self._lib.display_clear.restype = c_bool
@@ -264,39 +202,10 @@ class Display:
         self._lib.convert_png_to_1bit.restype = c_bool
         self._lib.convert_png_to_1bit.argtypes = [c_char_p, ctypes.POINTER(ctypes.c_ubyte)]
 
-        # Image processing functions
-        # image_rotate_1bit(const uint8_t* data, uint32_t width, uint32_t height, int rotation, uint8_t* output) -> bool
-        self._lib.image_rotate_1bit.restype = c_bool
-        self._lib.image_rotate_1bit.argtypes = [
-            ctypes.POINTER(ctypes.c_ubyte),
-            c_uint32,
-            c_uint32,
-            c_int,
-            ctypes.POINTER(ctypes.c_ubyte),
-        ]
-
         # image_invert_1bit(const uint8_t* data, uint32_t size, uint8_t* output) -> bool
         self._lib.image_invert_1bit.restype = c_bool
         self._lib.image_invert_1bit.argtypes = [
             ctypes.POINTER(ctypes.c_ubyte),
-            c_uint32,
-            ctypes.POINTER(ctypes.c_ubyte),
-        ]
-
-        # image_flip_horizontal_1bit(const uint8_t* data, uint32_t width, uint32_t height, uint8_t* output) -> bool
-        self._lib.image_flip_horizontal_1bit.restype = c_bool
-        self._lib.image_flip_horizontal_1bit.argtypes = [
-            ctypes.POINTER(ctypes.c_ubyte),
-            c_uint32,
-            c_uint32,
-            ctypes.POINTER(ctypes.c_ubyte),
-        ]
-
-        # image_flip_vertical_1bit(const uint8_t* data, uint32_t width, uint32_t height, uint8_t* output) -> bool
-        self._lib.image_flip_vertical_1bit.restype = c_bool
-        self._lib.image_flip_vertical_1bit.argtypes = [
-            ctypes.POINTER(ctypes.c_ubyte),
-            c_uint32,
             c_uint32,
             ctypes.POINTER(ctypes.c_ubyte),
         ]
@@ -312,7 +221,7 @@ class Display:
         ]
 
         # image_process(const char* path, int scale_mode, int dither_mode, int brightness, float contrast,
-        #               int transform, int invert, uint8_t* output) -> bool
+        #               int invert, uint8_t* output) -> bool
         self._lib.image_process.restype = c_bool
         self._lib.image_process.argtypes = [
             c_char_p,
@@ -320,7 +229,6 @@ class Display:
             c_int,
             c_int,
             c_float,
-            c_int,
             c_int,
             ctypes.POINTER(ctypes.c_ubyte),
         ]
@@ -357,25 +265,6 @@ class Display:
             c_uint32,
             c_int,
         ]
-
-        # Configuration functions (optional - may not exist in older libraries)
-        try:
-            # display_set_firmware(const char* firmware_str) -> bool
-            self._lib.display_set_firmware.restype = c_bool
-            self._lib.display_set_firmware.argtypes = [c_char_p]
-
-            # display_get_firmware(char* firmware_str, uint32_t max_len) -> bool
-            self._lib.display_get_firmware.restype = c_bool
-            self._lib.display_get_firmware.argtypes = [ctypes.c_char_p, c_uint32]
-
-            # display_initialize_config() -> bool
-            self._lib.display_initialize_config.restype = c_bool
-            self._lib.display_initialize_config.argtypes = []
-
-            self._config_available = True
-        except AttributeError:
-            # Configuration functions not available in this library version
-            self._config_available = False
 
         # Logger initialization (optional - may not exist in older libraries)
         try:
@@ -431,17 +320,6 @@ class Display:
             return
 
         logger.debug("Initializing display hardware...")
-
-        # Initialize configuration system first (if available)
-        if hasattr(self, "_config_available") and self._config_available:
-            logger.debug("Initializing configuration system")
-            try:
-                config_success = self._lib.display_initialize_config()
-                if not config_success:
-                    # Config initialization failed, but continue with defaults
-                    logger.warning("Failed to initialize config system, using defaults")
-            except Exception as e:
-                logger.warning(f"Config system error: {e}")
 
         result = self._lib.display_init()
         try:
@@ -503,160 +381,6 @@ class Display:
                 return (self.WIDTH, self.HEIGHT)
         return (self.WIDTH, self.HEIGHT)
 
-    def display_image(
-        self,
-        image: Union[str, bytes],
-        mode: DisplayMode = DisplayMode.FULL,
-        rotate: Union[bool, int] = False,
-        flip_horizontal: bool = False,
-        flip_vertical: bool = False,
-        invert_colors: bool = False,
-        src_width: Optional[int] = None,
-        src_height: Optional[int] = None,
-    ) -> None:
-        """
-        Display an image on the e-ink screen.
-
-        .. deprecated::
-            Use :meth:`display_image_auto` instead, which provides automatic
-            scaling, dithering, and smart dimension detection.
-
-        Args:
-            image: Either a PNG file path (string) or raw 1-bit image
-                data (bytes)
-            mode: Display refresh mode
-            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool
-                for backward compatibility
-            flip_horizontal: If True, mirror the image horizontally
-            flip_vertical: If True, mirror the image vertically
-            invert_colors: If True, invert colors (black/white swap)
-            src_width: Source width in pixels (required when transforming
-                raw data)
-            src_height: Source height in pixels (required when transforming
-                raw data)
-
-        Raises:
-            DisplayError: If display operation fails
-        """
-        import warnings
-        warnings.warn(
-            "display_image() is deprecated. "
-            "Use display_image_auto() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        if not self._initialized:
-            raise DisplayError(
-                "Display not initialized. Call initialize() first."
-            )
-
-        # Handle backward compatibility for boolean rotate parameter
-        if isinstance(rotate, bool):
-            rotation_degrees = 90 if rotate else 0
-        else:
-            rotation_degrees = rotate
-
-        if isinstance(image, str):
-            # PNG file path -- delegate to display_image_auto
-            self.display_image_auto(
-                image, mode=mode, rotate=rotation_degrees,
-                flip_horizontal=flip_horizontal,
-                flip_vertical=flip_vertical,
-                invert_colors=invert_colors,
-            )
-        elif isinstance(image, (bytes, bytearray)):
-            # Raw image data -- use original transform logic
-            # (needs src_width/src_height for non-standard dimensions)
-            raw_data = bytes(image)
-
-            if (
-                flip_horizontal
-                or flip_vertical
-                or rotation_degrees != 0
-                or invert_colors
-            ):
-                if src_width is None or src_height is None:
-                    raise DisplayError(
-                        "src_width and src_height are required "
-                        "when transforming raw data"
-                    )
-
-                if flip_horizontal:
-                    raw_data = self._flip_horizontal_1bit(
-                        raw_data, src_width, src_height
-                    )
-                if flip_vertical:
-                    raw_data = self._flip_vertical_1bit(
-                        raw_data, src_width, src_height
-                    )
-                if rotation_degrees != 0:
-                    raw_data = self._rotate_1bit(
-                        raw_data, src_width, src_height,
-                        rotation_degrees,
-                    )
-                if invert_colors:
-                    raw_data = self._invert_1bit(raw_data)
-
-            self._display_raw(raw_data, mode)
-        else:
-            raise DisplayError(
-                f"Invalid image type: {type(image)}. "
-                "Expected str or bytes."
-            )
-
-    def _display_png(
-        self,
-        filename: str,
-        mode: DisplayMode,
-        rotate: Union[bool, int] = False,
-        flip_horizontal: bool = False,
-        flip_vertical: bool = False,
-        invert_colors: bool = False,
-    ) -> None:
-        """Display a PNG image file."""
-        if not os.path.exists(filename):
-            logger.error(f"PNG file not found: {filename}")
-            raise DisplayError(f"PNG file not found: {filename}")
-
-        logger.debug(f"Displaying PNG: {filename} (mode={mode.name})")
-
-        # Handle backward compatibility for boolean rotate parameter
-        if isinstance(rotate, bool):
-            rotation_degrees = 90 if rotate else 0
-        else:
-            rotation_degrees = rotate
-
-        if rotation_degrees != 0 or flip_horizontal or flip_vertical or invert_colors:
-            logger.debug(
-                f"Applying transformations: rotate={rotation_degrees}°, flip_h={flip_horizontal}, flip_v={flip_vertical}, invert={invert_colors}"
-            )
-            # For PNG transformations, convert to raw data first
-            raw_data = self.convert_png_to_raw(filename)
-            # Use actual display dimensions for transformations
-
-            # Apply transformations using Rust FFI functions
-            if flip_horizontal:
-                raw_data = self._flip_horizontal_1bit(raw_data, self.WIDTH, self.HEIGHT)
-
-            if flip_vertical:
-                raw_data = self._flip_vertical_1bit(raw_data, self.WIDTH, self.HEIGHT)
-
-            if rotation_degrees != 0:
-                raw_data = self._rotate_1bit(raw_data, self.WIDTH, self.HEIGHT, rotation_degrees)
-
-            if invert_colors:
-                raw_data = self._invert_1bit(raw_data)
-
-            self._display_raw(raw_data, mode)
-        else:
-            # Direct PNG display (must be 128x250)
-            filename_bytes = filename.encode("utf-8")
-            result = self._lib.display_image_png(filename_bytes, int(mode))
-            self._check_result(result, f"Display PNG image '{filename}'")
-
-        logger.debug("PNG displayed successfully")
-
     def _display_raw(self, data: bytes, mode: DisplayMode) -> None:
         """Display raw 1-bit image data."""
         logger.debug(f"Displaying raw image data ({len(data)} bytes, mode={mode.name})")
@@ -672,44 +396,12 @@ class Display:
         self._check_result(result, "Display raw image")
         logger.debug("Raw image displayed successfully")
 
-    def display_image_file(
-        self,
-        filename: str,
-        mode: DisplayMode = DisplayMode.FULL,
-    ) -> None:
-        """
-        Display any supported image file format on the e-ink screen.
-
-        .. deprecated::
-            Use :meth:`display_image_auto` instead, which provides automatic
-            scaling and smart dimension detection.
-
-        Args:
-            filename: Path to image file (any supported format)
-            mode: Display refresh mode (FULL or PARTIAL)
-
-        Raises:
-            DisplayError: If display operation fails or image dimensions
-                don't match
-        """
-        import warnings
-        warnings.warn(
-            "display_image_file() is deprecated. "
-            "Use display_image_auto() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.display_image_auto(filename, mode=mode)
-
     def display_image_auto(
         self,
         image: Union[str, bytes],
         mode: DisplayMode = DisplayMode.FULL,
         scaling: ScalingMethod = ScalingMethod.LETTERBOX,
         dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-        rotate: Union[bool, int, str] = "auto",
-        flip_horizontal: bool = False,
-        flip_vertical: bool = False,
         invert_colors: bool = False,
     ) -> None:
         """
@@ -723,18 +415,6 @@ class Display:
             mode: Display refresh mode (FULL or PARTIAL)
             scaling: How to scale the image to fit display (file paths only)
             dithering: Dithering method for 1-bit conversion (file paths only)
-            rotate: Rotation angle in degrees (0, 90, 180, 270), bool for
-                   backward compatibility, or "auto" for smart detection.
-                   Default is "auto" which detects image dimensions and
-                   applies optimal rotation for the display mounting.
-                   - False or 0: no rotation
-                   - True: 90 CW (backward compat)
-                   - 90, 180, 270: explicit rotation
-                   - "auto" (default): smart detection based on image vs display dims
-                   For EPD128x250: landscape images auto-rotate 90 to match
-                   vendor portrait (with Y-increment scanning)
-            flip_horizontal: Mirror the image horizontally (left-right)
-            flip_vertical: Mirror the image vertically (top-bottom)
             invert_colors: Invert colors (black/white swap)
 
         Raises:
@@ -750,30 +430,10 @@ class Display:
             if not os.path.exists(image):
                 raise DisplayError(f"Image file not found: {image}")
 
-            # Resolve effective rotation (handles "auto" mode)
-            effective_rotation = self._compute_effective_rotation(
-                image, rotate
-            )
-
-            # If no flips or invert, use pure Rust FFI pipeline (fastest)
-            if (
-                not flip_horizontal
-                and not flip_vertical
-                and not invert_colors
-            ):
-                # Map rotation to transform type
-                transform = TransformType.NONE
-                if effective_rotation == 90:
-                    transform = TransformType.ROTATE_90
-                elif effective_rotation == 180:
-                    transform = TransformType.ROTATE_180
-                elif effective_rotation == 270:
-                    transform = TransformType.ROTATE_270
-
+            if not invert_colors:
                 logger.debug(
                     f"Auto-displaying image: {image} "
-                    f"(scale={scaling.name}, dither={dithering.name}, "
-                    f"rotate={effective_rotation})"
+                    f"(scale={scaling.name}, dither={dithering.name})"
                 )
                 filename_bytes = image.encode("utf-8")
                 result = self._lib.display_image_auto(
@@ -781,34 +441,18 @@ class Display:
                     int(mode),
                     int(scaling),
                     int(dithering),
-                    int(transform),
                 )
                 self._check_result(
                     result, f"Auto-display image '{image}'"
                 )
                 logger.debug("Image auto-displayed successfully")
             else:
-                # Need post-processing for flips/invert
+                # Need post-processing for invert
                 logger.debug(
-                    f"Auto-displaying image with transforms: {image} "
-                    f"(flip_h={flip_horizontal}, flip_v={flip_vertical}"
-                    f", invert={invert_colors})"
+                    f"Auto-displaying image with invert: {image}"
                 )
-                raw_data = self._convert_png_auto(
-                    image, scaling, dithering, effective_rotation
-                )
-
-                if flip_horizontal:
-                    raw_data = self._flip_horizontal_1bit(
-                        raw_data, self.WIDTH, self.HEIGHT
-                    )
-                if flip_vertical:
-                    raw_data = self._flip_vertical_1bit(
-                        raw_data, self.WIDTH, self.HEIGHT
-                    )
-                if invert_colors:
-                    raw_data = self._invert_1bit(raw_data)
-
+                raw_data = self._convert_png_auto(image, scaling, dithering)
+                raw_data = self._invert_1bit(raw_data)
                 self._display_raw(raw_data, mode)
 
         elif isinstance(image, (bytes, bytearray)):
@@ -820,27 +464,6 @@ class Display:
                     f"got {len(raw_data)}"
                 )
 
-            # Resolve rotation (no "auto" for raw bytes)
-            if isinstance(rotate, str) and rotate == "auto":
-                effective_rotation = 0
-            elif isinstance(rotate, bool):
-                effective_rotation = 90 if rotate else 0
-            else:
-                effective_rotation = int(rotate) % 360
-
-            # Apply transforms sequentially
-            if flip_horizontal:
-                raw_data = self._flip_horizontal_1bit(
-                    raw_data, self.WIDTH, self.HEIGHT
-                )
-            if flip_vertical:
-                raw_data = self._flip_vertical_1bit(
-                    raw_data, self.WIDTH, self.HEIGHT
-                )
-            if effective_rotation != 0:
-                raw_data = self._rotate_1bit(
-                    raw_data, self.WIDTH, self.HEIGHT, effective_rotation
-                )
             if invert_colors:
                 raw_data = self._invert_1bit(raw_data)
 
@@ -850,6 +473,34 @@ class Display:
                 f"Invalid image type: {type(image)}. "
                 "Expected str or bytes."
             )
+
+    def display_image(
+        self,
+        image: Union[str, bytes],
+        mode: DisplayMode = DisplayMode.FULL,
+        scaling: ScalingMethod = ScalingMethod.LETTERBOX,
+        dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
+        invert_colors: bool = False,
+        **kwargs,
+    ) -> None:
+        """Alias for display_image_auto(). Accepts extra kwargs for backward compatibility."""
+        self.display_image_auto(
+            image, mode=mode, scaling=scaling, dithering=dithering, invert_colors=invert_colors
+        )
+
+    def display_png_auto(
+        self,
+        image: Union[str, bytes],
+        mode: DisplayMode = DisplayMode.FULL,
+        scaling: ScalingMethod = ScalingMethod.LETTERBOX,
+        dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
+        invert_colors: bool = False,
+        **kwargs,
+    ) -> None:
+        """Alias for display_image_auto(). Accepts extra kwargs for backward compatibility."""
+        self.display_image_auto(
+            image, mode=mode, scaling=scaling, dithering=dithering, invert_colors=invert_colors
+        )
 
     def clear(self) -> None:
         """
@@ -949,25 +600,14 @@ class Display:
 
         return bytes(output_data)
 
-    def display_text(
-        self,
-        text: str,
-        x: int = 0,
-        y: int = 0,
-        scale: int = 1,
-        invert: bool = False,
-        mode: DisplayMode = DisplayMode.FULL,
-    ) -> None:
+    def display_text(self, text, x=0, y=0, scale=1, invert=False, mode=DisplayMode.FULL):
         """
         Render and display text in a single call.
 
-        Convenience method that renders text to a landscape buffer (250x128)
-        and automatically transforms it to firmware format (128x250) for display.
-
         Args:
             text: Text string to display
-            x: X position for text (0 = left edge in landscape view)
-            y: Y position for text (0 = top edge in landscape view)
+            x: X position for text (0 = left edge)
+            y: Y position for text (0 = top edge)
             scale: Text scale factor (1=normal, 2=double, etc.)
             invert: False = black text on white background (default, like paper)
                     True = white text on black background
@@ -976,18 +616,10 @@ class Display:
         Raises:
             DisplayError: If text rendering or display fails
         """
-        _FONT_HEIGHT = 8  # Rust font constant (6x8 bitmap font)
-        # EPD128x250 has ~10 inactive source lines at physical top edge;
-        # other display types have no such gap.
-        _TOP_MARGIN = 10 if (self.WIDTH == 128 and self.HEIGHT == 250) else 0
-        # Invert Y to compensate for portrait col mapping: col=0 → physical bottom.
-        # The margin keeps text within the panel's active pixel area.
-        y_render = max(0, self.WIDTH - _TOP_MARGIN - y - _FONT_HEIGHT * scale)
+        # EPD128x250 has ~10 inactive source lines at physical top edge
+        _TOP_MARGIN = 10 if (self.WIDTH == 250 and self.HEIGHT == 128) else 0
+        y_render = y + _TOP_MARGIN
         buf = self.render_text(text, x, y_render, scale, invert=False)
-        # render_text creates a landscape buffer (HEIGHT x WIDTH = 250x128).
-        # Rotate 90 CW then H-flip for correct text orientation on display.
-        buf = self._rotate_1bit(buf, self.HEIGHT, self.WIDTH, 90)
-        buf = self._flip_horizontal_1bit(buf, self.WIDTH, self.HEIGHT)
         if not invert:
             buf = self._invert_1bit(buf)
         self._display_raw(buf, mode)
@@ -1105,64 +737,6 @@ class Display:
 
         return bytes(buffer_array)
 
-    def set_firmware(self, firmware_type: str) -> None:
-        """
-        Set the default firmware type for the display.
-
-        Args:
-            firmware_type: Firmware type string (e.g., "EPD128x250", "EPD240x416")
-
-        Raises:
-            DisplayError: If firmware type is invalid or setting fails
-        """
-        if not (hasattr(self, "_config_available") and self._config_available):
-            raise DisplayError(
-                "Configuration system not available. Please rebuild the Rust library."
-            )
-
-        firmware_bytes = firmware_type.encode("utf-8")
-        success = self._lib.display_set_firmware(firmware_bytes)
-        if not success:
-            raise DisplayError(f"Failed to set firmware type: {firmware_type}")
-
-    def get_firmware(self) -> str:
-        """
-        Get the current default firmware type.
-
-        Returns:
-            Current firmware type string
-
-        Raises:
-            DisplayError: If getting firmware fails
-        """
-        if not (hasattr(self, "_config_available") and self._config_available):
-            raise DisplayError(
-                "Configuration system not available. Please rebuild the Rust library."
-            )
-
-        buffer = ctypes.create_string_buffer(64)  # Should be enough for firmware names
-        success = self._lib.display_get_firmware(buffer, 64)
-        if not success:
-            raise DisplayError("Failed to get current firmware type")
-        return buffer.value.decode("utf-8")
-
-    def initialize_config(self) -> None:
-        """
-        Initialize the configuration system.
-        This loads configuration from environment variables and config files.
-
-        Raises:
-            DisplayError: If configuration initialization fails
-        """
-        if not (hasattr(self, "_config_available") and self._config_available):
-            raise DisplayError(
-                "Configuration system not available. Please rebuild the Rust library."
-            )
-
-        success = self._lib.display_initialize_config()
-        if not success:
-            raise DisplayError("Failed to initialize configuration system")
-
     def __enter__(self):
         """Context manager entry."""
         if not self._initialized:
@@ -1181,90 +755,19 @@ class Display:
             self.initialize()
         return self.WIDTH, self.HEIGHT
 
-    def _compute_effective_rotation(
-        self, image_path: str, user_rotation: Union[bool, int, str]
-    ) -> int:
-        """
-        Compute effective rotation based on user input and smart detection.
-
-        For explicit rotation values, returns them as-is.
-        For "auto" mode, detects image dimensions and determines optimal
-        rotation:
-        - EPD128x250 (landscape mounting quirk): landscape images -> 90,
-          portrait -> 0
-        - EPD240x416 (no quirk): always 0
-
-        Args:
-            image_path: Path to image file (for dimension detection in "auto")
-            user_rotation: User-specified rotation (False, True, 0-270, "auto")
-
-        Returns:
-            Effective rotation in degrees (0, 90, 180, or 270)
-        """
-        # Handle backward-compatible boolean
-        if isinstance(user_rotation, bool):
-            return 90 if user_rotation else 0
-
-        # Handle explicit integer rotation
-        if isinstance(user_rotation, int):
-            return user_rotation % 360
-
-        # Handle "auto" string
-        if isinstance(user_rotation, str) and user_rotation.lower() == "auto":
-            # EPD240x416 has no landscape mounting quirk
-            if self.WIDTH == 240 and self.HEIGHT == 416:
-                return 0
-
-            # EPD128x250: physical 250x128 landscape, vendor expects 128x250
-            # Detect image dimensions to determine if rotation is needed
-            try:
-                from PIL import Image as PILImage
-                with PILImage.open(image_path) as img:
-                    img_width, img_height = img.size
-
-                # If image is landscape (wider than tall), rotate 90
-                if img_width > img_height:
-                    return 90
-                # If image already portrait or square, no rotation needed
-                return 0
-            except Exception as e:
-                logger.warning(
-                    f"Auto-rotation detection failed: {e}. "
-                    "Using no rotation."
-                )
-                return 0
-
-        # Unknown rotation value
-        logger.warning(
-            f"Unknown rotation value: {user_rotation}. Using no rotation."
-        )
-        return 0
-
     def _convert_png_auto(
         self,
         image_path: str,
         scaling: ScalingMethod = ScalingMethod.LETTERBOX,
         dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-        rotate: Union[bool, int] = False,
-        flop: bool = False,
-        flip: bool = False,
-        crop_x: Optional[int] = None,
-        crop_y: Optional[int] = None,
     ) -> bytes:
         """
-        Convert any PNG to display-compatible 1-bit raw data using Rust FFI.
+        Convert any image to display-compatible 1-bit raw data using Rust FFI.
 
         Args:
-            image_path: Path to source PNG file
+            image_path: Path to source image file
             scaling: How to scale the image to fit display
             dithering: Dithering method for 1-bit conversion
-            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-                   If True, rotate 90 degrees counter-clockwise
-                   If False or 0, no rotation
-            flop: If True, flip image horizontally (left-right mirror)
-            flip: If True, flip image vertically (top-bottom mirror)
-            crop_x: X position for crop when using CROP_CENTER (None = center)
-            crop_y: Y position for crop when using CROP_CENTER (None = center)
 
         Returns:
             Raw 1-bit image data
@@ -1273,37 +776,7 @@ class Display:
             DisplayError: If conversion fails
         """
         if not os.path.exists(image_path):
-            raise DisplayError(f"PNG file not found: {image_path}")
-
-        # Convert boolean rotate to degrees for backward compatibility
-        if isinstance(rotate, bool):
-            rotation_degrees = 90 if rotate else 0
-        else:
-            rotation_degrees = rotate % 360
-
-        # Map rotation to transform type
-        # Note: Rust FFI only supports one transform at a time
-        # If multiple transforms are needed, we'll apply them sequentially
-        transform = TransformType.NONE
-        needs_additional_transforms = False
-
-        # Determine primary transform
-        if rotation_degrees == 90:
-            transform = TransformType.ROTATE_90
-        elif rotation_degrees == 180:
-            transform = TransformType.ROTATE_180
-        elif rotation_degrees == 270:
-            transform = TransformType.ROTATE_270
-        elif flop:
-            transform = TransformType.FLIP_HORIZONTAL
-        elif flip:
-            transform = TransformType.FLIP_VERTICAL
-
-        # Check if we need additional transforms
-        if (flop and transform != TransformType.FLIP_HORIZONTAL) or (
-            flip and transform != TransformType.FLIP_VERTICAL
-        ):
-            needs_additional_transforms = True
+            raise DisplayError(f"Image file not found: {image_path}")
 
         # Use Rust image_process function
         output_data = (ctypes.c_ubyte * self.ARRAY_SIZE)()
@@ -1319,139 +792,13 @@ class Display:
             int(dithering),
             brightness,
             contrast,
-            int(transform),
             0,  # Don't invert colors here
             output_data,
         )
 
         self._check_result(result, f"Process image '{image_path}' with auto-conversion")
 
-        result = bytes(output_data)
-
-        # Apply additional transforms if needed
-        if needs_additional_transforms:
-            # Apply horizontal flip if needed and not already applied
-            if flop and transform != TransformType.FLIP_HORIZONTAL:
-                result = self._flip_horizontal_1bit(result, self.WIDTH, self.HEIGHT)
-            # Apply vertical flip if needed and not already applied
-            if flip and transform != TransformType.FLIP_VERTICAL:
-                result = self._flip_vertical_1bit(result, self.WIDTH, self.HEIGHT)
-
-        return result
-
-    def _rotate_1bit(self, data: bytes, width: int, height: int, degrees: int) -> bytes:
-        """
-        Rotate 1-bit image data using Rust FFI.
-
-        Args:
-            data: Input 1-bit packed image data
-            width: Image width in pixels
-            height: Image height in pixels
-            degrees: Rotation angle (0, 90, 180, 270)
-
-        Returns:
-            Rotated 1-bit packed data
-        """
-        # Map degrees to Rust rotation enum
-        rotation_map = {
-            0: -1,  # No rotation
-            90: 0,  # 90 degrees
-            180: 1,  # 180 degrees
-            270: 2,  # 270 degrees
-        }
-
-        normalized_degrees = degrees % 360
-        if normalized_degrees not in rotation_map:
-            # Find closest valid rotation
-            closest = min(rotation_map.keys(), key=lambda x: abs(x - normalized_degrees))
-            normalized_degrees = closest
-
-        rotation = rotation_map[normalized_degrees]
-        if rotation == -1:
-            return data  # No rotation needed
-
-        # Calculate output size
-        if normalized_degrees in (90, 270):
-            out_width, out_height = height, width
-        else:
-            out_width, out_height = width, height
-
-        out_size = (out_width * out_height + 7) // 8
-
-        # Prepare buffers
-        input_array = (ctypes.c_ubyte * len(data))(*data)
-        output_array = (ctypes.c_ubyte * out_size)()
-
-        success = self._lib.image_rotate_1bit(
-            input_array, c_uint32(width), c_uint32(height), c_int(rotation), output_array
-        )
-
-        if not success:
-            raise DisplayError(f"Failed to rotate image by {degrees} degrees")
-
-        return bytes(output_array)
-
-    def _flip_horizontal_1bit(self, data: bytes, width: int, height: int) -> bytes:
-        """
-        Flip 1-bit image horizontally using Rust FFI.
-
-        Args:
-            data: Input 1-bit packed image data
-            width: Image width in pixels
-            height: Image height in pixels
-
-        Returns:
-            Flipped 1-bit packed data
-        """
-        expected_bytes = (width * height + 7) // 8
-        if len(data) < expected_bytes:
-            raise DisplayError(
-                f"Input data too small. Expected {expected_bytes} bytes, got {len(data)}"
-            )
-
-        # Prepare buffers
-        input_array = (ctypes.c_ubyte * len(data))(*data)
-        output_array = (ctypes.c_ubyte * expected_bytes)()
-
-        success = self._lib.image_flip_horizontal_1bit(
-            input_array, c_uint32(width), c_uint32(height), output_array
-        )
-
-        if not success:
-            raise DisplayError("Failed to flip image horizontally")
-
-        return bytes(output_array)
-
-    def _flip_vertical_1bit(self, data: bytes, width: int, height: int) -> bytes:
-        """
-        Flip 1-bit image vertically using Rust FFI.
-
-        Args:
-            data: Input 1-bit packed image data
-            width: Image width in pixels
-            height: Image height in pixels
-
-        Returns:
-            Flipped 1-bit packed data
-        """
-        expected_bytes = (width * height + 7) // 8
-        if len(data) < expected_bytes:
-            raise DisplayError(
-                f"Input data too small. Expected {expected_bytes} bytes, got {len(data)}"
-            )
-
-        # Prepare buffers
-        input_array = (ctypes.c_ubyte * len(data))(*data)
-        output_array = (ctypes.c_ubyte * expected_bytes)()
-
-        success = self._lib.image_flip_vertical_1bit(
-            input_array, c_uint32(width), c_uint32(height), output_array
-        )
-
-        if not success:
-            raise DisplayError("Failed to flip image vertically")
-
-        return bytes(output_array)
+        return bytes(output_data)
 
     def _invert_1bit(self, data: bytes) -> bytes:
         """
@@ -1485,444 +832,3 @@ class Display:
             raise DisplayError("Failed to invert image colors")
 
         return bytes(output_array)
-
-    def display_png_auto(
-        self,
-        image_path: str,
-        mode: DisplayMode = DisplayMode.FULL,
-        scaling: ScalingMethod = ScalingMethod.LETTERBOX,
-        dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-        rotate: Union[bool, int] = False,
-        flop: bool = False,
-        flip: bool = False,
-        crop_x: Optional[int] = None,
-        crop_y: Optional[int] = None,
-        cleanup_temp: bool = True,
-    ) -> bool:
-        """
-        Display any PNG image with automatic conversion to display specifications.
-
-        .. deprecated::
-            Use :meth:`display_image_auto` instead. Parameter mapping:
-            ``flop`` -> ``flip_horizontal``, ``flip`` -> ``flip_vertical``.
-
-        Args:
-            image_path: Path to source PNG file
-            mode: Display refresh mode
-            scaling: How to scale the image to fit display
-            dithering: Dithering method for 1-bit conversion
-            rotate: Rotation angle in degrees (0, 90, 180, 270) or bool
-            flop: If True, flip image horizontally (mapped to flip_horizontal)
-            flip: If True, flip image vertically (mapped to flip_vertical)
-            crop_x: Unused (kept for API compatibility)
-            crop_y: Unused (kept for API compatibility)
-            cleanup_temp: Unused (kept for API compatibility)
-
-        Returns:
-            True if successful
-        """
-        import warnings
-        warnings.warn(
-            "display_png_auto() is deprecated. Use display_image_auto() "
-            "instead. Parameter mapping: flop->flip_horizontal, "
-            "flip->flip_vertical.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.display_image_auto(
-            image_path, mode=mode, scaling=scaling, dithering=dithering,
-            rotate=rotate, flip_horizontal=flop, flip_vertical=flip,
-        )
-        return True
-
-
-# Convenience functions for simple usage (following SDK pattern)
-def display_png(
-    filename: str,
-    mode: DisplayMode = DisplayMode.FULL,
-    rotate: Union[bool, int] = False,
-    auto_convert: bool = False,
-    scaling: ScalingMethod = ScalingMethod.LETTERBOX,
-    dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-    flop: bool = False,
-    flip: bool = False,
-    crop_x: Optional[int] = None,
-    crop_y: Optional[int] = None,
-) -> None:
-    """
-    Convenience function to display a PNG image.
-
-    .. deprecated::
-        Use ``Display().display_image_auto()`` instead.
-
-    Args:
-        filename: Path to PNG file
-        mode: Display refresh mode
-        rotate: Rotation angle in degrees (0, 90, 180, 270) or bool
-        auto_convert: If True, automatically convert any PNG to display format
-        scaling: Scaling method (only used with auto_convert)
-        dithering: Dithering method (only used with auto_convert)
-        flop: Flip horizontally (only used with auto_convert)
-        flip: Flip vertically (only used with auto_convert)
-        crop_x: Unused (kept for API compatibility)
-        crop_y: Unused (kept for API compatibility)
-    """
-    import warnings
-    warnings.warn(
-        "display_png() is deprecated. "
-        "Use Display().display_image_auto() instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    with Display() as display:
-        if auto_convert:
-            display.display_image_auto(
-                filename, mode=mode, scaling=scaling, dithering=dithering,
-                rotate=rotate, flip_horizontal=flop, flip_vertical=flip,
-            )
-        else:
-            display.display_image_auto(filename, mode=mode, rotate=rotate)
-
-
-def display_png_auto(
-    filename: str,
-    mode: DisplayMode = DisplayMode.FULL,
-    scaling: ScalingMethod = ScalingMethod.LETTERBOX,
-    dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-    rotate: Union[bool, int] = False,
-    flop: bool = False,
-    flip: bool = False,
-    crop_x: Optional[int] = None,
-    crop_y: Optional[int] = None,
-) -> None:
-    """
-    Convenience function to display any PNG image with automatic conversion.
-
-    .. deprecated::
-        Use ``Display().display_image_auto()`` instead.
-
-    Args:
-        filename: Path to PNG file (any size, any format)
-        mode: Display refresh mode
-        scaling: Scaling method
-        dithering: Dithering method
-        rotate: Rotation angle in degrees (0, 90, 180, 270) or bool
-        flop: Flip horizontally (mapped to flip_horizontal)
-        flip: Flip vertically (mapped to flip_vertical)
-        crop_x: Unused (kept for API compatibility)
-        crop_y: Unused (kept for API compatibility)
-    """
-    import warnings
-    warnings.warn(
-        "display_png_auto() is deprecated. "
-        "Use Display().display_image_auto() instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    with Display() as display:
-        display.display_image_auto(
-            filename, mode=mode, scaling=scaling, dithering=dithering,
-            rotate=rotate, flip_horizontal=flop, flip_vertical=flip,
-        )
-
-
-def clear_display() -> None:
-    """Convenience function to clear the display."""
-    with Display() as display:
-        display.clear()
-
-
-def get_display_info() -> dict:
-    """
-    Get display information.
-
-    Returns:
-        Dictionary with display specs (uses instance values if available)
-    """
-    try:
-        # Try to get instance-specific dimensions
-        display = Display(auto_init=False)
-        display.initialize()
-        width, height = display.get_dimensions()
-        array_size = (width * height) // 8
-        display.close()
-        return {
-            "width": width,
-            "height": height,
-            "data_size": array_size,
-            "format": "1-bit monochrome",
-            "type": "e-ink",
-        }
-    except Exception:
-        # Fall back to class defaults
-        return {
-            "width": Display.WIDTH,
-            "height": Display.HEIGHT,
-            "data_size": Display.ARRAY_SIZE,
-            "format": "1-bit monochrome",
-            "type": "e-ink",
-        }
-
-
-# Configuration convenience functions
-def set_default_firmware(firmware_type: str) -> None:
-    """
-    Set the default firmware type globally.
-
-    Args:
-        firmware_type: Firmware type string (e.g., FirmwareType.EPD128x250, FirmwareType.EPD240x416)
-
-    Raises:
-        DisplayError: If firmware type is invalid or setting fails
-
-    Example:
-        set_default_firmware(FirmwareType.EPD240x416)
-    """
-    display = Display(auto_init=False)
-    display.set_firmware(firmware_type)
-
-
-def get_default_firmware() -> str:
-    """
-    Get the current default firmware type.
-
-    Returns:
-        Current firmware type string
-
-    Raises:
-        DisplayError: If getting firmware fails
-
-    Example:
-        current_fw = get_default_firmware()
-        print(f"Current firmware: {current_fw}")
-    """
-    display = Display(auto_init=False)
-    return display.get_firmware()
-
-
-def initialize_display_config() -> None:
-    """
-    Initialize the display configuration system.
-
-    This loads configuration from:
-    - Environment variable: DISTILLER_EINK_FIRMWARE
-    - Config files: /opt/distiller-sdk/eink.conf, ./eink.conf, ~/.distiller/eink.conf
-    - Falls back to EPD128x250 default
-
-    Raises:
-        DisplayError: If configuration initialization fails
-
-    Example:
-        # Set via environment variable
-        import os
-        os.environ['DISTILLER_EINK_FIRMWARE'] = 'EPD240x416'
-        initialize_display_config()
-
-        # Or via config file
-        # echo "firmware=EPD240x416" > /opt/distiller-sdk/eink.conf
-        initialize_display_config()
-    """
-    display = Display(auto_init=False)
-    display.initialize_config()
-
-
-def rotate_bitpacked(data: bytes, angle: int, width: int, height: int) -> bytes:
-    """
-    Rotate 1-bit packed image data by the specified angle.
-
-    Args:
-        data: 1-bit packed image data as bytes
-        angle: Rotation angle (0, 90, 180, 270 degrees)
-        width: Image width in pixels
-        height: Image height in pixels
-
-    Returns:
-        Rotated 1-bit packed image data
-
-    Raises:
-        DisplayError: If rotation fails or invalid angle
-    """
-    if angle not in [0, 90, 180, 270]:
-        raise DisplayError(f"Invalid rotation angle: {angle}. Must be 0, 90, 180, or 270")
-
-    display = Display(auto_init=False)
-
-    # Convert angle to rotation value expected by C function
-    # Note: The C function has a non-intuitive mapping:
-    # 0 = rotate 90 degrees
-    # 1 = rotate 180 degrees
-    # 2 = rotate 270 degrees
-    # For angle 0 (no rotation), we just return the original data
-    if angle == 0:
-        return data
-
-    rotation_map = {90: 0, 180: 1, 270: 2}
-    rotation = rotation_map[angle]
-
-    # Calculate output dimensions
-    if angle in [90, 270]:
-        out_width, out_height = height, width
-    else:
-        out_width, out_height = width, height
-
-    # Calculate output size
-    output_size = (out_width * out_height + 7) // 8
-
-    # Create output buffer
-    output = (ctypes.c_ubyte * output_size)()
-
-    # Create input array from bytes
-    input_array = (ctypes.c_ubyte * len(data)).from_buffer_copy(data)
-
-    # Call C function
-    success = display._lib.image_rotate_1bit(input_array, width, height, rotation, output)
-
-    if not success:
-        raise DisplayError(f"Failed to rotate image by {angle} degrees")
-
-    return bytes(output)
-
-
-def rotate_bitpacked_ccw_90(data: bytes, width: int, height: int) -> bytes:
-    """
-    Rotate 1-bit packed image data 90 degrees counter-clockwise.
-
-    Args:
-        data: 1-bit packed image data as bytes
-        width: Image width in pixels
-        height: Image height in pixels
-
-    Returns:
-        Rotated 1-bit packed image data
-    """
-    return rotate_bitpacked(data, 90, width, height)
-
-
-def rotate_bitpacked_cw_90(data: bytes, width: int, height: int) -> bytes:
-    """
-    Rotate 1-bit packed image data 90 degrees clockwise.
-
-    Args:
-        data: 1-bit packed image data as bytes
-        width: Image width in pixels
-        height: Image height in pixels
-
-    Returns:
-        Rotated 1-bit packed image data
-    """
-    return rotate_bitpacked(data, 270, width, height)
-
-
-def rotate_bitpacked_180(data: bytes, width: int, height: int) -> bytes:
-    """
-    Rotate 1-bit packed image data 180 degrees.
-
-    Args:
-        data: 1-bit packed image data as bytes
-        width: Image width in pixels
-        height: Image height in pixels
-
-    Returns:
-        Rotated 1-bit packed image data
-    """
-    return rotate_bitpacked(data, 180, width, height)
-
-
-def flip_bitpacked_horizontal(data: bytes, width: int, height: int) -> bytes:
-    """
-    Flip 1-bit packed image data horizontally (mirror).
-
-    Args:
-        data: 1-bit packed image data as bytes
-        width: Image width in pixels
-        height: Image height in pixels
-
-    Returns:
-        Horizontally flipped 1-bit packed image data
-
-    Raises:
-        DisplayError: If flip operation fails
-    """
-    display = Display(auto_init=False)
-
-    # Calculate buffer size
-    buffer_size = (width * height + 7) // 8
-
-    # Create output buffer
-    output = (ctypes.c_ubyte * buffer_size)()
-
-    # Create input array from bytes
-    input_array = (ctypes.c_ubyte * len(data)).from_buffer_copy(data)
-
-    # Call C function
-    success = display._lib.image_flip_horizontal_1bit(input_array, width, height, output)
-
-    if not success:
-        raise DisplayError("Failed to flip image horizontally")
-
-    return bytes(output)
-
-
-def flip_bitpacked_vertical(data: bytes, width: int, height: int) -> bytes:
-    """
-    Flip 1-bit packed image data vertically.
-
-    Args:
-        data: 1-bit packed image data as bytes
-        width: Image width in pixels
-        height: Image height in pixels
-
-    Returns:
-        Vertically flipped 1-bit packed image data
-
-    Raises:
-        DisplayError: If flip operation fails
-    """
-    display = Display(auto_init=False)
-
-    # Calculate buffer size
-    buffer_size = (width * height + 7) // 8
-
-    # Create output buffer
-    output = (ctypes.c_ubyte * buffer_size)()
-
-    # Create input array from bytes
-    input_array = (ctypes.c_ubyte * len(data)).from_buffer_copy(data)
-
-    # Call C function
-    success = display._lib.image_flip_vertical_1bit(input_array, width, height, output)
-
-    if not success:
-        raise DisplayError("Failed to flip image vertically")
-
-    return bytes(output)
-
-
-def invert_bitpacked_colors(data: bytes) -> bytes:
-    """
-    Invert the colors in 1-bit packed image data (black to white, white to black).
-
-    Args:
-        data: 1-bit packed image data as bytes
-
-    Returns:
-        Inverted 1-bit packed image data
-
-    Raises:
-        DisplayError: If invert operation fails
-    """
-    display = Display(auto_init=False)
-
-    # Create output buffer same size as input
-    output = (ctypes.c_ubyte * len(data))()
-
-    # Create input array from bytes
-    input_array = (ctypes.c_ubyte * len(data)).from_buffer_copy(data)
-
-    # Call C function
-    success = display._lib.image_invert_1bit(input_array, len(data), output)
-
-    if not success:
-        raise DisplayError("Failed to invert image colors")
-
-    return bytes(output)
