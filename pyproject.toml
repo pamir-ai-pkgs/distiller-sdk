@@ -28,6 +28,7 @@ dependencies = [
   "sounddevice>=0.5.2",
   "soundfile>=0.13.1",
   "spidev>=3.7",
+  "numpy>=1.26",
 ]
 
 [dependency-groups]
