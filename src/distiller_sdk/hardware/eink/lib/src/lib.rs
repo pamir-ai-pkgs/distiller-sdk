@@ -44,6 +44,7 @@ pub use display::{
     display_image_png,
     display_image_raw,
     display_init,
+    display_set_partial_base_map,
     display_sleep,
 };
 pub use error::DisplayError;

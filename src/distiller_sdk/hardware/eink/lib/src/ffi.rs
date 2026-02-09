@@ -18,6 +18,7 @@ const ERR_NOT_INITIALIZED: c_int = -5;
 const ERR_INVALID_DATA: c_int = -6;
 const ERR_PNG: c_int = -7;
 const ERR_IO: c_int = -8;
+const ERR_UNSUPPORTED_MODE: c_int = -10;
 const ERR_UNKNOWN: c_int = -99;
 
 /// Map `DisplayError` to error code
@@ -95,6 +96,8 @@ pub unsafe extern "C" fn display_image_raw(data: *const u8, mode: c_int) -> c_in
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
+        2 => DisplayMode::Fast,
+        3 => DisplayMode::Turbo,
         _ => return ERR_INVALID_DATA,
     };
 
@@ -137,6 +140,8 @@ pub unsafe extern "C" fn display_image_png(filename: *const c_char, mode: c_int)
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
+        2 => DisplayMode::Fast,
+        3 => DisplayMode::Turbo,
         _ => return ERR_INVALID_DATA,
     };
 
@@ -179,6 +184,8 @@ pub unsafe extern "C" fn display_image_file(filename: *const c_char, mode: c_int
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
+        2 => DisplayMode::Fast,
+        3 => DisplayMode::Turbo,
         _ => return ERR_INVALID_DATA,
     };
 
@@ -202,14 +209,17 @@ pub unsafe extern "C" fn display_image_file(filename: *const c_char, mode: c_int
 /// # Parameters
 ///
 /// - `filename`: Path to image file as null-terminated C string
-/// - `mode`: Display mode (0 = Full, 1 = Partial)
+/// - `mode`: Display mode (0 = Full, 1 = Partial, 2 = Fast, 3 = Turbo, 4 =
+///   `Grayscale4`)
 /// - `scale_mode`: Scale mode (0 = Letterbox, 1 = `CropCenter`, 2 = Stretch)
 /// - `dither_mode`: Dither mode (0 = Threshold, 1 = `FloydSteinberg`, 2 =
-///   Ordered)
+///   Ordered). Ignored when mode=4.
+/// - `invert`: 0 = normal, 1 = invert colors
 ///
 /// # Returns
 ///
 /// - 1 on success
+/// - -10 if mode is unsupported by the current firmware
 /// - Negative error code on failure (see error constants)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn display_image_auto(
@@ -217,6 +227,7 @@ pub unsafe extern "C" fn display_image_auto(
     mode: c_int,
     scale_mode: c_int,
     dither_mode: c_int,
+    invert: c_int,
 ) -> c_int {
     if filename.is_null() {
         return ERR_INVALID_DATA;
@@ -229,6 +240,9 @@ pub unsafe extern "C" fn display_image_auto(
     let display_mode = match mode {
         0 => DisplayMode::Full,
         1 => DisplayMode::Partial,
+        2 => DisplayMode::Fast,
+        3 => DisplayMode::Turbo,
+        4 => DisplayMode::Grayscale4,
         _ => return ERR_INVALID_DATA,
     };
 
@@ -246,8 +260,14 @@ pub unsafe extern "C" fn display_image_auto(
         _ => return ERR_INVALID_DATA,
     };
 
-    match display::display_image_auto(filename_str, display_mode, scale, dither) {
+    let invert_bool = invert != 0;
+
+    match display::display_image_auto(filename_str, display_mode, scale, dither, invert_bool) {
         Ok(()) => SUCCESS,
+        Err(ref e @ DisplayError::Config(ref msg)) if msg.contains("not supported") => {
+            log::error!("Display mode not supported: {e}");
+            ERR_UNSUPPORTED_MODE
+        },
         Err(e) => {
             log::error!("Display image auto failed: {e}");
             error_to_code(&e)
@@ -300,6 +320,42 @@ pub extern "C" fn display_sleep() {
 pub extern "C" fn display_cleanup() {
     if let Err(e) = display::display_cleanup() {
         log::error!("Display cleanup failed: {e}");
+    }
+}
+
+/// Set the partial refresh base map by writing to both RAM buffers.
+///
+/// # Safety
+///
+/// The caller must ensure:
+/// - `data` is a valid pointer to at least `array_size` bytes
+/// - `data` remains valid for the duration of this call
+///
+/// # Returns
+///
+/// - 1 on success
+/// - Negative error code on failure
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn display_set_partial_base_map(data: *const u8) -> c_int {
+    if data.is_null() {
+        return ERR_INVALID_DATA;
+    }
+
+    let array_size = match config::get_default_spec() {
+        Ok(spec) => spec.array_size(),
+        Err(e) => {
+            log::error!("Failed to get default firmware spec: {e}");
+            return error_to_code(&e);
+        },
+    };
+    let data_slice = unsafe { std::slice::from_raw_parts(data, array_size) };
+
+    match display::display_set_partial_base_map(data_slice) {
+        Ok(()) => SUCCESS,
+        Err(e) => {
+            log::error!("Set partial base map failed: {e}");
+            error_to_code(&e)
+        },
     }
 }
 

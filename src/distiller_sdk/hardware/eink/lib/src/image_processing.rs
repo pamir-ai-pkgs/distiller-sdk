@@ -270,7 +270,7 @@ impl ImageProcessor {
 
     /// Rotate 1-bit packed data by 90 degrees clockwise
     #[must_use]
-    pub(crate) fn rotate_1bit_90(&self, data: &[u8], width: u32, height: u32) -> Vec<u8> {
+    pub(crate) fn rotate_1bit_90(data: &[u8], width: u32, height: u32) -> Vec<u8> {
         let new_width = height;
         let new_height = width;
         let mut output = vec![0u8; ((new_width * new_height) / 8) as usize];
@@ -330,6 +330,115 @@ impl ImageProcessor {
         }
 
         output
+    }
+
+    /// Quantize grayscale pixels to 4 levels: 0=black, 1=dark gray, 2=light
+    /// gray, 3=white
+    #[must_use]
+    pub fn quantize_4gray(gray: &[u8]) -> Vec<u8> {
+        gray.iter()
+            .map(|&pixel| {
+                if pixel < 64 {
+                    0
+                } else if pixel < 128 {
+                    1
+                } else if pixel < 192 {
+                    2
+                } else {
+                    3
+                }
+            })
+            .collect()
+    }
+
+    /// Pack 4-gray levels into dual RAM buffers (0x24 and 0x26)
+    ///
+    /// Bit 0 of each level → RAM 0x24, Bit 1 → RAM 0x26.
+    /// Packed MSB-first, then both buffers inverted (~byte) per `GxEPD2`
+    /// convention.
+    #[must_use]
+    pub fn pack_4gray_dual_buffers(levels: &[u8]) -> (Vec<u8>, Vec<u8>) {
+        let n_bytes = levels.len() / 8;
+        let mut ram_24 = Vec::with_capacity(n_bytes);
+        let mut ram_26 = Vec::with_capacity(n_bytes);
+
+        for chunk in levels.chunks(8) {
+            let mut byte_24 = 0u8;
+            let mut byte_26 = 0u8;
+            for (i, &level) in chunk.iter().enumerate() {
+                let bit_24 = level & 0x01;
+                let bit_26 = (level >> 1) & 0x01;
+                byte_24 |= bit_24 << (7 - i);
+                byte_26 |= bit_26 << (7 - i);
+            }
+            // Invert both buffers (matching GxEPD2 _transfer(~out_byte))
+            ram_24.push(!byte_24);
+            ram_26.push(!byte_26);
+        }
+
+        (ram_24, ram_26)
+    }
+
+    /// Complete 4-gray image processing pipeline
+    ///
+    /// Loads, optionally inverts, scales to target dimensions, quantizes to
+    /// 4 levels, and packs into dual RAM buffers.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DisplayError::Png` if image processing fails
+    pub fn process_image_4gray(
+        &self,
+        path: &str,
+        target_w: u32,
+        target_h: u32,
+        scale_mode: ScaleMode,
+        invert: bool,
+        rotate_cw90: bool,
+    ) -> Result<(Vec<u8>, Vec<u8>), DisplayError> {
+        // Load image
+        let img = self.load_image(path)?;
+
+        // Rotate CW 90° + vertical flip for landscape→portrait conversion (EPD128x250).
+        // The vendor controller expects portrait data (128×250) but the display
+        // is physically mounted landscape (250×128). The CW 90° rotation converts
+        // landscape content to portrait layout. The flipv() compensates for the
+        // 4-gray data entry mode 0x01 (Y-decrement), which scans rows from Y=249
+        // down to Y=0 — reversing the row order compared to the 1-bit mode's 0x03
+        // (Y-increment). Without flipv(), the image appears horizontally mirrored
+        // on the landscape display.
+        let img = if rotate_cw90 {
+            img.rotate90().flipv()
+        } else {
+            img
+        };
+
+        // Scale to vendor controller dimensions (portrait for EPD128x250)
+        let target_spec = DisplaySpec {
+            width: target_w,
+            height: target_h,
+            name: String::new(),
+            description: String::new(),
+        };
+        let target_processor = Self::new(target_spec);
+        let scaled = target_processor.scale(&img, scale_mode);
+
+        // Convert to grayscale
+        let gray = scaled.to_luma8();
+
+        // Get raw pixel data
+        let mut pixels: Vec<u8> = gray.into_raw();
+
+        // Invert grayscale before quantization (if requested)
+        if invert {
+            for pixel in &mut pixels {
+                *pixel = 255 - *pixel;
+            }
+        }
+
+        // Quantize to 4 levels and pack into dual buffers
+        let levels = Self::quantize_4gray(&pixels);
+        Ok(Self::pack_4gray_dual_buffers(&levels))
     }
 
     /// Complete image processing pipeline
@@ -603,6 +712,53 @@ mod tests {
         let unpacked = processor.unpack_1bit(&packed);
 
         assert_eq!(original, unpacked);
+    }
+
+    #[test]
+    fn test_quantize_4gray_boundaries() {
+        // Test boundary values for 4-level quantization
+        let input = vec![0, 63, 64, 127, 128, 191, 192, 255];
+        let result = ImageProcessor::quantize_4gray(&input);
+        assert_eq!(result, vec![0, 0, 1, 1, 2, 2, 3, 3]);
+    }
+
+    #[test]
+    fn test_pack_4gray_dual_buffers() {
+        // 8 pixels: all 4 gray levels repeated twice
+        // Level 0 (black):  bit0=0, bit1=0
+        // Level 1 (dark):   bit0=1, bit1=0
+        // Level 2 (light):  bit0=0, bit1=1
+        // Level 3 (white):  bit0=1, bit1=1
+        let levels = vec![0, 1, 2, 3, 0, 1, 2, 3];
+        let (ram_24, ram_26) = ImageProcessor::pack_4gray_dual_buffers(&levels);
+
+        // Before inversion: ram_24 bits = 0,1,0,1,0,1,0,1 = 0b01010101 = 0x55
+        // After inversion: ~0x55 = 0xAA
+        assert_eq!(ram_24, vec![0xAA]);
+
+        // Before inversion: ram_26 bits = 0,0,1,1,0,0,1,1 = 0b00110011 = 0x33
+        // After inversion: ~0x33 = 0xCC
+        assert_eq!(ram_26, vec![0xCC]);
+    }
+
+    #[test]
+    fn test_pack_4gray_all_black() {
+        // All black (level 0): bit0=0, bit1=0 for all pixels
+        let levels = vec![0; 8];
+        let (ram_24, ram_26) = ImageProcessor::pack_4gray_dual_buffers(&levels);
+        // Before inversion: 0x00, after: 0xFF
+        assert_eq!(ram_24, vec![0xFF]);
+        assert_eq!(ram_26, vec![0xFF]);
+    }
+
+    #[test]
+    fn test_pack_4gray_all_white() {
+        // All white (level 3): bit0=1, bit1=1 for all pixels
+        let levels = vec![3; 8];
+        let (ram_24, ram_26) = ImageProcessor::pack_4gray_dual_buffers(&levels);
+        // Before inversion: 0xFF, after: 0x00
+        assert_eq!(ram_24, vec![0x00]);
+        assert_eq!(ram_26, vec![0x00]);
     }
 
     #[test]

@@ -44,6 +44,8 @@ pub enum Command {
     WriteCommand(u8),
     /// Write a data byte to the display
     WriteData(u8),
+    /// Write bulk data bytes to the display (for LUT transfers)
+    WriteDataBulk(Vec<u8>),
     /// Delay for specified milliseconds
     Delay(u64),
     /// Check the display busy status
@@ -93,6 +95,13 @@ impl CommandSequence {
         self.commands.push(Command::Reset);
         self
     }
+
+    /// Add bulk data transfer to the sequence (for LUT loading)
+    #[must_use]
+    pub fn data_bulk(mut self, data: Vec<u8>) -> Self {
+        self.commands.push(Command::WriteDataBulk(data));
+        self
+    }
 }
 
 /// Firmware interface trait - implement this for different display variants
@@ -104,7 +113,7 @@ pub trait DisplayFirmware {
     /// Get the partial update initialization sequence
     fn get_partial_init_sequence(&self) -> CommandSequence;
     /// Get the display update sequence
-    fn get_update_sequence(&self, is_partial: bool) -> CommandSequence;
+    fn get_update_sequence(&self, mode: crate::protocol::DisplayMode) -> CommandSequence;
     /// Get the sleep mode sequence
     fn get_sleep_sequence(&self) -> CommandSequence;
     /// Get the write RAM command byte
@@ -113,6 +122,55 @@ pub trait DisplayFirmware {
     /// Get the hardware reset sequence
     fn get_reset_sequence(&self) -> CommandSequence {
         CommandSequence::new().reset().delay(10)
+    }
+
+    /// Get the secondary RAM command byte (0x26 for SSD1680)
+    fn get_secondary_ram_command(&self) -> u8 {
+        0x26
+    }
+
+    /// Get the fast init sequence with temperature override
+    fn get_fast_init_sequence(&self, temp_value: u8) -> CommandSequence {
+        CommandSequence::new()
+            // Software reset
+            .cmd(0x12)
+            .check_status()
+            // Enable built-in temperature sensor
+            .cmd(0x18)
+            .data(0x80)
+            // Load current temperature value
+            .cmd(0x22)
+            .data(0xB1)
+            .cmd(0x20)
+            .check_status()
+            // Override temperature register
+            .cmd(0x1A)
+            .data(temp_value)
+            .data(0x00)
+            // Reload with overridden temperature
+            .cmd(0x22)
+            .data(0x91)
+            .cmd(0x20)
+            .check_status()
+    }
+
+    /// Get the fast update sequence (uses 0xC7 instead of 0xF7)
+    fn get_fast_update_sequence(&self) -> CommandSequence {
+        CommandSequence::new()
+            .cmd(0x22)
+            .data(0xC7)
+            .cmd(0x20)
+            .check_status()
+    }
+
+    /// Get the 4-gray initialization sequence (LUT, voltages, data entry mode)
+    fn get_4g_init_sequence(&self) -> Option<CommandSequence> {
+        None
+    }
+
+    /// Get the 4-gray display update sequence
+    fn get_4g_update_sequence(&self) -> Option<CommandSequence> {
+        None
     }
 
     /// Validate that image data is the correct size
