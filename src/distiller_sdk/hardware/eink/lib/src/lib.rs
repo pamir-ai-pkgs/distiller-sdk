@@ -57,13 +57,7 @@ pub use image::{
     create_white_image,
     get_dimensions,
 };
-pub use image_processing::{
-    DitherMode,
-    ImageProcessor,
-    ScaleMode,
-    ShapeDrawer,
-    TextRenderer,
-};
+pub use image_processing::{DitherMode, ImageProcessor, ScaleMode, ShapeDrawer, TextRenderer};
 pub use protocol::{DisplayMode, EinkProtocol};
 
 // C FFI is automatically available through the ffi module

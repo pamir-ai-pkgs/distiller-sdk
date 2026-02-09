@@ -6,12 +6,7 @@ use std::{
     ptr,
 };
 
-use crate::{
-    config,
-    display,
-    error::DisplayError,
-    protocol::DisplayMode,
-};
+use crate::{config, display, error::DisplayError, protocol::DisplayMode};
 
 // Error code constants for FFI
 const SUCCESS: c_int = 1;

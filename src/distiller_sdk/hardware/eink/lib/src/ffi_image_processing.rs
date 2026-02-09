@@ -12,13 +12,7 @@ use std::{
 
 use crate::{
     config,
-    image_processing::{
-        DitherMode,
-        ImageProcessor,
-        ScaleMode,
-        ShapeDrawer,
-        TextRenderer,
-    },
+    image_processing::{DitherMode, ImageProcessor, ScaleMode, ShapeDrawer, TextRenderer},
 };
 
 // Dithering operations
