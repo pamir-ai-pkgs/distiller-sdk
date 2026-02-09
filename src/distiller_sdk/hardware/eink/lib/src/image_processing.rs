@@ -407,7 +407,7 @@ impl TextRenderer {
                 }
 
                 let font_byte = FONT_6X8_DATA[font_byte_idx];
-                let bit_set = (font_byte >> (7 - row)) & 1 == 1;
+                let bit_set = (font_byte >> row) & 1 == 1;
                 let pixel_value = if invert { !bit_set } else { bit_set };
 
                 // Draw scaled pixel - must handle both SET and CLEAR for invert to work
