@@ -1,3 +1,28 @@
+distiller-sdk (3.4.0) stable; urgency=medium
+
+  [ utsavbalar1231 ]
+  * fix(eink): switch EPD128x250 to Y-increment data entry mode
+  * feat(eink): consolidate display methods into display_image_auto
+  * fix(eink): correct display_text coordinate mapping for Y-increment mode
+  * refactor(eink): migrate callers to display_image_auto
+  * docs(eink): update README for unified display_image_auto API
+  * refactor(eink/rust): remove transform operations and switch to landscape-first spec
+  * fix(eink/rust): correct bitmap font bit extraction order
+  * refactor(eink): simplify Python display module API
+  * refactor(eink/composer): remove transform operations from composer module
+  * test(eink): update and add tests for simplified display API
+  * docs(eink): update documentation for simplified display API
+  * style(eink/rust): reformat imports
+  * fix(eink/rust): use BT.601 luminance weighting for grayscale conversion
+  * feat(eink/rust): add Fast, Turbo, Grayscale4 display modes and partial base map
+  * chore(deps): add numpy>=1.26 as required dependency
+  * feat(eink): add Fast, Turbo, Grayscale4 modes and partial base map to Python API
+  * test(eink): add tests for new display modes
+  * test(eink): add interactive hardware demo for all display modes
+  * docs(eink): update documentation for new display modes
+
+ -- PamirAI Incorporated <founders@pamir.ai>  Tue, 10 Feb 2026 02:32:24 +0530
+
 distiller-sdk (3.3.2) stable; urgency=medium
 
   [ utsavbalar1231 ]

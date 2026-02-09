@@ -54,3 +54,9 @@ debian/.debhelper/
 debian/debhelper-build-stamp
 debian/distiller-sdk/
 debian/files
+
+# AI agents
+.omc/
+.agents/
+.sisyphus/
+.claude/
