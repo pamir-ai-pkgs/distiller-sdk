@@ -4,7 +4,7 @@ from typing import List, Dict, Optional, Literal, Any
 from dataclasses import dataclass, field
 
 from .dithering import floyd_steinberg_dither, threshold_dither, pack_bits
-from .image_ops import resize_image, flip_horizontal, rotate_ccw_90, invert_colors
+from .image_ops import resize_image, invert_colors
 from .text import render_text, measure_text
 
 
@@ -30,9 +30,6 @@ class ImageLayer(Layer):
     dither_mode: Literal["floyd-steinberg", "threshold", "none"] = "floyd-steinberg"
     brightness: float = 1.0
     contrast: float = 0.0
-    rotate: int = 0  # Rotation in degrees (0, 90, 180, 270)
-    flip_h: bool = False  # Horizontal flip
-    flip_v: bool = False  # Vertical flip
     crop_x: Optional[int] = None  # X position for crop (None = center)
     crop_y: Optional[int] = None  # Y position for crop (None = center)
     width: Optional[int] = None  # Custom width (None = auto-calculate from canvas)
@@ -46,9 +43,6 @@ class TextLayer(Layer):
     type: str = field(default="text", init=False)
     text: str = ""
     color: int = 0  # 0=black, 255=white
-    rotate: int = 0  # Rotation in degrees (0, 90, 180, 270)
-    flip_h: bool = False  # Horizontal flip
-    flip_v: bool = False  # Vertical flip
     font_size: int = 1  # Font scale factor (1=normal, 2=double, etc.)
     background: bool = False  # Whether to draw white background
     padding: int = 2  # Padding around text background
@@ -95,9 +89,6 @@ class EinkComposer:
         dither_mode: Literal["floyd-steinberg", "threshold", "none"] = "floyd-steinberg",
         brightness: float = 1.0,
         contrast: float = 0.0,
-        rotate: int = 0,
-        flip_h: bool = False,
-        flip_v: bool = False,
         crop_x: Optional[int] = None,
         crop_y: Optional[int] = None,
         width: Optional[int] = None,
@@ -114,9 +105,6 @@ class EinkComposer:
             dither_mode: Dithering algorithm to use
             brightness: Brightness adjustment
             contrast: Contrast adjustment
-            rotate: Rotation in degrees (0, 90, 180, 270)
-            flip_h: Horizontal flip
-            flip_v: Vertical flip
             crop_x: X position for crop when resize_mode='crop' (None = center)
             crop_y: Y position for crop when resize_mode='crop' (None = center)
             width: Custom width for the image (None = auto-calculate from canvas)
@@ -134,9 +122,6 @@ class EinkComposer:
             dither_mode=dither_mode,
             brightness=brightness,
             contrast=contrast,
-            rotate=rotate,
-            flip_h=flip_h,
-            flip_v=flip_v,
             crop_x=crop_x,
             crop_y=crop_y,
             width=width,
@@ -152,9 +137,6 @@ class EinkComposer:
         x: int = 0,
         y: int = 0,
         color: int = 0,
-        rotate: int = 0,
-        flip_h: bool = False,
-        flip_v: bool = False,
         font_size: int = 1,
         background: bool = False,
         padding: int = 2,
@@ -167,9 +149,6 @@ class EinkComposer:
             text: Text to render
             x, y: Position on canvas
             color: Text color (0=black, 255=white)
-            rotate: Rotation in degrees (0, 90, 180, 270)
-            flip_h: Horizontal flip
-            flip_v: Vertical flip
             font_size: Font scale factor (1=normal, 2=double, etc.)
             background: Whether to draw white background behind text
             padding: Padding around text background in pixels
@@ -183,9 +162,6 @@ class EinkComposer:
             x=x,
             y=y,
             color=color,
-            rotate=rotate,
-            flip_h=flip_h,
-            flip_v=flip_v,
             font_size=font_size,
             background=background,
             padding=padding,
@@ -325,23 +301,7 @@ class EinkComposer:
         else:
             return
 
-        # Apply transformations first (before resizing)
-        if layer.flip_h:
-            img = flip_horizontal(img)
-        if layer.flip_v:
-            from .image_ops import flip_vertical
-
-            img = flip_vertical(img)
-
-        # Apply rotation
-        if layer.rotate != 0:
-            # Normalize rotation to 0, 90, 180, 270
-            rotations = (layer.rotate % 360) // 90
-            for _ in range(rotations):
-                img = rotate_ccw_90(img)
-
         # Calculate target size based on custom dimensions or canvas size
-        # After rotation, dimensions might have changed
         if layer.width is not None and layer.height is not None:
             target_width = layer.width
             target_height = layer.height
@@ -387,9 +347,6 @@ class EinkComposer:
         if not layer.visible or not layer.text:
             return
 
-        # Import text functions
-        from .image_ops import rotate_ccw_90, flip_horizontal
-
         # Measure text dimensions
         text_width, text_height = measure_text(layer.text, layer.font_size)
 
@@ -416,19 +373,6 @@ class EinkComposer:
 
         # Render text on temporary canvas
         render_text(layer.text, text_x, text_y, temp_canvas, layer.color, layer.font_size)
-
-        # Apply flipping if needed
-        if layer.flip_h:
-            temp_canvas = flip_horizontal(temp_canvas)
-        if layer.flip_v:
-            temp_canvas = np.flipud(temp_canvas)  # Vertical flip using numpy
-
-        # Apply rotation if needed
-        if layer.rotate != 0:
-            # Normalize rotation to 0, 90, 180, 270
-            rotations = (layer.rotate % 360) // 90
-            for _ in range(rotations):
-                temp_canvas = rotate_ccw_90(temp_canvas)
 
         # Composite onto main canvas
         h, w = temp_canvas.shape
@@ -474,7 +418,7 @@ class EinkComposer:
         self,
         background_color: int = 255,
         final_dither: Optional[Literal["floyd-steinberg", "threshold"]] = None,
-        transformations: Optional[List[Literal["flip-h", "flip-v", "rotate-90", "invert"]]] = None,
+        transformations: Optional[List[Literal["invert"]]] = None,
     ) -> np.ndarray:
         """
         Render all layers to create final image.
@@ -510,15 +454,7 @@ class EinkComposer:
         # Apply transformations
         if transformations:
             for transform in transformations:
-                if transform == "flip-h":
-                    result = flip_horizontal(result)
-                elif transform == "flip-v":
-                    from .image_ops import flip_vertical
-
-                    result = flip_vertical(result)
-                elif transform == "rotate-90":
-                    result = rotate_ccw_90(result)
-                elif transform == "invert":
+                if transform == "invert":
                     result = invert_colors(result)
 
         return result
@@ -577,9 +513,6 @@ class EinkComposer:
                         "dither_mode": layer.dither_mode,
                         "brightness": layer.brightness,
                         "contrast": layer.contrast,
-                        "rotate": layer.rotate,
-                        "flip_h": layer.flip_h,
-                        "flip_v": layer.flip_v,
                         "crop_x": layer.crop_x,
                         "crop_y": layer.crop_y,
                         "width": layer.width,
@@ -596,9 +529,6 @@ class EinkComposer:
                     {
                         "text": layer.text,
                         "color": layer.color,
-                        "rotate": layer.rotate,
-                        "flip_h": layer.flip_h,
-                        "flip_v": layer.flip_v,
                         "font_size": layer.font_size,
                         "background": layer.background,
                         "padding": layer.padding,

@@ -89,41 +89,6 @@ def resize_image(
         return np.array(cropped)
 
 
-def flip_horizontal(image: np.ndarray) -> np.ndarray:
-    """Flip image horizontally (mirror left-right)."""
-    pil_img = Image.fromarray(image, mode="L")
-    flipped = pil_img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-    return np.array(flipped)
-
-
-def flip_vertical(image: np.ndarray) -> np.ndarray:
-    """Flip image vertically (mirror top-bottom)."""
-    pil_img = Image.fromarray(image, mode="L")
-    flipped = pil_img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-    return np.array(flipped)
-
-
-def rotate_ccw_90(image: np.ndarray) -> np.ndarray:
-    """Rotate image 90 degrees counter-clockwise."""
-    pil_img = Image.fromarray(image, mode="L")
-    rotated = pil_img.rotate(90, expand=True)
-    return np.array(rotated)
-
-
-def rotate_cw_90(image: np.ndarray) -> np.ndarray:
-    """Rotate image 90 degrees clockwise."""
-    pil_img = Image.fromarray(image, mode="L")
-    rotated = pil_img.rotate(-90, expand=True)
-    return np.array(rotated)
-
-
-def rotate_180(image: np.ndarray) -> np.ndarray:
-    """Rotate image 180 degrees."""
-    pil_img = Image.fromarray(image, mode="L")
-    rotated = pil_img.rotate(180, expand=True)
-    return np.array(rotated)
-
-
 def invert_colors(image: np.ndarray) -> np.ndarray:
     """Invert image colors (black to white, white to black)."""
     pil_img = Image.fromarray(image, mode="L")

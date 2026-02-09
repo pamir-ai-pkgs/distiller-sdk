@@ -33,14 +33,14 @@ def create_parser():
         epilog="""
 Examples:
   # IMPORTANT: Always create a composition first!
-  # Standard e-ink display: EPD128x250 (physically mounted as 250×128 landscape)
-  # Note: Create images in 250×128 landscape, use rotate=90 when displaying
+  # Standard e-ink display: EPD128x250 (physically mounted as 250x128 landscape)
+  # Create images in 250x128 landscape; the SDK handles orientation internally.
 
   # Working example for EPD128x250 hardware:
   eink-compose create --size 250x128
   eink-compose add-text hello "HELLO E-INK" --x 50 --y 60
   eink-compose add-rect border --width 250 --height 128 --filled false
-  eink-compose display --rotate
+  eink-compose display
 
   # More detailed example:
   eink-compose create --size 250x128
@@ -48,7 +48,7 @@ Examples:
   eink-compose add-text title "E-INK DISPLAY" --x 70 --y 40
   eink-compose add-text info "250 x 128 px" --x 85 --y 60
   eink-compose add-rect frame --x 50 --y 20 --width 150 --height 88 --filled false
-  eink-compose display --rotate --save-preview preview.png
+  eink-compose display --save-preview preview.png
 
   # Render to file
   eink-compose render --output display.png --format png
@@ -57,7 +57,6 @@ Examples:
   # Display options
   eink-compose display                    # Full refresh
   eink-compose display --partial          # Fast refresh (may ghost)
-  eink-compose display --rotate --flip-h  # With transformations
 
   # Save/load compositions
   eink-compose save my_template.json
@@ -115,11 +114,6 @@ Examples:
         "--brightness", type=float, default=1.0, help="Brightness (default: 1.0)"
     )
     add_img_cmd.add_argument("--contrast", type=float, default=0.0, help="Contrast (default: 0.0)")
-    add_img_cmd.add_argument(
-        "--rotate", type=int, default=0, help="Rotation in degrees (default: 0)"
-    )
-    add_img_cmd.add_argument("--flip-h", action="store_true", help="Flip horizontally")
-    add_img_cmd.add_argument("--flip-v", action="store_true", help="Flip vertically")
     add_img_cmd.add_argument("--crop-x", type=int, help="X position for crop (for crop mode)")
     add_img_cmd.add_argument("--crop-y", type=int, help="Y position for crop (for crop mode)")
     add_img_cmd.add_argument("--width", type=int, help="Custom width for the image")
@@ -138,11 +132,6 @@ Examples:
         choices=[0, 255],
         help="Text color: 0=black, 255=white (default: 0)",
     )
-    add_txt_cmd.add_argument(
-        "--rotate", type=int, default=0, help="Rotation in degrees (default: 0)"
-    )
-    add_txt_cmd.add_argument("--flip-h", action="store_true", help="Flip text horizontally")
-    add_txt_cmd.add_argument("--flip-v", action="store_true", help="Flip text vertically")
     add_txt_cmd.add_argument(
         "--font-size",
         type=int,
@@ -204,7 +193,7 @@ Examples:
     render_cmd.add_argument(
         "--transform",
         action="append",
-        choices=["flip-h", "flip-v", "rotate-90", "invert"],
+        choices=["invert"],
         help="Apply transformations (can be used multiple times)",
     )
     render_cmd.add_argument(
@@ -237,10 +226,6 @@ Examples:
         display_cmd.add_argument(
             "--partial", action="store_true", help="Use partial refresh (faster but may ghost)"
         )
-        display_cmd.add_argument(
-            "--rotate", action="store_true", help="Rotate image 90° counter-clockwise"
-        )
-        display_cmd.add_argument("--flip-h", action="store_true", help="Flip image horizontally")
         display_cmd.add_argument(
             "--clear", action="store_true", help="Clear display before showing"
         )
@@ -316,9 +301,6 @@ class ComposerSession:
                 dither_mode=layer_data.get("dither_mode", "floyd-steinberg"),
                 brightness=layer_data.get("brightness", 1.0),
                 contrast=layer_data.get("contrast", 0.0),
-                rotate=layer_data.get("rotate", 0),
-                flip_h=layer_data.get("flip_h", False),
-                flip_v=layer_data.get("flip_v", False),
                 crop_x=layer_data.get("crop_x", None),
                 crop_y=layer_data.get("crop_y", None),
                 width=layer_data.get("width", None),
@@ -331,9 +313,6 @@ class ComposerSession:
                 x=layer_data["x"],
                 y=layer_data["y"],
                 color=layer_data.get("color", 0),
-                rotate=layer_data.get("rotate", 0),
-                flip_h=layer_data.get("flip_h", False),
-                flip_v=layer_data.get("flip_v", False),
                 font_size=layer_data.get("font_size", 1),
                 background=layer_data.get("background", False),
                 padding=layer_data.get("padding", 2),
@@ -393,9 +372,6 @@ def main():
             dither_mode=args.dither,
             brightness=args.brightness,
             contrast=args.contrast,
-            rotate=args.rotate,
-            flip_h=args.flip_h,
-            flip_v=args.flip_v,
             crop_x=args.crop_x,
             crop_y=args.crop_y,
             width=args.width,
@@ -413,9 +389,6 @@ def main():
             x=args.x,
             y=args.y,
             color=args.color,
-            rotate=args.rotate,
-            flip_h=args.flip_h,
-            flip_v=args.flip_v,
             font_size=args.font_size,
             background=args.background,
             padding=args.padding,
@@ -571,9 +544,7 @@ def main():
             mode = DisplayMode.PARTIAL if args.partial else DisplayMode.FULL
 
             # Use display_image method
-            display.display_image_auto(
-                temp_file, mode=mode, rotate=args.rotate, flip_horizontal=args.flip_h
-            )
+            display.display_image_auto(temp_file, mode=mode)
 
             # Clean up temp file
             os.remove(temp_file)
@@ -581,10 +552,6 @@ def main():
             print("✓ Displayed on e-ink hardware")
             if args.partial:
                 print("  - Used partial refresh")
-            if args.rotate:
-                print("  - Rotated 90° CCW")
-            if args.flip_h:
-                print("  - Flipped horizontally")
 
         except Exception as e:
             print(f"Error displaying on hardware: {e}", file=sys.stderr)
@@ -618,21 +585,6 @@ def main():
                 print("✓ Display in sleep mode")
 
             elif args.hw_command == "info":
-                try:
-                    from distiller_sdk.hardware.eink import get_default_firmware, FirmwareType
-
-                    firmware = get_default_firmware()
-                    if firmware == FirmwareType.EPD240x416:
-                        size = "240x416 (EPD240x416)"
-                    else:
-                        size = (
-                            "128x250 vendor firmware (EPD128x250 - create 250x128 landscape images)"
-                        )
-                    print(f"Display type: {size}")
-                except Exception:
-                    print(
-                        "Display type: 128x250 vendor firmware (EPD128x250 - create 250x128 landscape images)"
-                    )
                 print("Hardware: E-ink display connected")
 
             else:

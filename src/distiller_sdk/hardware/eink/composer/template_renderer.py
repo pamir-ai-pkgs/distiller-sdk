@@ -98,8 +98,8 @@ class TemplateRenderer:
             EinkComposer instance with rendered composition
         """
         # Get template dimensions
-        width = self.template.get("width", 128)
-        height = self.template.get("height", 250)
+        width = self.template.get("width", 250)
+        height = self.template.get("height", 128)
 
         # Create composer with template dimensions
         composer = EinkComposer(width, height)
@@ -128,9 +128,6 @@ class TemplateRenderer:
             color=layer_data.get("color", 0),
             font_size=layer_data.get("font_size", 1),
             background=layer_data.get("background", False),
-            rotate=layer_data.get("rotate", 0),
-            flip_h=layer_data.get("flip_h", False),
-            flip_v=layer_data.get("flip_v", False),
             padding=layer_data.get("padding", 2),
         )
 
@@ -176,9 +173,6 @@ class TemplateRenderer:
                 color=layer_data.get("color", 0),
                 font_size=layer_data.get("font_size", 1),
                 background=layer_data.get("background", False),
-                rotate=layer_data.get("rotate", 0),
-                flip_h=layer_data.get("flip_h", False),
-                flip_v=layer_data.get("flip_v", False),
                 padding=layer_data.get("padding", 2),
             )
         elif layer_type == "rectangle":
@@ -208,9 +202,6 @@ class TemplateRenderer:
                 dither_mode=layer_data.get("dither_mode", "floyd-steinberg"),
                 brightness=layer_data.get("brightness", 1.0),
                 contrast=layer_data.get("contrast", 0.0),
-                rotate=layer_data.get("rotate", 0),
-                flip_h=layer_data.get("flip_h", False),
-                flip_v=layer_data.get("flip_v", False),
                 crop_x=layer_data.get("crop_x"),
                 crop_y=layer_data.get("crop_y"),
                 width=layer_data.get("width"),
