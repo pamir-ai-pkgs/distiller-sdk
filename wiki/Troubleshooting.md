@@ -215,8 +215,77 @@ with Display() as display:
     # Use full refresh to clear ghosting
     display.display_image_auto("image.png", mode=DisplayMode.FULL)
 
+    # Set a base map to prevent ghosting on subsequent partial updates
+    display.set_partial_base_map("background.png")
+    display.display_image_auto("overlay.png", mode=DisplayMode.PARTIAL)
+
     # Clear display completely
     display.clear()
+```
+
+### Fast/Turbo Mode Artifacts
+
+**Problem**: Visual artifacts or ghosting when using FAST or TURBO display modes
+
+**Solution**:
+
+```python
+from distiller_sdk.hardware.eink import Display, DisplayMode
+
+with Display() as display:
+    # Fast/Turbo modes use temperature overrides for speed — some ghosting is expected
+    # For cleaner results, set a base map first
+    display.set_partial_base_map("background.png")
+    display.display_image_auto("content.png", mode=DisplayMode.FAST)
+
+    # If artifacts are unacceptable, fall back to FULL refresh
+    display.display_image_auto("content.png", mode=DisplayMode.FULL)
+```
+
+### Grayscale Mode Not Working
+
+**Problem**: `DisplayError: Display mode not supported by current firmware` when using GRAYSCALE_4
+
+**Solution**:
+
+- GRAYSCALE_4 mode is **only supported on EPD128x250** firmware
+- EPD240x416 does not support grayscale and returns `UNSUPPORTED_MODE`
+- Grayscale requires a **file path** — raw bytes are not supported
+
+```python
+from distiller_sdk.hardware.eink import Display, DisplayMode
+
+with Display() as display:
+    # Correct: use a file path
+    display.display_grayscale("photo.jpg")
+
+    # This will raise DisplayError:
+    # display.display_image_auto(raw_bytes, mode=DisplayMode.GRAYSCALE_4)
+```
+
+```bash
+# Check your firmware type
+echo $DISTILLER_EINK_FIRMWARE
+# Must be EPD128x250 for grayscale support
+```
+
+### UNSUPPORTED_MODE Error
+
+**Problem**: `DisplayError: Display mode not supported by current firmware` (error code -10)
+
+**Solution**:
+
+| Mode | EPD128x250 | EPD240x416 |
+|------|-----------|-----------|
+| FULL | Supported | Supported |
+| PARTIAL | Supported | Supported |
+| FAST | Supported | Supported |
+| TURBO | Supported | Supported |
+| GRAYSCALE_4 | Supported | **Not supported** |
+
+```bash
+# Set firmware type if auto-detection fails
+export DISTILLER_EINK_FIRMWARE=EPD128x250
 ```
 
 ## LED Issues

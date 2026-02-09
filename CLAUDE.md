@@ -229,6 +229,7 @@ src/distiller_sdk/
 │   ├── eink/          # E-ink display control via ctypes to Rust library
 │   │   ├── display.py           # Main Display class (ctypes bindings)
 │   │   ├── _display_test.py     # Hardware test script
+│   │   ├── _interactive_mode_test.py  # Interactive demo for all display modes
 │   │   ├── lib/                 # Rust library source
 │   │   │   ├── src/             # Rust source code
 │   │   │   ├── Cargo.toml       # Rust dependencies
@@ -297,9 +298,12 @@ The display system uses ctypes bindings to a Rust-compiled shared library (`libd
 - **Firmware types**:
   - **EPD128x250**: Physical 250×128 landscape (default mounting), vendor controller expects 128×250 portrait data; SDK transforms landscape → portrait for vendor
   - **EPD240x416**: 240×416 (dimensions match physical orientation)
+- **Display modes**: Full (standard), Partial (fast), Fast (~1.5s, temp override at 100°C), Turbo (~1s, temp override at 90°C, dual RAM), Grayscale4 (4-level gray via dual RAM LUT, EPD128x250 only)
 - **Critical**: EPD128x250 vendor controller requires 128×250 portrait data despite physical 250×128 landscape mounting; sending 250×128 directly causes byte alignment issues
 - **Configuration priority**: 1) `DISTILLER_EINK_FIRMWARE` env var, 2) config files, 3) default EPD128x250
-- **Image processing**: Supports PNG/JPEG/GIF/BMP/TIFF/WebP with auto-scaling, dithering, and transformations
+- **Image processing**: Supports PNG/JPEG/GIF/BMP/TIFF/WebP with auto-scaling, dithering (Floyd-Steinberg, threshold, ordered), and transformations
+- **Grayscale support**: GRAYSCALE_4 is EPD128x250 only; uses `numpy>=1.26` for ordered dithering to 4 gray levels
+- **Partial refresh base map**: `set_partial_base_map()` writes to both RAM buffers to prevent ghosting accumulation
 - **Bitpacking**: 1-bit packed data with standalone transformation functions for rotation/flipping
 - **Composer submodule**: Template rendering, text overlay, shape drawing
 - **Rust library**: Located in `src/distiller_sdk/hardware/eink/lib/`, built via `Makefile.rust` for ARM64 target
@@ -540,3 +544,7 @@ git push && git push --tags
 9. **Model size**: Standard build is ~200MB; including Whisper adds ~300-500MB more via `just prepare whisper`
 10. **Rust library not in Python path**: When testing locally, ensure `LD_LIBRARY_PATH` includes the Rust library location
 11. **Model files not downloaded**: Run `./build.sh` before first build to download AI models from HuggingFace
+12. **GRAYSCALE_4 file-path-only**: `display_image_auto()` with `GRAYSCALE_4` mode only works with file paths, not raw bytes — raises `DisplayError` if raw bytes are passed
+13. **GRAYSCALE_4 EPD128x250-only**: 4-level grayscale is only supported on the EPD128x250 firmware; EPD240x416 returns `UNSUPPORTED_MODE` error (-10)
+14. **Fast/Turbo software resets**: Fast and Turbo modes use software resets with temperature overrides (100°C/90°C); some ghosting is expected and acceptable for the speed gain
+15. **numpy dependency**: `numpy>=1.26` is now a required dependency for grayscale image processing and ordered dithering

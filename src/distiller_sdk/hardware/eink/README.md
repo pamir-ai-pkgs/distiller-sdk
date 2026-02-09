@@ -9,9 +9,10 @@ for the 250x128 landscape e-ink display with intelligent image conversion.
 - **Multi-Format Image Support**: Display PNG, JPEG, GIF, BMP, TIFF, WebP and more
 - **Intelligent Auto-Conversion**: Display any image regardless of size or format
 - **Smart Scaling**: Letterbox, crop, or stretch with aspect ratio handling
-- **Advanced Dithering**: Floyd-Steinberg and threshold dithering for optimal 1-bit conversion
+- **Advanced Dithering**: Floyd-Steinberg, threshold, and ordered dithering for optimal 1-bit conversion
 - **Text Rendering**: Built-in bitmap font with scalable text display
-- **Display Modes**: Full refresh (high quality) and partial refresh (fast updates)
+- **Display Modes**: Full, Partial, Fast (~1.5s), Turbo (~1s), and 4-level Grayscale
+- **4-Level Grayscale**: Display images with white/light-gray/dark-gray/black levels (EPD128x250 only)
 - **Context Manager**: Automatic resource cleanup
 
 ## Quick Start
@@ -34,8 +35,8 @@ with Display() as display:
 
 - **Resolution**: 250 x 128 pixels
 - **Orientation**: Landscape (width > height)
-- **Color Depth**: 1-bit monochrome (black/white)
-- **Refresh Modes**: Full (slow, high quality) and Partial (fast updates)
+- **Color Depth**: 1-bit monochrome (black/white); 4-level grayscale mode available (EPD128x250 only)
+- **Refresh Modes**: Full (high quality), Partial (fast updates), Fast (~1.5s), Turbo (~1s), Grayscale (4-level)
 
 ## API Reference
 
@@ -57,12 +58,14 @@ Display any image with automatic scaling and dithering. **This is the primary di
 ```python
 display.display_image_auto(
     image,                                    # File path (str) or raw 1-bit data (bytes)
-    mode=DisplayMode.FULL,                    # FULL or PARTIAL refresh
+    mode=DisplayMode.FULL,                    # FULL, PARTIAL, FAST, TURBO, or GRAYSCALE_4
     scaling=ScalingMethod.LETTERBOX,          # LETTERBOX, CROP_CENTER, or STRETCH
-    dithering=DitheringMethod.FLOYD_STEINBERG,# FLOYD_STEINBERG or THRESHOLD
+    dithering=DitheringMethod.FLOYD_STEINBERG,# FLOYD_STEINBERG, THRESHOLD, or ORDERED
     invert_colors=False,                      # Swap black/white
 )
 ```
+
+> **Note**: `GRAYSCALE_4` mode requires a file path — raw bytes are not supported. This mode is only available on the EPD128x250 firmware.
 
 #### display_image(image, mode, scaling, dithering, invert_colors, **kwargs)
 
@@ -136,14 +139,46 @@ Convert a PNG file to raw 1-bit packed data.
 
 Check if display hardware is initialized.
 
+#### set_partial_base_map(image) -> None
+
+Set the base map for partial refresh by writing to both RAM buffers. This establishes the
+reference image for subsequent partial updates, preventing ghosting artifacts.
+
+```python
+# Set base map before doing partial updates
+display.set_partial_base_map("background.png")
+
+# Now partial updates won't accumulate ghosting
+display.display_image_auto("overlay.png", mode=DisplayMode.PARTIAL)
+```
+
+- `image`: File path (str) or raw 1-bit packed data (bytes)
+
+#### display_grayscale(filename, scaling, invert) -> None
+
+Convenience method for displaying 4-level grayscale images. Routes through `display_image_auto()` with `GRAYSCALE_4` mode.
+
+```python
+display.display_grayscale("photo.jpg")
+display.display_grayscale("photo.jpg", scaling="crop", invert=True)
+```
+
+- `filename`: Path to any image file (PNG, JPEG, etc.)
+- `scaling`: `"letterbox"` (default), `"crop"`, or `"stretch"` — **note: takes strings, not `ScalingMethod` enum**
+- `invert`: If True, invert the grayscale levels
+- **EPD128x250 only** — returns `UNSUPPORTED_MODE` error on EPD240x416
+
 ### Enums
 
 ```python
-from distiller_sdk.hardware.eink import DisplayMode, ScalingMethod, DitheringMethod
+from distiller_sdk.hardware.eink import DisplayMode, ScalingMethod, DitheringMethod, DisplayErrorCode
 
 # Display refresh modes
 DisplayMode.FULL           # Slow, high quality
 DisplayMode.PARTIAL        # Fast updates
+DisplayMode.FAST           # Fast refresh (~1.5s), temperature override
+DisplayMode.TURBO          # Turbo refresh (~1s), fastest, may ghost
+DisplayMode.GRAYSCALE_4    # 4-level grayscale (EPD128x250 only)
 
 # Scaling methods
 ScalingMethod.LETTERBOX    # Maintain aspect ratio, black borders (default)
@@ -153,17 +188,32 @@ ScalingMethod.STRETCH      # Stretch to fill (may distort)
 # Dithering methods
 DitheringMethod.FLOYD_STEINBERG  # High quality (default)
 DitheringMethod.THRESHOLD        # Fast binary threshold
+DitheringMethod.ORDERED          # Ordered dithering
+
+# Error codes (raised via DisplayError exceptions)
+DisplayErrorCode.SUCCESS            #  1 — Operation successful
+DisplayErrorCode.GPIO               # -1 — GPIO hardware error
+DisplayErrorCode.SPI                # -2 — SPI device error
+DisplayErrorCode.CONFIG             # -3 — Configuration error
+DisplayErrorCode.TIMEOUT            # -4 — Hardware timeout
+DisplayErrorCode.NOT_INITIALIZED    # -5 — Display not initialized
+DisplayErrorCode.INVALID_DATA       # -6 — Invalid data format
+DisplayErrorCode.PNG                # -7 — PNG processing error
+DisplayErrorCode.IO                 # -8 — I/O error
+DisplayErrorCode.UNSUPPORTED_MODE   # -10 — Mode not supported by firmware
+DisplayErrorCode.UNKNOWN            # -99 — Unknown error
 ```
 
 ### Exceptions
 
 ```python
-from distiller_sdk.hardware.eink import DisplayError
+from distiller_sdk.hardware.eink import DisplayError, DisplayErrorCode
 
 try:
     display.display_image_auto("missing.png")
 except DisplayError as e:
     print(f"Display error: {e}")
+    # Error messages include human-readable descriptions from DisplayErrorCode
 ```
 
 ## Examples
@@ -214,6 +264,42 @@ with Display() as display:
     display.display_image_auto(packed)
 ```
 
+### Fast and Turbo Refresh
+
+```python
+from distiller_sdk.hardware.eink import Display, DisplayMode
+
+with Display() as display:
+    # Fast refresh (~1.5s) — good balance of speed and quality
+    display.display_image_auto("status.png", mode=DisplayMode.FAST)
+
+    # Turbo refresh (~1s) — fastest, may show some ghosting
+    display.display_image_auto("notification.png", mode=DisplayMode.TURBO)
+
+    # For best results with partial/fast/turbo, set a base map first
+    display.set_partial_base_map("background.png")
+    display.display_image_auto("overlay.png", mode=DisplayMode.FAST)
+```
+
+### 4-Level Grayscale
+
+```python
+from distiller_sdk.hardware.eink import Display
+
+with Display() as display:
+    # Display with 4 gray levels (white, light-gray, dark-gray, black)
+    display.display_grayscale("photo.jpg")
+
+    # With options
+    display.display_grayscale("photo.jpg", scaling="crop", invert=True)
+
+    # Or use display_image_auto directly
+    from distiller_sdk.hardware.eink import DisplayMode
+    display.display_image_auto("photo.jpg", mode=DisplayMode.GRAYSCALE_4)
+```
+
+> **Note**: Grayscale mode is only supported on EPD128x250 firmware. On EPD240x416, it returns an `UNSUPPORTED_MODE` error.
+
 ## Composer Module
 
 The `composer` submodule provides image processing utilities for building display content:
@@ -229,6 +315,9 @@ The `composer` submodule provides image processing utilities for building displa
 # Unit tests (no hardware required)
 python -m distiller_sdk.hardware.eink._display_test
 
+# Interactive hardware demo (all display modes)
+python -m distiller_sdk.hardware.eink._interactive_mode_test
+
 # Interactive hardware diagnostic
 python -m distiller_sdk.hardware.eink._diagnostic_test
 ```
@@ -237,5 +326,8 @@ python -m distiller_sdk.hardware.eink._diagnostic_test
 
 - Display initialization may require sudo for GPIO/SPI access
 - The display retains images when powered off (e-ink persistence)
-- Partial refresh is faster but may show ghosting artifacts
+- Partial refresh is faster but may show ghosting artifacts — use `set_partial_base_map()` to minimize ghosting
 - Full refresh provides the cleanest image quality
+- Fast and Turbo modes use software resets with temperature overrides for faster refresh times; fall back to FULL mode if artifacts are unacceptable
+- GRAYSCALE_4 mode only works with file paths (not raw bytes) and is only supported on EPD128x250
+- `numpy>=1.26` is a required dependency for grayscale image processing

@@ -124,6 +124,16 @@ class Display:
                  width: int, height: int, filled: bool = False,
                  value: bool = True) -> bytes:
         """Draw rectangle on buffer."""
+
+    # Partial Refresh Base Map
+    def set_partial_base_map(self, image: Union[str, bytes]) -> None:
+        """Set base map for partial refresh (writes to both RAM buffers to prevent ghosting)."""
+
+    # Grayscale Display
+    def display_grayscale(self, filename: str,
+                         scaling: str = "letterbox",
+                         invert: bool = False) -> None:
+        """Display image with 4-level grayscale. scaling takes strings: 'letterbox', 'crop', 'stretch'."""
 ```
 
 ### Camera Class
@@ -294,27 +304,47 @@ class Whisper:
 ### DisplayMode
 
 ```python
-class DisplayMode(Enum):
-    FULL = "full"      # Full refresh (slower, no ghosting)
-    PARTIAL = "partial"  # Partial refresh (faster, may ghost)
+class DisplayMode(IntEnum):
+    FULL = 0           # Full refresh — slow, high quality, no ghosting
+    PARTIAL = 1        # Partial refresh — fast updates, may ghost
+    FAST = 2           # Fast refresh (~1.5s) — temperature override, reduced ghosting
+    TURBO = 3          # Turbo refresh (~1s) — fastest, may ghost
+    GRAYSCALE_4 = 4    # 4-level grayscale (EPD128x250 only, file paths only)
 ```
 
 ### ScalingMethod
 
 ```python
-class ScalingMethod(Enum):
-    LETTERBOX = "letterbox"    # Maintain aspect ratio
-    CROP_CENTER = "crop_center"  # Center crop to fill
-    STRETCH = "stretch"        # Stretch to fill
+class ScalingMethod(IntEnum):
+    LETTERBOX = 0      # Maintain aspect ratio, add black borders
+    CROP_CENTER = 1    # Center crop to fill display
+    STRETCH = 2        # Stretch to fill (may distort)
 ```
 
 ### DitheringMethod
 
 ```python
-class DitheringMethod(Enum):
-    THRESHOLD = "threshold"           # Simple threshold
-    FLOYD_STEINBERG = "floyd_steinberg"  # Error diffusion
-    ORDERED = "ordered"              # Ordered dithering
+class DitheringMethod(IntEnum):
+    THRESHOLD = 0          # Fast binary threshold
+    FLOYD_STEINBERG = 1    # High quality error diffusion (default)
+    ORDERED = 2            # Ordered dithering
+```
+
+### DisplayErrorCode
+
+```python
+class DisplayErrorCode(IntEnum):
+    SUCCESS = 1            # Operation successful
+    GPIO = -1              # GPIO hardware error
+    SPI = -2               # SPI device error
+    CONFIG = -3            # Configuration error
+    TIMEOUT = -4           # Hardware timeout
+    NOT_INITIALIZED = -5   # Display not initialized
+    INVALID_DATA = -6      # Invalid data format
+    PNG = -7               # PNG processing error
+    IO = -8                # I/O error
+    UNSUPPORTED_MODE = -10 # Mode not supported by current firmware
+    UNKNOWN = -99          # Unknown error
 ```
 
 ## Error Handling

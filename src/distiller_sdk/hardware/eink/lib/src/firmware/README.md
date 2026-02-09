@@ -12,8 +12,8 @@ The firmware abstraction consists of:
 2. **DisplaySpec**: Holds display specifications (width, height, name, description)
 3. **CommandSequence**: A declarative way to define register command sequences
 4. **Firmware implementations**: Specific configurations for each display variant
-5. **TransformType enum**: Defines image transformation types (rotation, flips)
-6. **Image Processing FFI**: C-compatible functions for transformations accessible from Python
+5. **Fast/Turbo modes**: Temperature override sequences for rapid refresh
+6. **4-gray support**: Optional LUT-based 4-level grayscale for supported displays
 
 ## Adding a New Display Variant
 
@@ -97,19 +97,22 @@ impl DisplayFirmware for EPD240x320Firmware {
             .data(0x82) // Adjusted for this display
     }
 
-    fn get_update_sequence(&self, is_partial: bool) -> CommandSequence {
-        if is_partial {
-            CommandSequence::new()
-                .cmd(0x22)
-                .data(0xCF) // Adjusted for this display
-                .cmd(0x20)
-                .check_status()
-        } else {
-            CommandSequence::new()
-                .cmd(0x22)
-                .data(0xF4) // Adjusted for this display
-                .cmd(0x20)
-                .check_status()
+    fn get_update_sequence(&self, mode: crate::protocol::DisplayMode) -> CommandSequence {
+        match mode {
+            crate::protocol::DisplayMode::Partial => {
+                CommandSequence::new()
+                    .cmd(0x22)
+                    .data(0xCF) // Adjusted for this display
+                    .cmd(0x20)
+                    .check_status()
+            }
+            _ => {
+                CommandSequence::new()
+                    .cmd(0x22)
+                    .data(0xF4) // Adjusted for this display
+                    .cmd(0x20)
+                    .check_status()
+            }
         }
     }
 
@@ -179,6 +182,39 @@ CommandSequence::new()
     .reset()             // Hardware reset
 ```
 
+## New Firmware Trait Methods
+
+The `DisplayFirmware` trait includes additional methods for advanced display modes.
+These have default implementations, so existing firmware implementations continue to work.
+
+### Fast/Turbo Refresh
+
+```rust
+/// Get the fast init sequence with temperature override (default provided)
+fn get_fast_init_sequence(&self, temp_value: u8) -> CommandSequence;
+
+/// Get the fast update sequence — uses 0xC7 instead of 0xF7 (default provided)
+fn get_fast_update_sequence(&self) -> CommandSequence;
+
+/// Get the secondary RAM command byte — 0x26 for SSD1680 (default provided)
+fn get_secondary_ram_command(&self) -> u8;
+```
+
+### 4-Level Grayscale
+
+```rust
+/// Get the 4-gray initialization sequence (LUT, voltages, data entry mode)
+/// Returns None if the display does not support 4-gray mode
+fn get_4g_init_sequence(&self) -> Option<CommandSequence>;
+
+/// Get the 4-gray display update sequence
+/// Returns None if the display does not support 4-gray mode
+fn get_4g_update_sequence(&self) -> Option<CommandSequence>;
+```
+
+> **Note**: Currently only `EPD128x250Firmware` implements the 4-gray methods.
+> `EPD240x416Firmware` returns `None`, causing a `UNSUPPORTED_MODE` error at runtime.
+
 ## Testing Your Firmware
 
 1. **Build the library**: `make -f Makefile.rust`
@@ -215,11 +251,9 @@ let display = GenericDisplay::new(protocol);
 2. **Display artifacts**: Adjust BorderWavefrom values
 3. **Slow/incomplete updates**: Check Display Update Control values
 4. **Wrong orientation**: Verify Ram-X/Ram-Y address calculations
-5. **Vertical flip not working**: Ensure you're using the latest library with `flip_vertical`
-   support
-6. **Rotation issues**: Use degrees (0, 90, 180, 270) instead of rotation index values
-7. **Transformation requires dimensions**: For raw data transformations, always provide `src_width`
-   and `src_height`
+5. **4-gray mode not working**: Only EPD128x250 implements `get_4g_init_sequence()` — check that your firmware returns `Some(...)` not `None`
+6. **Fast/Turbo ghosting**: Temperature override values may need tuning per display — default is 100°C (Fast) and 90°C (Turbo)
+7. **UNSUPPORTED_MODE error**: Check that the firmware implements the requested mode's sequences
 
 ## Directory Structure
 

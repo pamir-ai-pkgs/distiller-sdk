@@ -73,7 +73,8 @@ intelligent image conversion.
 
 ### Features
 
-- Full and partial refresh modes
+- Five refresh modes: Full, Partial, Fast (~1.5s), Turbo (~1s), and 4-level Grayscale
+- Anti-ghosting base map support for partial refresh via `set_partial_base_map()`
 - Multi-format image support (PNG, JPEG, GIF, BMP, TIFF, WebP)
 - Automatic scaling, dithering, and orientation handling
 - Text rendering and overlay
@@ -98,6 +99,25 @@ with Display() as display:
 
     # Display text
     display.display_text("Hello World", x=10, y=20, scale=2)
+```
+
+### Display Modes
+
+```python
+with Display() as display:
+    # Standard modes
+    display.display_image_auto("image.png", mode=DisplayMode.FULL)     # High quality
+    display.display_image_auto("image.png", mode=DisplayMode.PARTIAL)  # Fast updates
+    display.display_image_auto("image.png", mode=DisplayMode.FAST)     # ~1.5s refresh
+    display.display_image_auto("image.png", mode=DisplayMode.TURBO)    # ~1s refresh
+
+    # 4-level grayscale (EPD128x250 only)
+    display.display_grayscale("photo.jpg")
+    display.display_grayscale("photo.jpg", scaling="crop", invert=True)
+
+    # Set base map to prevent ghosting in partial/fast/turbo modes
+    display.set_partial_base_map("background.png")
+    display.display_image_auto("overlay.png", mode=DisplayMode.FAST)
 ```
 
 ### Text and Graphics
@@ -365,6 +385,9 @@ python -m distiller_sdk.hardware.camera._camera_unit_test
 
 # E-ink display test
 python -m distiller_sdk.hardware.eink._display_test
+
+# E-ink interactive mode demo (all display modes)
+python -m distiller_sdk.hardware.eink._interactive_mode_test
 ```
 
 ## Important Notes

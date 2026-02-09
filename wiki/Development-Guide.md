@@ -85,7 +85,7 @@ distiller-sdk/
 │   │   ├── audio/         # Audio recording/playback
 │   │   ├── camera/        # Camera control
 │   │   ├── eink/          # E-ink display driver
-│   │   │   └── lib/       # Native C library
+│   │   │   └── lib/       # Native Rust library
 │   │   └── sam/           # LED control
 │   ├── parakeet/          # ASR with VAD
 │   ├── piper/             # TTS engine
@@ -221,6 +221,7 @@ clean:
 python -m distiller_sdk.hardware.audio._audio_test
 python -m distiller_sdk.hardware.camera._camera_unit_test
 python -m distiller_sdk.hardware.eink._display_test
+python -m distiller_sdk.hardware.eink._interactive_mode_test
 
 # Run all tests (if using pytest)
 pytest tests/

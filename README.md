@@ -161,6 +161,12 @@ with Display() as display:
 
     # Clear the display
     display.clear()
+
+    # Fast refresh for status updates
+    display.display_image_auto("status.png", mode=DisplayMode.FAST)
+
+    # 4-level grayscale (EPD128x250 only)
+    display.display_grayscale("photo.jpg")
 ```
 
 #### display_image_auto() — Primary Display Method
@@ -168,9 +174,9 @@ with Display() as display:
 ```python
 display.display_image_auto(
     image,                                    # File path (str) or raw 1-bit data (bytes)
-    mode=DisplayMode.FULL,                    # FULL or PARTIAL refresh
+    mode=DisplayMode.FULL,                    # FULL, PARTIAL, FAST, TURBO, or GRAYSCALE_4
     scaling=ScalingMethod.LETTERBOX,          # LETTERBOX, CROP_CENTER, or STRETCH
-    dithering=DitheringMethod.FLOYD_STEINBERG,# FLOYD_STEINBERG or THRESHOLD
+    dithering=DitheringMethod.FLOYD_STEINBERG,# FLOYD_STEINBERG, THRESHOLD, or ORDERED
     invert_colors=False,                      # Swap black/white
 )
 ```
@@ -178,9 +184,9 @@ display.display_image_auto(
 | Parameter | Options | Description |
 |-----------|---------|-------------|
 | `image` | `str` or `bytes` | File path (any supported format) or raw 1-bit packed data |
-| `mode` | `DisplayMode.FULL` / `PARTIAL` | Full refresh (high quality) or partial (fast updates) |
+| `mode` | `FULL` / `PARTIAL` / `FAST` / `TURBO` / `GRAYSCALE_4` | Refresh mode — FULL (quality), PARTIAL (fast), FAST (~1.5s), TURBO (~1s), GRAYSCALE_4 (4-level gray, EPD128x250 only) |
 | `scaling` | `LETTERBOX` / `CROP_CENTER` / `STRETCH` | How to fit image to display dimensions |
-| `dithering` | `FLOYD_STEINBERG` / `THRESHOLD` | Dithering algorithm for 1-bit conversion |
+| `dithering` | `FLOYD_STEINBERG` / `THRESHOLD` / `ORDERED` | Dithering algorithm for 1-bit conversion |
 | `invert_colors` | `bool` | Swap black and white |
 
 #### Text Rendering
@@ -205,6 +211,8 @@ with Display() as display:
 - `get_dimensions()` — Returns `(250, 128)` (width, height)
 - `convert_png_to_raw(filepath)` — Convert PNG to raw 1-bit packed data
 - `is_initialized()` — Check if hardware is ready
+- `set_partial_base_map(image)` — Set base map for partial refresh (prevents ghosting by writing to both RAM buffers)
+- `display_grayscale(filename, scaling, invert)` — Display with 4-level grayscale (`scaling` takes strings: `"letterbox"`, `"crop"`, `"stretch"`)
 
 #### Enums
 
@@ -213,6 +221,9 @@ from distiller_sdk.hardware.eink import DisplayMode, ScalingMethod, DitheringMet
 
 DisplayMode.FULL              # Slow, high quality refresh
 DisplayMode.PARTIAL           # Fast updates, possible ghosting
+DisplayMode.FAST              # Fast refresh (~1.5s), temperature override
+DisplayMode.TURBO             # Turbo refresh (~1s), fastest
+DisplayMode.GRAYSCALE_4       # 4-level grayscale (EPD128x250 only)
 
 ScalingMethod.LETTERBOX       # Maintain aspect ratio, black borders (default)
 ScalingMethod.CROP_CENTER     # Fill display, center crop
@@ -220,6 +231,7 @@ ScalingMethod.STRETCH         # Stretch to fill (may distort)
 
 DitheringMethod.FLOYD_STEINBERG  # High quality (default)
 DitheringMethod.THRESHOLD        # Fast binary threshold
+DitheringMethod.ORDERED          # Ordered dithering
 ```
 
 #### Composer Module
