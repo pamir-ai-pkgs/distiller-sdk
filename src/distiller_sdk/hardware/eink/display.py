@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Display module for CM5 SDK.
+Display module for Distiller SDK.
 Provides functionality for e-ink display control and image display.
 
 Logging:
@@ -9,10 +9,10 @@ Logging:
         RUST_LOG=debug python script.py
 """
 
-import os
 import ctypes
 import logging
-from ctypes import c_bool, c_char_p, c_uint32, c_int, c_float, POINTER
+import os
+from ctypes import POINTER, c_bool, c_char_p, c_float, c_int, c_uint32
 from enum import IntEnum
 from typing import Optional, Tuple, Union
 
@@ -38,6 +38,7 @@ class DisplayErrorCode(IntEnum):
     INVALID_DATA = -6
     PNG = -7
     IO = -8
+    UNSUPPORTED_MODE = -10
     UNKNOWN = -99
 
 
@@ -51,6 +52,7 @@ ERROR_MESSAGES = {
     DisplayErrorCode.INVALID_DATA: "Invalid data - check image dimensions and data format",
     DisplayErrorCode.PNG: "PNG processing error - check file exists and is a valid PNG",
     DisplayErrorCode.IO: "I/O error - check file permissions and disk space",
+    DisplayErrorCode.UNSUPPORTED_MODE: "Display mode not supported by current firmware",
     DisplayErrorCode.UNKNOWN: "Unknown error - check RUST_LOG=debug for details",
 }
 
@@ -60,6 +62,9 @@ class DisplayMode(IntEnum):
 
     FULL = 0  # Full refresh - slow but high quality
     PARTIAL = 1  # Partial refresh - fast updates
+    FAST = 2  # Fast refresh (~1.5s) - reduced ghosting
+    TURBO = 3  # Turbo refresh (~1s) - fastest, may ghost
+    GRAYSCALE_4 = 4  # 4-level grayscale
 
 
 class ScalingMethod(IntEnum):
@@ -178,9 +183,9 @@ class Display:
         self._lib.display_image_raw.restype = c_bool
         self._lib.display_image_raw.argtypes = [ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int]
 
-        # display_image_auto(const char* filename, display_mode_t mode, scale_mode, dither_mode) -> bool
-        self._lib.display_image_auto.restype = c_bool
-        self._lib.display_image_auto.argtypes = [c_char_p, c_int, c_int, c_int]
+        # display_image_auto(const char* filename, mode, scale_mode, dither_mode, invert) -> int
+        self._lib.display_image_auto.restype = c_int
+        self._lib.display_image_auto.argtypes = [c_char_p, c_int, c_int, c_int, c_int]
 
         # display_clear() -> bool
         self._lib.display_clear.restype = c_bool
@@ -193,6 +198,10 @@ class Display:
         # display_cleanup() -> void
         self._lib.display_cleanup.restype = None
         self._lib.display_cleanup.argtypes = []
+
+        # display_set_partial_base_map(const uint8_t* data) -> int
+        self._lib.display_set_partial_base_map.restype = c_int
+        self._lib.display_set_partial_base_map.argtypes = [ctypes.POINTER(ctypes.c_ubyte)]
 
         # display_get_dimensions(uint32_t* width, uint32_t* height) -> void
         self._lib.display_get_dimensions.restype = None
@@ -426,37 +435,33 @@ class Display:
             )
 
         if isinstance(image, str):
-            # File path input
+            # File path input — Rust handles all modes including Grayscale4
             if not os.path.exists(image):
                 raise DisplayError(f"Image file not found: {image}")
 
-            if not invert_colors:
-                logger.debug(
-                    f"Auto-displaying image: {image} "
-                    f"(scale={scaling.name}, dither={dithering.name})"
-                )
-                filename_bytes = image.encode("utf-8")
-                result = self._lib.display_image_auto(
-                    filename_bytes,
-                    int(mode),
-                    int(scaling),
-                    int(dithering),
-                )
-                self._check_result(
-                    result, f"Auto-display image '{image}'"
-                )
-                logger.debug("Image auto-displayed successfully")
-            else:
-                # Need post-processing for invert
-                logger.debug(
-                    f"Auto-displaying image with invert: {image}"
-                )
-                raw_data = self._convert_png_auto(image, scaling, dithering)
-                raw_data = self._invert_1bit(raw_data)
-                self._display_raw(raw_data, mode)
+            logger.debug(
+                f"Auto-displaying image: {image} "
+                f"(mode={mode.name}, scale={scaling.name}, dither={dithering.name}, invert={invert_colors})"
+            )
+            filename_bytes = image.encode("utf-8")
+            result = self._lib.display_image_auto(
+                filename_bytes,
+                int(mode),
+                int(scaling),
+                int(dithering),
+                1 if invert_colors else 0,
+            )
+
+            self._check_result(
+                result, f"Auto-display image '{image}' (mode={mode.name})"
+            )
+            logger.debug("Image auto-displayed successfully")
 
         elif isinstance(image, (bytes, bytearray)):
-            # Raw bytes input
+            # Raw bytes input — Grayscale4 requires file path
+            if mode == DisplayMode.GRAYSCALE_4:
+                raise DisplayError("Grayscale4 mode requires a file path, not raw bytes")
+
             raw_data = bytes(image)
             if len(raw_data) != self.ARRAY_SIZE:
                 raise DisplayError(
@@ -623,6 +628,75 @@ class Display:
         if not invert:
             buf = self._invert_1bit(buf)
         self._display_raw(buf, mode)
+
+    def set_partial_base_map(self, image: Union[str, bytes]) -> None:
+        """
+        Set the base map for partial refresh by writing to both RAM buffers.
+
+        This establishes the reference image for subsequent partial updates,
+        preventing ghosting artifacts from accumulating.
+
+        Args:
+            image: Image file path (str) or raw 1-bit packed data (bytes).
+                   If a file path, it will be converted using the default
+                   scaling and dithering settings.
+
+        Raises:
+            DisplayError: If the operation fails
+        """
+        if not self._initialized:
+            raise DisplayError("Display not initialized. Call initialize() first.")
+
+        if isinstance(image, str):
+            if not os.path.exists(image):
+                raise DisplayError(f"Image file not found: {image}")
+            raw_data = self.convert_png_to_raw(image)
+        elif isinstance(image, (bytes, bytearray)):
+            raw_data = bytes(image)
+        else:
+            raise DisplayError(f"Invalid image type: {type(image)}. Expected str or bytes.")
+
+        if len(raw_data) != self.ARRAY_SIZE:
+            raise DisplayError(
+                f"Data must be exactly {self.ARRAY_SIZE} bytes, got {len(raw_data)}"
+            )
+
+        data_array = (ctypes.c_ubyte * len(raw_data))(*raw_data)
+        result = self._lib.display_set_partial_base_map(data_array)
+        self._check_result(result, "Set partial base map")
+        logger.debug("Partial base map set successfully")
+
+    def display_grayscale(
+        self,
+        filename: str,
+        scaling: str = "letterbox",
+        invert: bool = False,
+    ) -> None:
+        """
+        Display an image with 4-level grayscale.
+
+        Routes through display_image_auto with GRAYSCALE_4 mode, which uses
+        the Rust library's native 4-gray support.
+
+        Args:
+            filename: Path to any image file (PNG, JPEG, etc.)
+            scaling: "letterbox", "crop", or "stretch"
+            invert: If True, invert the grayscale levels
+
+        Raises:
+            DisplayError: If display operation fails
+        """
+        scale_map = {
+            "letterbox": ScalingMethod.LETTERBOX,
+            "crop": ScalingMethod.CROP_CENTER,
+            "stretch": ScalingMethod.STRETCH,
+        }
+        self.display_image_auto(
+            filename,
+            mode=DisplayMode.GRAYSCALE_4,
+            scaling=scale_map.get(scaling, ScalingMethod.LETTERBOX),
+            invert_colors=invert,
+        )
 
     def overlay_text(
         self, buffer: bytes, text: str, x: int = 0, y: int = 0, scale: int = 1, invert: bool = False
