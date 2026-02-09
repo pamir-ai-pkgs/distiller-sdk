@@ -192,18 +192,14 @@ with Display() as d:
 
 **Solution**:
 
-```python
-from distiller_sdk.hardware.eink import set_default_firmware, FirmwareType
+```bash
+# Set firmware type via environment variable
+export DISTILLER_EINK_FIRMWARE=EPD128x250   # For 250×128 display (default)
+# OR
+export DISTILLER_EINK_FIRMWARE=EPD240x416   # For 240×416 display
 
-# For 250×128 display
-set_default_firmware(FirmwareType.EPD128x250)
-
-# For 240×416 display
-set_default_firmware(FirmwareType.EPD240x416)
-
-# Verify setting
-from distiller_sdk.hardware.eink import get_default_firmware
-print(get_default_firmware())
+# Verify display dimensions
+python3 -c "from distiller_sdk.hardware.eink import Display; d = Display(); print(d.get_dimensions())"
 ```
 
 ### Ghosting on Display
@@ -217,7 +213,7 @@ from distiller_sdk.hardware.eink import Display, DisplayMode
 
 with Display() as display:
     # Use full refresh to clear ghosting
-    display.display_image("image.png", mode=DisplayMode.FULL)
+    display.display_image_auto("image.png", mode=DisplayMode.FULL)
 
     # Clear display completely
     display.clear()

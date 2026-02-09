@@ -147,224 +147,89 @@ audio.close()
 
 ### E-ink Display
 
-Supports EPD128x250 and EPD240x416 displays with comprehensive image processing capabilities.
-
-**EPD128x250 Display**:
-- **Physical mounting**: 250×128 landscape (default orientation - how the display is mounted and viewed)
-- **Vendor controller quirk**: Expects 128×250 portrait data (firmware logic is portrait-oriented)
-- **User workflow**: Create content in 250×128 landscape, SDK transforms to 128×250 portrait for vendor
-- **Critical**: Vendor firmware requires width=128, height=250 internally for proper bit packing
-- **Important**: Sending 250×128 directly causes byte alignment issues and garbled output
-- **Firmware name**: EPD128x250 (vendor naming convention - refers to portrait controller orientation)
-
-**EPD240x416 Display**:
-- Dimensions: 240×416 pixels (matches physical orientation)
-
-#### Configuration
+250×128 landscape e-ink display with intelligent image conversion. Supports PNG, JPEG, GIF, BMP, TIFF, and WebP.
 
 ```python
-from distiller_sdk.hardware.eink import (
-    Display, DisplayMode, FirmwareType,
-    ScalingMethod, DitheringMethod, TransformType,
-    set_default_firmware, get_default_firmware
-)
+from distiller_sdk.hardware.eink import Display, DisplayMode, ScalingMethod, DitheringMethod
 
-# Configure firmware type (persists across sessions)
-set_default_firmware(FirmwareType.EPD240x416)  # 240×416 display
-set_default_firmware(FirmwareType.EPD128x250)  # Physical: 250×128 landscape, vendor expects: 128×250 portrait (default)
-current_fw = get_default_firmware()
-
-# Configuration priority:
-# 1. Environment: DISTILLER_EINK_FIRMWARE=EPD240x416
-# 2. Config files: /opt/distiller-sdk/eink.conf
-# 3. Default: EPD128x250
-```
-
-#### Basic Display Operations
-
-```python
 with Display() as display:
-    # Simple PNG display (must match display dimensions)
-    display.display_image("image.png", mode=DisplayMode.FULL)
+    # Display any image — automatically scaled, dithered, and oriented
+    display.display_image_auto("photo.jpg")
 
-    # Display with transformations
-    display.display_image(
-        "image.png",
-        mode=DisplayMode.FULL,
-        rotate=90,        # Rotation: 0, 90, 180, 270 degrees (or True for 90°)
-        flip_horizontal=True,   # Mirror left-right
-        flip_vertical=True,     # Mirror top-bottom
-        invert_colors=True      # Invert black/white
-    )
+    # Display text
+    display.display_text("Hello!", x=10, y=10, scale=3)
 
-    # Display various image formats (JPEG, GIF, BMP, TIFF, WebP)
-    display.display_image_file("photo.jpg", mode=DisplayMode.FULL)
-    display.display_image_file("animation.gif", mode=DisplayMode.FULL)
-
-    # Raw 1-bit data display with transformations
-    raw_data = bytes([0xFF] * 4000)  # White screen
-    display.display_image(
-        raw_data,
-        mode=DisplayMode.PARTIAL,  # Fast update mode
-        rotate=180,             # Rotate 180 degrees
-        flip_vertical=True,     # Flip vertically
-        flip_horizontal=False,  # Don't flip horizontally
-        invert_colors=False,    # Don't invert colors
-        src_width=250,  # Required for raw data transformations
-        src_height=128  # Required for raw data transformations
-    )
-
-    # Clear display
+    # Clear the display
     display.clear()
 ```
 
-#### Auto-Conversion with Scaling and Dithering
+#### display_image_auto() — Primary Display Method
 
 ```python
-# Display any image with automatic conversion
-# supports PNG, JPEG, GIF, BMP, TIFF, WebP
 display.display_image_auto(
-    "large_photo.jpg",  # Any size, any supported format
-    mode=DisplayMode.FULL,
-    scaling=ScalingMethod.LETTERBOX,      # Maintain aspect ratio
-    dithering=DitheringMethod.FLOYD_STEINBERG  # High quality
+    image,                                    # File path (str) or raw 1-bit data (bytes)
+    mode=DisplayMode.FULL,                    # FULL or PARTIAL refresh
+    scaling=ScalingMethod.LETTERBOX,          # LETTERBOX, CROP_CENTER, or STRETCH
+    dithering=DitheringMethod.FLOYD_STEINBERG,# FLOYD_STEINBERG or THRESHOLD
+    invert_colors=False,                      # Swap black/white
 )
-
-# PNG-specific auto-conversion with all transformation options
-display.display_png_auto(
-    "any_image.png",
-    mode=DisplayMode.FULL,
-    scaling=ScalingMethod.LETTERBOX,      # Maintain aspect ratio
-    dithering=DitheringMethod.FLOYD_STEINBERG,  # High quality
-    rotate=90,              # Rotation in degrees (0, 90, 180, 270)
-    flip_horizontal=False,  # Horizontal flip
-    flip_vertical=True,     # Vertical flip
-    crop_x=None,           # Auto-center for CROP_CENTER
-    crop_y=None            # Auto-center for CROP_CENTER
-)
-
-# Scaling methods:
-# - LETTERBOX: Maintain aspect ratio, add borders
-# - CROP_CENTER: Center crop to fill display
-# - STRETCH: Stretch to fill (may distort)
-
-# Dithering methods:
-# - THRESHOLD: Fast binary conversion
-# - FLOYD_STEINBERG: High quality error diffusion
-# - ORDERED: Ordered dithering pattern
 ```
+
+| Parameter | Options | Description |
+|-----------|---------|-------------|
+| `image` | `str` or `bytes` | File path (any supported format) or raw 1-bit packed data |
+| `mode` | `DisplayMode.FULL` / `PARTIAL` | Full refresh (high quality) or partial (fast updates) |
+| `scaling` | `LETTERBOX` / `CROP_CENTER` / `STRETCH` | How to fit image to display dimensions |
+| `dithering` | `FLOYD_STEINBERG` / `THRESHOLD` | Dithering algorithm for 1-bit conversion |
+| `invert_colors` | `bool` | Swap black and white |
 
 #### Text Rendering
 
 ```python
-# Render text to display buffer
-text_buffer = display.render_text(
-    "Hello World",
-    x=10, y=20,
-    scale=2,        # 2x size
-    invert=False    # Black text on white
-)
-display.display_image(text_buffer, mode=DisplayMode.FULL)
+with Display() as display:
+    # High-level: render and display text in one call
+    display.display_text("Hello World", x=10, y=10, scale=2)
 
-# Overlay text on existing image
-image_buffer = display.convert_png_to_raw("background.png")
-with_text = display.overlay_text(
-    image_buffer,
-    "Status: OK",
-    x=5, y=5,
-    scale=1,
-    invert=True     # White text on image
-)
-display.display_image(with_text, mode=DisplayMode.FULL)
+    # Low-level: compose multiple elements into a buffer
+    buffer = display.render_text("Title", x=10, y=10, scale=2)
+    buffer = display.overlay_text(buffer, "Subtitle", x=10, y=30, scale=1)
+    buffer = display.draw_rect(buffer, x=5, y=5, width=240, height=50, filled=False, value=False)
+    display.display_image_auto(buffer)
 ```
 
-#### Shape Drawing
+#### Other Methods
+
+- `clear()` — Clear display to white
+- `sleep()` — Low-power sleep mode
+- `close()` — Release hardware resources
+- `get_dimensions()` — Returns `(250, 128)` (width, height)
+- `convert_png_to_raw(filepath)` — Convert PNG to raw 1-bit packed data
+- `is_initialized()` — Check if hardware is ready
+
+#### Enums
 
 ```python
-# Create blank buffer
-buffer = bytes([0x00] * display.ARRAY_SIZE)  # Black screen
+from distiller_sdk.hardware.eink import DisplayMode, ScalingMethod, DitheringMethod
 
-# Draw rectangle
-with_rect = display.draw_rect(
-    buffer,
-    x=10, y=10,
-    width=50, height=30,
-    filled=True,
-    value=True      # White rectangle
-)
-display.display_image(with_rect, mode=DisplayMode.FULL)
+DisplayMode.FULL              # Slow, high quality refresh
+DisplayMode.PARTIAL           # Fast updates, possible ghosting
+
+ScalingMethod.LETTERBOX       # Maintain aspect ratio, black borders (default)
+ScalingMethod.CROP_CENTER     # Fill display, center crop
+ScalingMethod.STRETCH         # Stretch to fill (may distort)
+
+DitheringMethod.FLOYD_STEINBERG  # High quality (default)
+DitheringMethod.THRESHOLD        # Fast binary threshold
 ```
 
-#### Bitpacking Transformations (Standalone Functions)
+#### Composer Module
 
-**Note**: For EPD128x250, the display is physically mounted as 250×128 landscape (default orientation).
-However, the vendor controller expects 128×250 portrait data due to firmware logic.
-When working with bitpacked data, you create content in landscape (250×128), then transform to portrait (128×250) for the vendor.
+The `composer` submodule provides image processing utilities:
 
-```python
-from distiller_sdk.hardware.eink import (
-    rotate_bitpacked, rotate_bitpacked_ccw_90, rotate_bitpacked_cw_90,
-    rotate_bitpacked_180, flip_bitpacked_horizontal, flip_bitpacked_vertical,
-    invert_bitpacked_colors
-)
-
-# 1-bit packed data matching physical display mounting (user creates content in landscape)
-# EPD128x250: Physical 250×128 landscape, vendor controller expects 128×250 portrait
-# SDK handles transformation: landscape content → portrait for vendor controller
-data = bytes([0xAA] * 4000)  # Alternating pattern (250×128 landscape)
-
-# Rotation transformations
-rotated_90_ccw = rotate_bitpacked(data, 90, 250, 128)  # Counter-clockwise
-rotated_90_ccw = rotate_bitpacked_ccw_90(data, 250, 128)  # Same as above
-rotated_90_cw = rotate_bitpacked_cw_90(data, 250, 128)  # Clockwise 90°
-rotated_180 = rotate_bitpacked_180(data, 250, 128)  # 180° rotation
-
-# Note: After 90° or 270° rotations, dimensions swap (250x128 becomes 128x250)
-# Example with chained transformations:
-# result = flip_bitpacked_vertical(
-#     rotate_bitpacked_ccw_90(data, 250, 128),  # Rotate 250x128 -> becomes 128x250
-#     128, 250  # Use swapped dimensions for flip
-# )
-
-# Flip transformations
-flipped_h = flip_bitpacked_horizontal(data, 250, 128)  # Mirror left-right
-flipped_v = flip_bitpacked_vertical(data, 250, 128)  # Mirror top-bottom
-
-# Color inversion
-inverted = invert_bitpacked_colors(data)  # Swap black and white
-
-# Chain transformations
-result = flip_bitpacked_vertical(
-    rotate_bitpacked_ccw_90(data, 250, 128),
-    128, 250  # Note: dimensions swap after 90° rotation
-)
-```
-
-#### EinkComposer Module
-
-Advanced image composition and template rendering for e-ink displays:
-
-```python
-from distiller_sdk.hardware.eink.composer import EinkComposer, TemplateRenderer
-
-# Create composer for your display
-composer = EinkComposer(width=250, height=128)
-
-# Apply dithering
-from distiller_sdk.hardware.eink.composer import floyd_steinberg_dither
-dithered_image = floyd_steinberg_dither(image_array)
-
-# Template-based rendering
-renderer = TemplateRenderer(width=250, height=128)
-template = {
-    "background": {"color": "white"},
-    "elements": [
-        {"type": "text", "content": "Hello", "x": 10, "y": 20, "size": 24},
-        {"type": "rectangle", "x": 5, "y": 5, "width": 240, "height": 118}
-    ]
-}
-result = renderer.render(template)
-```
+- **dithering**: Floyd-Steinberg and ordered dithering algorithms
+- **image_ops**: Image scaling, cropping, and format conversion
+- **text**: Text rendering with font support
+- **template_renderer**: Template-based layout rendering
 
 ### Camera
 
@@ -563,7 +428,7 @@ class HardwareManager:
             # Capture and save image
             image = self.camera.capture_image("/tmp/capture.png")
             # Display on e-ink using auto-conversion
-            self.display.display_png_auto("/tmp/capture.png", DisplayMode.FULL)
+            self.display.display_image_auto("/tmp/capture.png", mode=DisplayMode.FULL)
 
             if self.led:
                 # Return to static mode and show solid green for success
@@ -657,9 +522,9 @@ ls -la /dev/spi*
 lsmod | grep spi
 
 # Test configuration
-python -c "from distiller_sdk.hardware.eink import get_default_firmware; print(get_default_firmware())"
+python -c "from distiller_sdk.hardware.eink import Display; d = Display(); print(f'Display OK: {d.get_dimensions()}')"
 
-# Set firmware
+# Set firmware via environment
 export DISTILLER_EINK_FIRMWARE=EPD128x250
 ```
 

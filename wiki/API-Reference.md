@@ -62,40 +62,52 @@ from distiller_sdk.hardware.eink import Display, DisplayMode
 class Display:
     ARRAY_SIZE: int  # Total bytes for display buffer
 
-    def __init__(self, firmware: FirmwareType = None):
-        """Initialize display with optional firmware type."""
+    def __init__(self, library_path: str = None, auto_init: bool = True):
+        """Initialize display hardware."""
 
-    # Basic Display
-    def display_image(self, image_data: Union[str, bytes],
-                     mode: DisplayMode = DisplayMode.FULL,
-                     rotate: Union[int, bool] = False,
-                     flip_horizontal: bool = False,
-                     flip_vertical: bool = False,
-                     invert_colors: bool = False,
-                     src_width: int = None,
-                     src_height: int = None) -> None:
-        """Display image with transformations."""
+    # Primary display method
+    def display_image_auto(self, image: Union[str, bytes],
+                          mode: DisplayMode = DisplayMode.FULL,
+                          scaling: ScalingMethod = ScalingMethod.LETTERBOX,
+                          dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
+                          invert_colors: bool = False) -> None:
+        """Display any image with auto-scaling and dithering."""
+
+    # Backward-compatible aliases
+    def display_image(self, image: Union[str, bytes], *,
+                      mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX,
+                      dithering=DitheringMethod.FLOYD_STEINBERG,
+                      invert_colors=False, **kwargs) -> None:
+        """Alias for display_image_auto(). Ignores legacy kwargs."""
+
+    def display_png_auto(self, image: Union[str, bytes], *,
+                         mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX,
+                         dithering=DitheringMethod.FLOYD_STEINBERG,
+                         invert_colors=False, **kwargs) -> None:
+        """Alias for display_image_auto(). Ignores legacy kwargs."""
+
+    def display_text(self, text: str, x: int = 0, y: int = 0,
+                    scale: int = 1, invert: bool = False,
+                    mode: DisplayMode = DisplayMode.FULL) -> None:
+        """Render and display text in a single call."""
 
     def clear(self) -> None:
         """Clear display to white."""
 
-    # Auto-conversion
-    def display_image_auto(self, filepath: str,
-                          mode: DisplayMode = DisplayMode.FULL,
-                          scaling: ScalingMethod = ScalingMethod.LETTERBOX,
-                          dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG) -> None:
-        """Display any image with auto-conversion."""
+    def sleep(self) -> None:
+        """Put display into low-power sleep mode."""
 
-    def display_png_auto(self, filepath: str,
-                        mode: DisplayMode = DisplayMode.FULL,
-                        scaling: ScalingMethod = ScalingMethod.LETTERBOX,
-                        dithering: DitheringMethod = DitheringMethod.FLOYD_STEINBERG,
-                        rotate: int = 0,
-                        flip_horizontal: bool = False,
-                        flip_vertical: bool = False,
-                        crop_x: int = None,
-                        crop_y: int = None) -> None:
-        """Display PNG with full options."""
+    def close(self) -> None:
+        """Release display hardware resources."""
+
+    def get_dimensions(self) -> Tuple[int, int]:
+        """Returns (width, height) — (250, 128)."""
+
+    def is_initialized(self) -> bool:
+        """Check if display hardware is initialized."""
+
+    def convert_png_to_raw(self, filepath: str) -> bytes:
+        """Convert PNG to raw 1-bit packed data."""
 
     # Text Rendering
     def render_text(self, text: str, x: int, y: int,
@@ -287,15 +299,6 @@ class DisplayMode(Enum):
     PARTIAL = "partial"  # Partial refresh (faster, may ghost)
 ```
 
-### FirmwareType
-
-```python
-class FirmwareType:
-    """String constants for firmware types."""
-    EPD128x250 = "EPD128x250"  # Native: 128×250, Mounted: 250×128 landscape
-    EPD240x416 = "EPD240x416"  # 240×416 display
-```
-
 ### ScalingMethod
 
 ```python
@@ -312,32 +315,6 @@ class DitheringMethod(Enum):
     THRESHOLD = "threshold"           # Simple threshold
     FLOYD_STEINBERG = "floyd_steinberg"  # Error diffusion
     ORDERED = "ordered"              # Ordered dithering
-```
-
-## Utility Functions
-
-### E-ink Transformations
-
-```python
-# Rotation functions
-rotate_bitpacked(data: bytes, angle: int, width: int, height: int) -> bytes
-rotate_bitpacked_ccw_90(data: bytes, width: int, height: int) -> bytes
-rotate_bitpacked_cw_90(data: bytes, width: int, height: int) -> bytes
-rotate_bitpacked_180(data: bytes, width: int, height: int) -> bytes
-
-# Flip functions
-flip_bitpacked_horizontal(data: bytes, width: int, height: int) -> bytes
-flip_bitpacked_vertical(data: bytes, width: int, height: int) -> bytes
-
-# Color inversion
-invert_bitpacked_colors(data: bytes) -> bytes
-```
-
-### E-ink Configuration
-
-```python
-set_default_firmware(firmware: FirmwareType) -> None
-get_default_firmware() -> FirmwareType
 ```
 
 ## Error Handling

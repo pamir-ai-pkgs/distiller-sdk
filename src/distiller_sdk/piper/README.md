@@ -372,11 +372,8 @@ def speak_with_display(text):
     """Show text on display while speaking"""
     # Display the text
     display.clear()
-    display.render_text(
-        text=text,
-        font_size=20,
-        wrap_text=True
-    )
+    buffer = display.render_text(text, x=10, y=10, scale=2)
+    display.display_image_auto(buffer)
 
     # Speak the text
     piper.speak_stream(text, volume=50)

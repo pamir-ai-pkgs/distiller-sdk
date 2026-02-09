@@ -1,191 +1,41 @@
 # E-ink Display Module
 
-E-ink display control module for the Distiller SDK. Provides high-level Python interface for
-multiple e-ink display types with intelligent image conversion capabilities.
+E-ink display control module for the Distiller SDK. Provides a high-level Python interface
+for the 250x128 landscape e-ink display with intelligent image conversion.
 
 ## Features
 
-- **Multi-Display Support**: Supports EPD128x250 (physical 250×128 landscape, vendor expects
-  128×250 portrait) and EPD240x416 (240×416 pixels) displays
-- **Multi-Format Image Support**: Display PNG, JPEG, GIF, BMP, TIFF, WebP and more formats
+- **250x128 Landscape Display**: Native landscape orientation, no manual rotation needed
+- **Multi-Format Image Support**: Display PNG, JPEG, GIF, BMP, TIFF, WebP and more
 - **Intelligent Auto-Conversion**: Display any image regardless of size or format
-- **Smart Scaling**: Multiple scaling algorithms (letterbox, crop, stretch) with aspect ratio
-  handling
-- **Advanced Dithering**: Floyd-Steinberg, ordered, and threshold dithering for optimal 1-bit
-  conversion
-- **Image Transformations**: Rotation (0°, 90°, 180°, 270°), horizontal flip, vertical flip, color
-  inversion
-- **Display Class**: Object-oriented interface for display control
-- **Raw Data Display**: Display raw 1-bit image data with transformation support
+- **Smart Scaling**: Letterbox, crop, or stretch with aspect ratio handling
+- **Advanced Dithering**: Floyd-Steinberg and threshold dithering for optimal 1-bit conversion
+- **Text Rendering**: Built-in bitmap font with scalable text display
 - **Display Modes**: Full refresh (high quality) and partial refresh (fast updates)
-- **Context Manager**: Automatic resource management
-- **Hardware Abstraction**: Clean Python API over Rust library implementation
+- **Context Manager**: Automatic resource cleanup
 
 ## Quick Start
-
-### Auto-Conversion (Recommended)
-
-```python
-from distiller_sdk.hardware.eink import display_png_auto, ScalingMethod
-
-# Display ANY PNG image - automatically converted to fit your display
-display_png_auto("large_photo.jpg")  # Works with any size!
-display_png_auto("wide_banner.png", scaling=ScalingMethod.CROP_CENTER)
-display_png_auto("portrait.png", scaling=ScalingMethod.LETTERBOX)
-
-# Enhanced display_png with auto-conversion
-display_png("any_image.png", auto_convert=True)
-```
-
-### Basic Usage
 
 ```python
 from distiller_sdk.hardware.eink import Display, DisplayMode
 
-# Display a PNG image (exact display size required)
 with Display() as display:
-    display.display_image("my_image.png", DisplayMode.FULL)
+    # Display any image - automatically scaled and dithered
+    display.display_image_auto("photo.jpg")
 
-# Display any PNG with auto-conversion
-with Display() as display:
-    display.display_png_auto("any_image.png", DisplayMode.FULL)
+    # Display text
+    display.display_text("Hello!", x=10, y=10, scale=3)
 
-# Clear the display
-with Display() as display:
+    # Clear the display
     display.clear()
-```
-
-### Convenience Functions
-
-```python
-from distiller_sdk.hardware.eink import display_png, clear_display
-
-# Quick PNG display (exact size required)
-display_png("my_image.png")
-
-# Quick PNG display with auto-conversion
-display_png("any_image.png", auto_convert=True)
-
-# Quick clear
-clear_display()
-```
-
-### Display Class Usage
-
-```python
-from distiller_sdk.hardware.eink import Display, DisplayMode, DisplayError
-
-try:
-    # Initialize display
-    display = Display()
-
-    # Display PNG with full refresh
-    display.display_image("image.png", DisplayMode.FULL)
-
-    # Display raw 1-bit data with partial refresh
-    raw_data = bytes([0xFF] * 4000)  # 4000 bytes for 128x250 pixels
-    display.display_image(raw_data, DisplayMode.PARTIAL)
-
-    # Get display info
-    width, height = display.get_dimensions()
-    print(f"Display: {width}x{height}")
-
-    # Clear and sleep
-    display.clear()
-    display.sleep()
-
-except DisplayError as e:
-    print(f"Display error: {e}")
-finally:
-    display.close()
-```
-
-## Auto-Conversion System
-
-The intelligent auto-conversion system allows you to display **any PNG image** regardless of size,
-format, or color depth. The system automatically:
-
-- **Detects your display type** (EPD128x250 or EPD240x416)
-- **Scales images intelligently** using multiple algorithms
-- **Converts color formats** (RGB, RGBA, grayscale, palette → 1-bit)
-- **Applies optimal dithering** for best visual quality
-
-### Scaling Methods
-
-```python
-from distiller_sdk.hardware.eink import ScalingMethod
-
-ScalingMethod.LETTERBOX     # Maintain aspect ratio, add black borders (default)
-ScalingMethod.CROP_CENTER   # Scale to fill display completely, center crop
-ScalingMethod.STRETCH       # Stretch to fill display (may distort image)
-```
-
-### Dithering Methods
-
-```python
-from distiller_sdk.hardware.eink import DitheringMethod
-
-DitheringMethod.FLOYD_STEINBERG  # High quality dithering (default)
-DitheringMethod.THRESHOLD        # Fast threshold conversion
-```
-
-### Auto-Conversion Examples
-
-```python
-from distiller_sdk.hardware.eink import display_png_auto, ScalingMethod, DitheringMethod
-
-# Display a large photo with letterboxing (maintains aspect ratio)
-display_png_auto("vacation_photo_4000x3000.png")
-
-# Display a wide banner with center cropping (fills display)
-display_png_auto("banner_1920x400.png", scaling=ScalingMethod.CROP_CENTER)
-
-# Display with simple dithering for faster processing
-display_png_auto("image.png", dithering=DitheringMethod.THRESHOLD)
-
-# Combine scaling and dithering options
-display_png_auto("portrait.png",
-                scaling=ScalingMethod.LETTERBOX,
-                dithering=DitheringMethod.FLOYD_STEINBERG)
 ```
 
 ## Display Specifications
 
-### Supported Display Types
-
-- **EPD128x250**:
-  - **Physical mounting**: 250×128 landscape (default orientation - how display is mounted and viewed)
-  - **Vendor controller quirk**: Expects 128×250 portrait data (firmware logic is portrait-oriented)
-  - **User workflow**: Create content in 250×128 landscape, pass `rotate="auto"` (or `rotate=270`) to display methods
-  - **Critical**: Vendor firmware requires width=128, height=250 internally for proper bit packing
-  - **Important**: Using _auto() methods without rotation on 250×128 images causes distortion/cropping
-  - **Firmware name**: EPD128x250 (vendor naming - refers to controller portrait orientation)
-
-- **EPD240x416**: 240 × 416 pixels (dimensions match physical orientation)
-
-- **Auto-Detection**: Firmware automatically detected at runtime
-
-**Critical Note**: For EPD128x250, the display is physically mounted as 250×128 landscape (default orientation), but the vendor controller expects 128×250 portrait data due to firmware logic. Users should create content in landscape (250×128) and pass `rotate="auto"` (or `rotate=270`) to `display_image_auto()` for proper orientation. The `"auto"` mode detects image dimensions and applies the correct rotation automatically. Without rotation, the scaling algorithms will try to fit 250×128 into 128×250, causing severe distortion.
-
-### Display Properties
-
+- **Resolution**: 250 x 128 pixels
+- **Orientation**: Landscape (width > height)
 - **Color Depth**: 1-bit monochrome (black/white)
 - **Refresh Modes**: Full (slow, high quality) and Partial (fast updates)
-- **Auto-Conversion**: Supports PNG images of any size and format
-
-### Image Requirements
-
-#### Auto-Conversion (Recommended)
-
-- **Any PNG size**: From 64×64 to 4000×4000+ pixels
-- **Any color format**: RGB, RGBA, grayscale, palette, 1-bit
-- **Automatic processing**: No manual resizing or conversion needed
-
-#### Manual/Legacy Mode
-
-- **Exact Size**: Must match display dimensions (128×250 or 240×416)
-- **Color**: Grayscale or RGB (converted to 1-bit)
-- **Threshold**: Pixels > 128 brightness = white, ≤ 128 = black
 
 ## API Reference
 
@@ -200,350 +50,192 @@ Display(library_path=None, auto_init=True)
 - `library_path`: Optional path to shared library
 - `auto_init`: Auto-initialize hardware (default: True)
 
-#### Methods
-
-##### display_image(image, mode=DisplayMode.FULL, rotate=0, flip_horizontal=False, flip_vertical=False, invert_colors=False, src_width=None, src_height=None)
-
-Display an image on the screen with optional transformations.
-
-- `image`: Image file path (str) or raw 1-bit data (bytes)
-- `mode`: DisplayMode.FULL or DisplayMode.PARTIAL
-- `rotate`: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-- `flip_horizontal`: Mirror the image horizontally (left-right)
-- `flip_vertical`: Mirror the image vertically (top-bottom)
-- `invert_colors`: Invert colors (black↔white)
-- `src_width`: Source width in pixels (required for raw data transformations)
-- `src_height`: Source height in pixels (required for raw data transformations)
-
-##### display_image_file(filename, mode=DisplayMode.FULL)
-
-Display any supported image file format on the e-ink screen.
-
-- `filename`: Path to image file (PNG, JPEG, GIF, BMP, TIFF, WebP, etc.)
-- `mode`: Display refresh mode (FULL or PARTIAL)
-- Note: Image must match display dimensions exactly (no automatic scaling)
-
-##### display_image_auto(image, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, rotate=False, flip_horizontal=False, flip_vertical=False, invert_colors=False)
+#### display_image_auto(image, mode, scaling, dithering, invert_colors)
 
 Display any image with automatic scaling and dithering. **This is the primary display method.**
 
-- `image`: Image file path (str) or raw 1-bit packed data (bytes)
-- `mode`: Display refresh mode
-- `scaling`: How to scale the image to fit display (file paths only)
-- `dithering`: Dithering method for 1-bit conversion (file paths only)
-- `rotate`: Rotation angle (0, 90, 180, 270), bool, or `"auto"` for smart dimension detection
-  - **For EPD128x250**: Create 250×128 landscape images and pass `rotate="auto"` or `rotate=270`
-- `flip_horizontal`: Mirror the image horizontally (left-right)
-- `flip_vertical`: Mirror the image vertically (top-bottom)
-- `invert_colors`: Invert colors (black↔white)
+```python
+display.display_image_auto(
+    image,                                    # File path (str) or raw 1-bit data (bytes)
+    mode=DisplayMode.FULL,                    # FULL or PARTIAL refresh
+    scaling=ScalingMethod.LETTERBOX,          # LETTERBOX, CROP_CENTER, or STRETCH
+    dithering=DitheringMethod.FLOYD_STEINBERG,# FLOYD_STEINBERG or THRESHOLD
+    invert_colors=False,                      # Swap black/white
+)
+```
 
-##### display_png_auto(image_path, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, rotate=0, flip_horizontal=False, flip_vertical=False) -> bool
+#### display_image(image, mode, scaling, dithering, invert_colors, **kwargs)
 
-Display any PNG image with automatic conversion and transformations.
+Backward-compatible alias for `display_image_auto()`. Accepts and silently ignores
+legacy keyword arguments (`rotate`, `flip_horizontal`, `flip_vertical`, `src_width`, `src_height`).
 
-- `image_path`: Path to PNG file (any size, any format)
-- `mode`: Display refresh mode
-- `scaling`: How to scale the image to fit display
-- `dithering`: Dithering method for 1-bit conversion
-- `rotate`: Rotation angle in degrees (0, 90, 180, 270)
-- `flip_horizontal`: Mirror the image horizontally
-- `flip_vertical`: Mirror the image vertically
-- Returns: True if successful
+#### display_png_auto(image, mode, scaling, dithering, invert_colors, **kwargs)
 
-##### clear()
+Backward-compatible alias for `display_image_auto()`. Accepts and silently ignores
+legacy keyword arguments (`rotate`, `flip_horizontal`, `flip_vertical`, `crop_x`, `crop_y`).
+
+#### display_text(text, x, y, scale, invert, mode)
+
+Display text using the built-in bitmap font.
+
+```python
+display.display_text(
+    text,                    # Text to display
+    x=0, y=0,               # Position (0,0 = top-left)
+    scale=1,                 # Scale factor (1=6x8, 2=12x16, etc.)
+    invert=False,            # True = white text on black
+    mode=DisplayMode.FULL,   # Refresh mode
+)
+```
+
+#### render_text(text, x, y, scale, invert) -> bytes
+
+Render text to a raw 1-bit buffer without sending to display.
+
+#### overlay_text(buffer, text, x, y, scale, invert) -> bytes
+
+Overlay text onto an existing 1-bit image buffer.
+
+#### draw_rect(buffer, x, y, width, height, filled, value) -> bytes
+
+Draw a rectangle on a 1-bit image buffer.
+
+```python
+buf = display.render_text("", 0, 0, 1)   # Create blank buffer
+buf = display.draw_rect(
+    buf,                     # 1-bit image buffer
+    x, y,                    # Top-left corner
+    width, height,           # Rectangle size
+    filled=True,             # Filled or outline only
+    value=True,              # True=white, False=black
+)
+display.display_image_auto(buf)
+```
+
+#### clear()
 
 Clear the display (set to white).
 
-##### get_dimensions() -> Tuple[int, int]
+#### sleep()
 
-Returns display dimensions as (width, height).
+Put display into low-power sleep mode.
 
-##### convert_png_to_raw(filename) -> bytes
+#### close()
 
-Convert PNG file to raw 1-bit data.
+Release display hardware resources.
 
-##### sleep()
+#### get_dimensions() -> Tuple[int, int]
 
-Put display to sleep for power saving.
+Returns display dimensions as `(width, height)` -- `(250, 128)`.
 
-##### close()
+#### convert_png_to_raw(filename) -> bytes
 
-Cleanup display resources.
+Convert a PNG file to raw 1-bit packed data.
 
-##### display_text(text, x=0, y=0, scale=1, invert=False, mode=DisplayMode.FULL)
+#### is_initialized() -> bool
 
-High-level text display using the Rust bitmap font. Handles coordinate mapping and orientation automatically.
+Check if display hardware is initialized.
 
-- `text`: Text to display
-- `x`, `y`: Text position in landscape coordinates (0,0 = top-left)
-- `scale`: Text scale factor (1=normal 6×8 font, 2=double, etc.)
-- `invert`: False = black text on white (default), True = white text on black
-- `mode`: Display refresh mode (FULL or PARTIAL)
-
-##### render_text(text, x=0, y=0, scale=1, invert=False) -> bytes
-
-Render text to a raw 1-bit buffer using the Rust bitmap font (does not send to display).
-
-- `text`: Text to render
-- `x`, `y`: Text position in pixels
-- `scale`: Text scale factor (1=normal, 2=double, etc.)
-- `invert`: Invert text colors
-- Returns: Raw 1-bit packed buffer (landscape orientation, HEIGHT×WIDTH)
-
-##### overlay_text(buffer, text, x=0, y=0, scale=1, invert=False) -> bytes
-
-Overlay text onto an existing 1-bit image buffer using the Rust bitmap font.
-
-- `buffer`: Existing 1-bit packed image buffer
-- `text`: Text to overlay
-- `x`, `y`: Text position in pixels
-- `scale`: Text scale factor
-- `invert`: Invert text colors
-- Returns: New 1-bit packed buffer with text overlaid
-
-##### draw_rect(x, y, width, height, fill=True, color=0, mode=DisplayMode.PARTIAL)
-
-Draw a rectangle on the display.
-
-- `x`, `y`: Top-left corner position
-- `width`, `height`: Rectangle dimensions
-- `fill`: Fill rectangle (True) or outline only (False)
-- `color`: 0 for black, 1 for white
-- `mode`: Display refresh mode
-
-##### set_firmware(firmware_type)
-
-Set the display firmware type.
-
-- `firmware_type`: "EPD128x250" or "EPD240x416"
-
-##### get_firmware() -> str
-
-Get the current firmware type. Returns: Current firmware type string
-
-##### get_dimensions() -> Tuple[int, int]
-
-Get display dimensions. Returns: Tuple of (width, height) in pixels
-
-##### is_initialized() -> bool
-
-Check if display is initialized. Returns: True if initialized, False otherwise
-
-##### convert_png_to_raw(filename) -> bytes
-
-Convert a PNG file to raw 1-bit data.
-
-- `filename`: Path to PNG file Returns: Raw 1-bit packed data
-
-### Display Modes
+### Enums
 
 ```python
-from distiller_sdk.hardware.eink import DisplayMode
+from distiller_sdk.hardware.eink import DisplayMode, ScalingMethod, DitheringMethod
 
-DisplayMode.FULL      # Full refresh - slow, high quality
-DisplayMode.PARTIAL   # Partial refresh - fast updates
+# Display refresh modes
+DisplayMode.FULL           # Slow, high quality
+DisplayMode.PARTIAL        # Fast updates
+
+# Scaling methods
+ScalingMethod.LETTERBOX    # Maintain aspect ratio, black borders (default)
+ScalingMethod.CROP_CENTER  # Fill display, center crop
+ScalingMethod.STRETCH      # Stretch to fill (may distort)
+
+# Dithering methods
+DitheringMethod.FLOYD_STEINBERG  # High quality (default)
+DitheringMethod.THRESHOLD        # Fast binary threshold
 ```
-
-### Convenience Functions
-
-#### display_png(filename, mode=DisplayMode.FULL, rotate=0, auto_convert=False, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG, flip_horizontal=False, flip_vertical=False)
-
-Quick PNG display with automatic resource management.
-
-- `filename`: Path to PNG file
-- `mode`: Display refresh mode
-- `rotate`: Rotation angle in degrees (0, 90, 180, 270) or bool for backward compatibility
-- `auto_convert`: If True, automatically convert any PNG to display format
-- `scaling`: How to scale the image (only used with auto_convert)
-- `dithering`: Dithering method (only used with auto_convert)
-- `flip_horizontal`: Mirror the image horizontally (only with auto_convert)
-- `flip_vertical`: Mirror the image vertically (only with auto_convert)
-
-#### display_png_auto(filename, mode=DisplayMode.FULL, scaling=ScalingMethod.LETTERBOX, dithering=DitheringMethod.FLOYD_STEINBERG)
-
-Quick auto-conversion PNG display with automatic resource management.
-
-- `filename`: Path to PNG file (any size, any format)
-- `mode`: Display refresh mode
-- `scaling`: How to scale the image to fit display
-- `dithering`: Dithering method for 1-bit conversion
-
-#### clear_display()
-
-Quick display clear with automatic resource management.
-
-#### get_display_info() -> dict
-
-Returns display specifications dictionary.
 
 ### Exceptions
 
-#### DisplayError
+```python
+from distiller_sdk.hardware.eink import DisplayError
 
-Raised for display-related errors:
-
-- Library loading failures
-- Hardware initialization failures
-- Invalid image formats or sizes
-- Display operation failures
-
-### Raw Data Requirements
-
-- **Size**: Exactly (width × height) ÷ 8 bytes
-- **Format**: 1-bit packed data (8 pixels per byte)
-- **Layout**: Row-major order, left-to-right, top-to-bottom
-- **Transformations**: When using transformations (rotate, flip) with raw data, you must provide
-  `src_width` and `src_height` parameters
+try:
+    display.display_image_auto("missing.png")
+except DisplayError as e:
+    print(f"Display error: {e}")
+```
 
 ## Examples
 
-### Text and Drawing Features
+### Display an Image
+
+```python
+from distiller_sdk.hardware.eink import Display, ScalingMethod
+
+with Display() as display:
+    # Any image, any size - auto-scaled to 250x128
+    display.display_image_auto("photo.jpg")
+
+    # Crop to fill the display
+    display.display_image_auto("banner.png", scaling=ScalingMethod.CROP_CENTER)
+
+    # Invert colors
+    display.display_image_auto("logo.png", invert_colors=True)
+```
+
+### Text and Drawing
 
 ```python
 from distiller_sdk.hardware.eink import Display, DisplayMode
 
 with Display() as display:
-    # Display text directly
-    display.render_text(
-        "Hello CM5!",
-        font_size=24,
-        x=20, y=50,
-        wrap_text=True,
-        max_width=200
-    )
+    # Display text
+    display.display_text("Hello CM5!", x=20, y=50, scale=3)
 
-    # Overlay text on an image
-    display.overlay_text(
-        "background.png",
-        "Status: Online",
-        font_size=16,
-        x=10, y=10
-    )
-
-    # Draw shapes
-    display.draw_rect(10, 10, 50, 30, fill=True, color=0)  # Black filled rectangle
-    display.draw_rect(70, 10, 50, 30, fill=False, color=0)  # Black outline
+    # Draw shapes on a buffer
+    buf = display.render_text("", 0, 0, 1)                    # Blank buffer
+    buf = display.draw_rect(buf, 10, 10, 50, 30, filled=True, value=False)   # Black filled
+    buf = display.draw_rect(buf, 70, 10, 50, 30, filled=False, value=False)  # Black outline
+    display.display_image_auto(buf)
 ```
 
-### Firmware Configuration
-
-```python
-from distiller_sdk.hardware.eink import Display
-
-with Display() as display:
-    # Check current firmware
-    current = display.get_firmware()
-    print(f"Current firmware: {current}")
-
-    # Switch firmware type (requires reinitialization)
-    display.set_firmware("EPD240x416")
-    display.initialize()
-
-    # Get new dimensions
-    width, height = display.get_dimensions()
-    print(f"New dimensions: {width}x{height}")
-```
-
-### Auto-Conversion Examples (Recommended)
-
-```python
-from distiller_sdk.hardware.eink import display_png_auto, ScalingMethod, DitheringMethod
-
-# Display any PNG image - fully automatic
-display_png_auto("my_photo.png")
-
-# Display with specific scaling
-display_png_auto("wide_image.png", scaling=ScalingMethod.CROP_CENTER)
-
-# Display with fast dithering
-display_png_auto("image.png", dithering=DitheringMethod.THRESHOLD)
-
-# Use enhanced display_png with auto-conversion
-display_png("any_image.png", auto_convert=True)
-```
-
-### Simple PNG Display (Legacy)
-
-```python
-from distiller_sdk.hardware.eink import display_png
-
-# Display image with exact display dimensions
-display_png("logo_128x250.png")
-```
-
-### Raw Data Generation
+### Raw Data
 
 ```python
 import numpy as np
 from distiller_sdk.hardware.eink import Display
 
-# Create a test pattern
-width, height = 128, 250
-image_2d = np.random.randint(0, 2, (height, width), dtype=np.uint8)
+width, height = 250, 128
+pattern = np.random.randint(0, 2, (height, width), dtype=np.uint8)
+packed = np.packbits(pattern, axis=1).tobytes()
 
-# Pack to 1-bit format
-packed_data = np.packbits(image_2d, axis=1).tobytes()
-
-# Display
 with Display() as display:
-    display.display_image(packed_data)
+    display.display_image_auto(packed)
 ```
 
-### Error Handling
+## Composer Module
 
-```python
-from distiller_sdk.hardware.eink import Display, DisplayError
+The `composer` submodule provides image processing utilities for building display content:
 
-try:
-    with Display() as display:
-        display.display_image("nonexistent.png")
-except DisplayError as e:
-    print(f"Failed to display image: {e}")
-```
-
-## Hardware Details
-
-The display module wraps a C library implementation that interfaces directly with:
-
-- SPI communication for display data
-- GPIO pins for control signals
-- Hardware-specific display controller
-
-The C library is automatically loaded from common locations:
-
-- `./lib/libdistiller_display_sdk_shared.so`
-- `./build/libdistiller_display_sdk_shared.so`
-- System library paths
+- **dithering**: Floyd-Steinberg and ordered dithering algorithms
+- **image_ops**: Image scaling, cropping, and format conversion
+- **text**: Text rendering with font support
+- **template_renderer**: Template-based layout rendering
 
 ## Testing
 
-### Auto-Conversion Test Suite
-
-Test the new auto-conversion functionality:
-
 ```bash
-# Test auto-conversion with various image formats and sizes
-python src/distiller_sdk/hardware/eink/test_auto_display.py
+# Unit tests (no hardware required)
+python -m distiller_sdk.hardware.eink._display_test
 
-# Comprehensive auto-conversion test
-python test_auto_conversion.py
-```
-
-### Legacy Test Suite
-
-Run the original test suite:
-
-```python
-from distiller_sdk.hardware.eink._display_test import run_display_tests
-run_display_tests()
+# Interactive hardware diagnostic
+python -m distiller_sdk.hardware.eink._diagnostic_test
 ```
 
 ## Notes
 
-- **Auto-conversion is recommended** for most use cases - no need to manually resize images
-- Display initialization may require sudo permissions for GPIO access
+- Display initialization may require sudo for GPIO/SPI access
 - The display retains images when powered off (e-ink persistence)
-- Partial refresh mode is faster but may show ghosting artifacts
-- Full refresh mode provides the cleanest image quality
-- **Backward compatibility**: All existing code continues to work unchanged
-- **Multi-display support**: Automatically detects and adapts to your display type
+- Partial refresh is faster but may show ghosting artifacts
+- Full refresh provides the cleanest image quality

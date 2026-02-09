@@ -66,7 +66,7 @@ for text in asr.record_and_transcribe_ptt():
     # Display on E-ink
     display.clear()
     buffer = display.render_text(text, x=10, y=10, scale=2)
-    display.display_image(buffer, mode=DisplayMode.FULL)
+    display.display_image_auto(buffer, mode=DisplayMode.FULL)
 
     # Speak response
     tts.speak_stream(f"You said: {text}")

@@ -377,7 +377,7 @@ When coordinating multiple hardware components, use a manager class to initializ
 Display class supports context manager for automatic cleanup:
 ```python
 with Display() as display:
-    display.display_image("image.png", mode=DisplayMode.FULL)
+    display.display_image_auto("image.png", mode=DisplayMode.FULL)
 # Automatically cleaned up
 ```
 
@@ -405,17 +405,8 @@ led.set_rgb_color(led_id=0, red=0, green=0, blue=0)  # Returns to static mode
 led.turn_off_all()
 ```
 
-### Transformation Chaining
-For e-ink display transformations, note that dimensions swap after 90/270° rotations:
-```python
-# For EPD128x250: physical 250×128 landscape (default), vendor expects 128×250 portrait
-# Users create content in landscape, SDK transforms to portrait for vendor controller
-# Example showing dimension swap after rotation
-result = flip_bitpacked_vertical(
-    rotate_bitpacked_ccw_90(data, 128, 250),
-    250, 128  # Dimensions swapped after 90° rotation
-)
-```
+### E-ink Display
+The EPD128x250 landscape→portrait conversion is handled automatically by the Rust layer in `display_image_raw()`. Users pass 250×128 landscape images to `display_image_auto()` — no manual rotation needed.
 
 ## Development Notes
 

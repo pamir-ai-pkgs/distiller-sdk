@@ -89,7 +89,7 @@ for text in asr.auto_record_and_transcribe():
     # Clear and show text
     display.clear()
     buffer = display.render_text(text, x=5, y=10, scale=1)
-    display.display_image(buffer)
+    display.display_image_auto(buffer)
 
     # Check for exit command
     if "exit" in text.lower():
@@ -274,7 +274,7 @@ class VoiceAssistant:
         # Update display
         self.display.clear()
         buffer = self.display.render_text(text, x=5, y=10, scale=1)
-        self.display.display_image(buffer, mode=DisplayMode.PARTIAL)
+        self.display.display_image_auto(buffer, mode=DisplayMode.PARTIAL)
 
         # Update LED
         r, g, b = led_color

@@ -68,100 +68,53 @@ if audio.is_playing():
 
 ## E-ink Display
 
-The E-ink module supports EPD128x250 (native: 128×250 portrait, mounted: 250×128 landscape) and
-EPD240x416 displays with comprehensive image processing.
+The E-ink module supports EPD128x250 (250×128 landscape) and EPD240x416 displays with
+intelligent image conversion.
 
 ### Features
 
 - Full and partial refresh modes
-- Multiple image format support (PNG, JPEG, GIF, BMP, TIFF, WebP)
-- Automatic scaling and dithering
+- Multi-format image support (PNG, JPEG, GIF, BMP, TIFF, WebP)
+- Automatic scaling, dithering, and orientation handling
 - Text rendering and overlay
 - Shape drawing primitives
-- Hardware transformations (rotate, flip, invert)
 
-### Display Configuration
-
-```python
-from distiller_sdk.hardware.eink import (
-    Display, DisplayMode, FirmwareType,
-    ScalingMethod, DitheringMethod,
-    set_default_firmware
-)
-
-# Configure firmware (persists across sessions)
-set_default_firmware(FirmwareType.EPD128x250)  # 250×128 display
-# OR
-set_default_firmware(FirmwareType.EPD240x416)  # 240×416 display
-
-# Use display
-with Display() as display:
-    display.clear()
-```
-
-### Image Display
+### Quick Start
 
 ```python
+from distiller_sdk.hardware.eink import Display, DisplayMode, ScalingMethod, DitheringMethod
+
 with Display() as display:
-    # Simple image display
-    display.display_image("image.png", mode=DisplayMode.FULL)
+    # Display any image — automatically scaled, dithered, and oriented
+    display.display_image_auto("photo.jpg")
 
-    # With transformations
-    display.display_image(
-        "image.png",
-        mode=DisplayMode.PARTIAL,  # Fast update
-        rotate=90,                 # Rotation in degrees
-        flip_horizontal=True,      # Mirror horizontally
-        invert_colors=True         # Invert black/white
-    )
-
-    # Auto-conversion with scaling
+    # With options
     display.display_image_auto(
         "large_photo.jpg",
         mode=DisplayMode.FULL,
-        scaling=ScalingMethod.LETTERBOX,  # Maintain aspect ratio
-        dithering=DitheringMethod.FLOYD_STEINBERG  # High quality
+        scaling=ScalingMethod.LETTERBOX,
+        dithering=DitheringMethod.FLOYD_STEINBERG
     )
+
+    # Display text
+    display.display_text("Hello World", x=10, y=20, scale=2)
 ```
 
 ### Text and Graphics
 
 ```python
 with Display() as display:
-    # Render text
-    buffer = display.render_text(
-        "Hello World",
-        x=10, y=20,
-        scale=2,        # 2x size
-        invert=False    # Black on white
-    )
-    display.display_image(buffer, mode=DisplayMode.FULL)
+    # Render text to buffer
+    buffer = display.render_text("Hello World", x=10, y=20, scale=2, invert=False)
+
+    # Overlay more text
+    buffer = display.overlay_text(buffer, "Line 2", x=10, y=40, scale=1)
 
     # Draw shapes
-    buffer = bytes([0x00] * display.ARRAY_SIZE)  # Black background
-    buffer = display.draw_rect(
-        buffer,
-        x=10, y=10,
-        width=50, height=30,
-        filled=True,
-        value=True  # White rectangle
-    )
-    display.display_image(buffer, mode=DisplayMode.FULL)
-```
+    buffer = display.draw_rect(buffer, x=10, y=10, width=50, height=30, filled=True, value=True)
 
-### Raw Data Transformations
-
-```python
-from distiller_sdk.hardware.eink import (
-    rotate_bitpacked, flip_bitpacked_horizontal,
-    invert_bitpacked_colors
-)
-
-# Transform 1-bit packed data
-data = bytes([0xFF] * 4000)  # White screen
-rotated = rotate_bitpacked(data, 90, 250, 128)
-flipped = flip_bitpacked_horizontal(rotated, 128, 250)
-inverted = invert_bitpacked_colors(flipped)
+    # Display composed buffer
+    display.display_image_auto(buffer, mode=DisplayMode.FULL)
 ```
 
 ## Camera
@@ -352,7 +305,7 @@ class HardwareManager:
             image = self.camera.capture_image("/tmp/photo.png")
 
             # Display with auto-conversion
-            self.display.display_png_auto(
+            self.display.display_image_auto(
                 "/tmp/photo.png",
                 mode=DisplayMode.FULL,
                 scaling=ScalingMethod.LETTERBOX
@@ -368,7 +321,7 @@ class HardwareManager:
             # Show recording status
             self.display.clear()
             text = self.display.render_text("Recording...", 10, 10, 2)
-            self.display.display_image(text, DisplayMode.FULL)
+            self.display.display_image_auto(text, mode=DisplayMode.FULL)
 
             # Record
             self.audio.record("/tmp/recording.wav", duration)
@@ -376,7 +329,7 @@ class HardwareManager:
             # Show complete
             self.display.clear()
             text = self.display.render_text("Complete!", 10, 10, 2)
-            self.display.display_image(text, DisplayMode.FULL)
+            self.display.display_image_auto(text, mode=DisplayMode.FULL)
 
     def cleanup(self):
         """Clean up all resources."""
