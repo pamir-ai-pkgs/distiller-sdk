@@ -39,9 +39,11 @@ pub fn convert_image_to_1bit_with_spec(
             let pixel = rgba.get_pixel(x, y);
             let channels = pixel.channels();
 
-            // Convert RGBA to grayscale
-            let gray =
-                (u16::from(channels[0]) + u16::from(channels[1]) + u16::from(channels[2])) / 3;
+            // BT.601 luminance weighting for perceptually accurate grayscale
+            let gray = (77 * u16::from(channels[0])
+                + 150 * u16::from(channels[1])
+                + 29 * u16::from(channels[2]))
+                >> 8;
 
             // Convert to 1-bit (threshold at 128)
             let bit_value = u8::from(gray > 128);
