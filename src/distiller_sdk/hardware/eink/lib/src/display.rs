@@ -5,7 +5,6 @@ use std::sync::Mutex;
 use crate::{
     error::DisplayError,
     image,
-    image_processing::Transform,
     protocol::{DisplayMode, EinkProtocol, create_default_protocol},
 };
 
@@ -47,7 +46,6 @@ pub trait DisplayDriver {
         mode: DisplayMode,
         scale_mode: crate::image_processing::ScaleMode,
         dither_mode: crate::image_processing::DitherMode,
-        transform: Option<Transform>,
     ) -> Result<(), DisplayError>;
     /// Clear the display to white
     ///
@@ -114,6 +112,14 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
             });
         }
 
+        // EPD128x250: rotate landscape (250×128) → portrait (128×250) for vendor controller
+        let hw_data = if spec.width == 250 && spec.height == 128 {
+            let processor = crate::image_processing::ImageProcessor::new(spec.clone());
+            processor.rotate_1bit_90(data, spec.width, spec.height)
+        } else {
+            data.to_vec()
+        };
+
         match mode {
             DisplayMode::Partial => self.protocol.init_partial()?,
             DisplayMode::Full => {}, // Full mode uses default initialization
@@ -121,7 +127,7 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
 
         let write_ram_cmd = self.protocol.get_write_ram_command();
         self.protocol.write_cmd(write_ram_cmd)?;
-        self.protocol.write_image_data(data)?;
+        self.protocol.write_image_data(&hw_data)?;
         self.protocol.update_display(mode)?;
 
         Ok(())
@@ -149,7 +155,6 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
         mode: DisplayMode,
         scale_mode: crate::image_processing::ScaleMode,
         dither_mode: crate::image_processing::DitherMode,
-        transform: Option<Transform>,
     ) -> Result<(), DisplayError> {
         let spec = self.protocol.get_spec();
         let processor = crate::image_processing::ImageProcessor::new(spec.clone());
@@ -161,7 +166,6 @@ impl<P: EinkProtocol> DisplayDriver for GenericDisplay<P> {
             dither_mode,
             None, // brightness
             None, // contrast
-            transform,
             false, // invert
         )?;
 
@@ -286,14 +290,13 @@ pub fn display_image_auto(
     mode: DisplayMode,
     scale_mode: crate::image_processing::ScaleMode,
     dither_mode: crate::image_processing::DitherMode,
-    transform: Option<Transform>,
 ) -> Result<(), DisplayError> {
     let mut state = GLOBAL_STATE
         .lock()
         .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
 
     if let Some(display) = &mut state.display {
-        display.display_image_auto(filename, mode, scale_mode, dither_mode, transform)
+        display.display_image_auto(filename, mode, scale_mode, dither_mode)
     } else {
         Err(DisplayError::NotInitialized)
     }
@@ -367,28 +370,4 @@ pub fn display_get_dimensions() -> (u32, u32) {
 pub fn convert_png_to_1bit(filename: &str) -> Result<Vec<u8>, DisplayError> {
     // For backwards compatibility, use default firmware
     image::convert_png_to_1bit(filename)
-}
-
-/// Initialize display with custom firmware
-///
-/// # Errors
-///
-/// Returns `DisplayError` if initialization fails
-pub fn display_init_with_firmware<F: crate::firmware::DisplayFirmware + 'static>(
-    firmware: F,
-) -> Result<(), DisplayError> {
-    let state = GLOBAL_STATE
-        .lock()
-        .map_err(|e| DisplayError::Config(format!("Failed to acquire state lock: {e}")))?;
-
-    if state.display.is_none() {
-        let protocol = crate::protocol::create_protocol_with_firmware(firmware)?;
-        let mut display = GenericDisplay::new(protocol);
-        display.init()?;
-        // Note: This won't work directly due to type system constraints
-        // You'd need to use a trait object or enum for runtime firmware
-        // selection For now, this is a design template
-    }
-
-    Ok(())
 }

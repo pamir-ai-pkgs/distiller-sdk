@@ -63,7 +63,6 @@ pub use image_processing::{
     ScaleMode,
     ShapeDrawer,
     TextRenderer,
-    Transform,
 };
 pub use protocol::{DisplayMode, EinkProtocol};
 

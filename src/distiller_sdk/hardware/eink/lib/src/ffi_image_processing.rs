@@ -18,75 +18,10 @@ use crate::{
         ScaleMode,
         ShapeDrawer,
         TextRenderer,
-        Transform,
     },
 };
 
-// Transform operations
-
-/// Apply rotation transformation to 1-bit image data
-///
-/// # Safety
-///
-/// The caller must ensure:
-/// - `data` is a valid pointer to at least `(width * height) / 8` bytes
-/// - `output` is a valid pointer to at least `(new_width * new_height) / 8`
-///   bytes
-/// - All pointers remain valid for the duration of this call
-///
-/// # Parameters
-///
-/// - `data`: Input 1-bit image data
-/// - `width`: Image width in pixels
-/// - `height`: Image height in pixels
-/// - `rotation`: Rotation angle (0=90°, 1=180°, 2=270°)
-/// - `output`: Output buffer for transformed data
-///
-/// # Returns
-///
-/// 1 on success, 0 on failure
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn image_rotate_1bit(
-    data: *const u8,
-    width: c_uint,
-    height: c_uint,
-    rotation: c_int,
-    output: *mut u8,
-) -> c_int {
-    if data.is_null() || output.is_null() {
-        return 0;
-    }
-
-    let Ok(spec) = config::get_default_spec() else {
-        return 0;
-    };
-
-    let processor = ImageProcessor::new(spec);
-    let data_size = ((width * height) / 8) as usize;
-    let data_slice = unsafe { slice::from_raw_parts(data, data_size) };
-
-    let result = match rotation {
-        0 => processor.rotate_1bit_90(data_slice, width, height),
-        1 => {
-            // Rotate 180 = rotate 90 twice
-            let temp = processor.rotate_1bit_90(data_slice, width, height);
-            processor.rotate_1bit_90(&temp, height, width)
-        },
-        2 => {
-            // Rotate 270 = rotate 90 three times
-            let temp1 = processor.rotate_1bit_90(data_slice, width, height);
-            let temp2 = processor.rotate_1bit_90(&temp1, height, width);
-            processor.rotate_1bit_90(&temp2, width, height)
-        },
-        _ => return 0,
-    };
-
-    let output_size = result.len();
-    unsafe {
-        ptr::copy_nonoverlapping(result.as_ptr(), output, output_size);
-    }
-    1
-}
+// Dithering operations
 
 /// Invert a 1-bit image (swap black and white)
 ///
@@ -129,98 +64,6 @@ pub unsafe extern "C" fn image_invert_1bit(
     }
     1
 }
-
-/// Flip a 1-bit image horizontally (mirror left-right)
-///
-/// # Safety
-///
-/// The caller must ensure:
-/// - `data` is a valid pointer to at least `(width * height) / 8` bytes
-/// - `output` is a valid pointer to at least `(width * height) / 8` bytes
-/// - Both pointers remain valid for the duration of this call
-///
-/// # Parameters
-///
-/// - `data`: Input 1-bit image data
-/// - `width`: Image width in pixels
-/// - `height`: Image height in pixels
-/// - `output`: Output buffer for flipped data
-///
-/// # Returns
-///
-/// 1 on success, 0 on failure
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn image_flip_horizontal_1bit(
-    data: *const u8,
-    width: c_uint,
-    height: c_uint,
-    output: *mut u8,
-) -> c_int {
-    if data.is_null() || output.is_null() || width == 0 || height == 0 {
-        return 0;
-    }
-
-    let Ok(spec) = config::get_default_spec() else {
-        return 0;
-    };
-
-    let processor = ImageProcessor::new(spec);
-    let data_size = ((width * height) / 8) as usize;
-    let data_slice = unsafe { slice::from_raw_parts(data, data_size) };
-    let flipped = processor.flip_horizontal_1bit(data_slice, width, height);
-
-    unsafe {
-        ptr::copy_nonoverlapping(flipped.as_ptr(), output, data_size);
-    }
-    1
-}
-
-/// Flip a 1-bit image vertically (mirror top-bottom)
-///
-/// # Safety
-///
-/// The caller must ensure:
-/// - `data` is a valid pointer to at least `(width * height) / 8` bytes
-/// - `output` is a valid pointer to at least `(width * height) / 8` bytes
-/// - Both pointers remain valid for the duration of this call
-///
-/// # Parameters
-///
-/// - `data`: Input 1-bit image data
-/// - `width`: Image width in pixels
-/// - `height`: Image height in pixels
-/// - `output`: Output buffer for flipped data
-///
-/// # Returns
-///
-/// 1 on success, 0 on failure
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn image_flip_vertical_1bit(
-    data: *const u8,
-    width: c_uint,
-    height: c_uint,
-    output: *mut u8,
-) -> c_int {
-    if data.is_null() || output.is_null() || width == 0 || height == 0 {
-        return 0;
-    }
-
-    let Ok(spec) = config::get_default_spec() else {
-        return 0;
-    };
-
-    let processor = ImageProcessor::new(spec);
-    let data_size = ((width * height) / 8) as usize;
-    let data_slice = unsafe { slice::from_raw_parts(data, data_size) };
-    let flipped = processor.flip_vertical_1bit(data_slice, width, height);
-
-    unsafe {
-        ptr::copy_nonoverlapping(flipped.as_ptr(), output, data_size);
-    }
-    1
-}
-
-// Dithering operations
 
 /// Apply dithering to grayscale image data
 ///
@@ -301,8 +144,6 @@ pub unsafe extern "C" fn image_dither(
 /// - `dither_mode`: Dithering mode (0=Threshold, 1=FloydSteinberg, 2=Ordered)
 /// - `brightness`: Brightness adjustment (-100 to +100, or -999 for none)
 /// - `contrast`: Contrast adjustment (-100 to +100, or -999 for none)
-/// - `transform`: Transformation (0=None, 1=Rotate90, 2=Rotate180, 3=Rotate270,
-///   4=FlipH, 5=FlipV)
 /// - `invert`: Whether to invert the image (0=false, 1=true)
 /// - `output`: Output buffer for processed 1-bit data
 ///
@@ -316,7 +157,6 @@ pub unsafe extern "C" fn image_process(
     dither_mode: c_int,
     brightness: c_int,
     contrast: c_float,
-    transform: c_int,
     invert: c_int,
     output: *mut u8,
 ) -> c_int {
@@ -351,16 +191,6 @@ pub unsafe extern "C" fn image_process(
         _ => return 0,
     };
 
-    let transform_opt = match transform {
-        0 => None,
-        1 => Some(Transform::Rotate90),
-        2 => Some(Transform::Rotate180),
-        3 => Some(Transform::Rotate270),
-        4 => Some(Transform::FlipHorizontal),
-        5 => Some(Transform::FlipVertical),
-        _ => return 0,
-    };
-
     let brightness_opt = if brightness == -999 {
         None
     } else {
@@ -379,7 +209,6 @@ pub unsafe extern "C" fn image_process(
         dither,
         brightness_opt,
         contrast_opt,
-        transform_opt,
         invert != 0,
     ) {
         Ok(data) => {
@@ -439,7 +268,7 @@ pub unsafe extern "C" fn text_render(
         return 0;
     };
 
-    let renderer = TextRenderer::new(spec.height, spec.width);  // Landscape: 250x128
+    let renderer = TextRenderer::new(spec.width, spec.height);
     let scale = if scale == 0 { 1 } else { scale };
     let buffer = renderer.render_text(text_str, x, y, scale, invert != 0);
 
@@ -495,7 +324,7 @@ pub unsafe extern "C" fn text_overlay(
         return 0;
     };
 
-    let renderer = TextRenderer::new(spec.height, spec.width);  // Landscape: 250x128
+    let renderer = TextRenderer::new(spec.width, spec.height);
     let buffer_size = spec.array_size();
     let buffer_slice = unsafe { slice::from_raw_parts_mut(buffer, buffer_size) };
 

@@ -1,7 +1,7 @@
 //! Comprehensive image processing module for e-ink display
 //!
 //! This module provides a complete set of image processing operations optimized
-//! for 1-bit e-ink displays, including transformations, scaling, dithering,
+//! for 1-bit e-ink displays, including scaling, dithering,
 //! text rendering, and shape drawing.
 
 #![allow(clippy::cast_precision_loss)] // Expected for image scaling and coordinate calculations
@@ -16,21 +16,6 @@ include!("font_6x8.rs");
 // Font dimensions
 const FONT_WIDTH: u32 = 6;
 const FONT_HEIGHT: u32 = 8;
-
-/// Image transformation operations
-#[derive(Debug, Clone, Copy)]
-pub enum Transform {
-    /// Rotate 90 degrees clockwise
-    Rotate90,
-    /// Rotate 180 degrees
-    Rotate180,
-    /// Rotate 270 degrees clockwise (90 degrees counter-clockwise)
-    Rotate270,
-    /// Flip horizontally (mirror)
-    FlipHorizontal,
-    /// Flip vertically
-    FlipVertical,
-}
 
 /// Scaling modes for image resizing
 #[derive(Debug, Clone, Copy)]
@@ -83,18 +68,6 @@ impl ImageProcessor {
     pub fn load_image_from_memory(&self, data: &[u8]) -> Result<DynamicImage, DisplayError> {
         image::load_from_memory(data)
             .map_err(|e| DisplayError::Png(format!("Failed to decode image: {e}")))
-    }
-
-    /// Apply transformation to an image
-    #[must_use]
-    pub fn transform(&self, img: &DynamicImage, transform: Transform) -> DynamicImage {
-        match transform {
-            Transform::Rotate90 => img.rotate90(),
-            Transform::Rotate180 => img.rotate180(),
-            Transform::Rotate270 => img.rotate270(),
-            Transform::FlipHorizontal => img.fliph(),
-            Transform::FlipVertical => img.flipv(),
-        }
     }
 
     /// Scale image to display dimensions using the specified mode
@@ -297,7 +270,7 @@ impl ImageProcessor {
 
     /// Rotate 1-bit packed data by 90 degrees clockwise
     #[must_use]
-    pub fn rotate_1bit_90(&self, data: &[u8], width: u32, height: u32) -> Vec<u8> {
+    pub(crate) fn rotate_1bit_90(&self, data: &[u8], width: u32, height: u32) -> Vec<u8> {
         let new_width = height;
         let new_height = width;
         let mut output = vec![0u8; ((new_width * new_height) / 8) as usize];
@@ -314,62 +287,6 @@ impl ImageProcessor {
                 let dst_x = height - 1 - y;
                 let dst_y = x;
                 let dst_idx = (dst_y * new_width + dst_x) as usize;
-                let dst_byte_idx = dst_idx / 8;
-                let dst_bit_idx = dst_idx % 8;
-
-                if bit_value == 1 {
-                    output[dst_byte_idx] |= 1 << (7 - dst_bit_idx);
-                }
-            }
-        }
-
-        output
-    }
-
-    /// Flip 1-bit image horizontally (mirror left-right)
-    #[must_use]
-    pub fn flip_horizontal_1bit(&self, data: &[u8], width: u32, height: u32) -> Vec<u8> {
-        let mut output = vec![0u8; ((width * height) / 8) as usize];
-
-        for y in 0..height {
-            for x in 0..width {
-                // Get source bit
-                let src_idx = (y * width + x) as usize;
-                let src_byte_idx = src_idx / 8;
-                let src_bit_idx = src_idx % 8;
-                let bit_value = (data[src_byte_idx] >> (7 - src_bit_idx)) & 1;
-
-                // Calculate flipped position (mirror horizontally)
-                let dst_x = width - 1 - x;
-                let dst_idx = (y * width + dst_x) as usize;
-                let dst_byte_idx = dst_idx / 8;
-                let dst_bit_idx = dst_idx % 8;
-
-                if bit_value == 1 {
-                    output[dst_byte_idx] |= 1 << (7 - dst_bit_idx);
-                }
-            }
-        }
-
-        output
-    }
-
-    /// Flip 1-bit image vertically (mirror top-bottom)
-    #[must_use]
-    pub fn flip_vertical_1bit(&self, data: &[u8], width: u32, height: u32) -> Vec<u8> {
-        let mut output = vec![0u8; ((width * height) / 8) as usize];
-
-        for y in 0..height {
-            for x in 0..width {
-                // Get source bit
-                let src_idx = (y * width + x) as usize;
-                let src_byte_idx = src_idx / 8;
-                let src_bit_idx = src_idx % 8;
-                let bit_value = (data[src_byte_idx] >> (7 - src_bit_idx)) & 1;
-
-                // Calculate flipped position (mirror vertically)
-                let dst_y = height - 1 - y;
-                let dst_idx = (dst_y * width + x) as usize;
                 let dst_byte_idx = dst_idx / 8;
                 let dst_bit_idx = dst_idx % 8;
 
@@ -420,7 +337,6 @@ impl ImageProcessor {
     /// # Errors
     ///
     /// Returns `DisplayError::Png` if image processing fails
-    #[allow(clippy::too_many_arguments)]
     pub fn process_image(
         &self,
         path: &str,
@@ -428,16 +344,10 @@ impl ImageProcessor {
         dither_mode: DitherMode,
         brightness: Option<i32>,
         contrast: Option<f32>,
-        transform: Option<Transform>,
         invert: bool,
     ) -> Result<Vec<u8>, DisplayError> {
         // Load image
         let mut img = self.load_image(path)?;
-
-        // Apply transformation if specified
-        if let Some(t) = transform {
-            img = self.transform(&img, t);
-        }
 
         // Adjust brightness if specified
         if let Some(b) = brightness {
@@ -681,8 +591,8 @@ mod tests {
     #[test]
     fn test_pack_unpack_1bit() {
         let spec = DisplaySpec {
-            width: 128,
-            height: 250,
+            width: 250,
+            height: 128,
             name: "Test".to_string(),
             description: "Test display".to_string(),
         };
@@ -698,8 +608,8 @@ mod tests {
     #[test]
     fn test_invert_1bit() {
         let spec = DisplaySpec {
-            width: 128,
-            height: 250,
+            width: 250,
+            height: 128,
             name: "Test".to_string(),
             description: "Test display".to_string(),
         };

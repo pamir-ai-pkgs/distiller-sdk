@@ -10,7 +10,6 @@ use crate::{
     config,
     display,
     error::DisplayError,
-    image_processing::Transform,
     protocol::DisplayMode,
 };
 
@@ -212,8 +211,6 @@ pub unsafe extern "C" fn display_image_file(filename: *const c_char, mode: c_int
 /// - `scale_mode`: Scale mode (0 = Letterbox, 1 = `CropCenter`, 2 = Stretch)
 /// - `dither_mode`: Dither mode (0 = Threshold, 1 = `FloydSteinberg`, 2 =
 ///   Ordered)
-/// - `transform`: Transform mode (0 = None, 1 = Rotate90, 2 = Rotate180, 3 =
-///   Rotate270, 4 = `FlipHorizontal`, 5 = `FlipVertical`)
 ///
 /// # Returns
 ///
@@ -225,7 +222,6 @@ pub unsafe extern "C" fn display_image_auto(
     mode: c_int,
     scale_mode: c_int,
     dither_mode: c_int,
-    transform: c_int,
 ) -> c_int {
     if filename.is_null() {
         return ERR_INVALID_DATA;
@@ -255,17 +251,7 @@ pub unsafe extern "C" fn display_image_auto(
         _ => return ERR_INVALID_DATA,
     };
 
-    let transform_opt = match transform {
-        0 => None,
-        1 => Some(Transform::Rotate90),
-        2 => Some(Transform::Rotate180),
-        3 => Some(Transform::Rotate270),
-        4 => Some(Transform::FlipHorizontal),
-        5 => Some(Transform::FlipVertical),
-        _ => return ERR_INVALID_DATA,
-    };
-
-    match display::display_image_auto(filename_str, display_mode, scale, dither, transform_opt) {
+    match display::display_image_auto(filename_str, display_mode, scale, dither) {
         Ok(()) => SUCCESS,
         Err(e) => {
             log::error!("Display image auto failed: {e}");
@@ -394,96 +380,6 @@ pub unsafe extern "C" fn convert_png_to_1bit(
         },
         Err(e) => {
             log::error!("Convert PNG to 1bit failed: {e}");
-            error_to_code(&e)
-        },
-    }
-}
-
-// Configuration FFI functions
-
-/// Set the display firmware type.
-///
-/// # Safety
-///
-/// The caller must ensure:
-/// - `firmware_str` is a valid pointer to a null-terminated C string
-/// - The string remains valid for the duration of this call
-///
-/// # Parameters
-///
-/// - `firmware_str`: Firmware type name (e.g., `"EPD128x250"`, `"EPD240x416"`)
-///
-/// # Returns
-///
-/// - 1 on success
-/// - Negative error code on failure (see error constants)
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn display_set_firmware(firmware_str: *const c_char) -> c_int {
-    if firmware_str.is_null() {
-        return ERR_INVALID_DATA;
-    }
-
-    let firmware_str = unsafe {
-        match CStr::from_ptr(firmware_str).to_str() {
-            Ok(s) => s,
-            Err(_) => return ERR_INVALID_DATA,
-        }
-    };
-
-    match config::set_default_firmware_from_str(firmware_str) {
-        Ok(()) => SUCCESS,
-        Err(e) => {
-            log::error!("Failed to set firmware: {e}");
-            error_to_code(&e)
-        },
-    }
-}
-
-/// Get the current display firmware type.
-///
-/// # Safety
-///
-/// The caller must ensure:
-/// - `firmware_str` is a valid pointer to at least `max_len` bytes of writable
-///   memory
-/// - The pointer remains valid for the duration of this call
-///
-/// # Parameters
-///
-/// - `firmware_str`: Output buffer for firmware type name
-/// - `max_len`: Maximum length of the output buffer
-///
-/// # Returns
-///
-/// - 1 on success
-/// - Negative error code on failure (see error constants)
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn display_get_firmware(firmware_str: *mut c_char, max_len: c_uint) -> c_int {
-    if firmware_str.is_null() || max_len == 0 {
-        return ERR_INVALID_DATA;
-    }
-
-    match config::get_default_firmware() {
-        Ok(firmware_type) => {
-            let firmware_name = firmware_type.as_str();
-            let name_bytes = firmware_name.as_bytes();
-
-            if name_bytes.len() + 1 > max_len as usize {
-                return ERR_INVALID_DATA; // Buffer too small
-            }
-
-            unsafe {
-                ptr::copy_nonoverlapping(
-                    name_bytes.as_ptr(),
-                    firmware_str.cast::<u8>(),
-                    name_bytes.len(),
-                );
-                *firmware_str.add(name_bytes.len()) = 0; // Null terminator
-            }
-            SUCCESS
-        },
-        Err(e) => {
-            log::error!("Failed to get firmware: {e}");
             error_to_code(&e)
         },
     }
