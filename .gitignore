@@ -53,3 +53,4 @@ debian/files
 .agents/
 .sisyphus/
 .claude/
+AGENTS.md
