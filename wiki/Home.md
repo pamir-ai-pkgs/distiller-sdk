@@ -7,7 +7,7 @@ AI capabilities for multiple ARM64 platforms.
 
 - [Installation Guide](Installation) - Get started with the SDK
 - [Hardware Modules](Hardware-Modules) - Control hardware components
-- [AI Modules](AI-Modules) - Speech recognition and synthesis
+- [AI Modules](AI-Modules) - Speech modules (deprecated — see distiller-cc)
 - [API Reference](API-Reference) - Complete API documentation
 - [Troubleshooting](Troubleshooting) - Common issues and solutions
 - [Development Guide](Development-Guide) - Development workflow
@@ -23,19 +23,12 @@ The Distiller SDK is a Python package that provides:
 - **E-ink Display** - Native driver for EPD128x250 (native 128×250, mounted 250×128) and EPD240x416 displays
 - **RGB LEDs** - Kernel-based animation modes with Linux LED trigger support
 
-### AI Capabilities
-
-- **Parakeet** - Real-time ASR with Voice Activity Detection
-- **Piper** - Text-to-speech engine
-- **Whisper** - Advanced ASR (optional)
-
 ## Key Features
 
 - **System-wide Installation** - Installed at `/opt/distiller-sdk/`
 - **uv Package Management** - Modern Python dependency management
 - **Native Libraries** - Optimized C libraries for hardware control
 - **Comprehensive API** - Pythonic interfaces for all hardware
-- **Built-in Models** - Pre-packaged AI models ready to use
 
 ## Requirements
 
@@ -50,26 +43,28 @@ The Distiller SDK is a Python package that provides:
 ```python
 from distiller_sdk.hardware.audio import Audio
 from distiller_sdk.hardware.eink import Display, DisplayMode
-from distiller_sdk.parakeet import Parakeet
-from distiller_sdk.piper import Piper
+from distiller_sdk.hardware.camera import Camera
+from distiller_sdk.hardware.sam import LED
 
 # Initialize hardware
 audio = Audio()
 display = Display()
-asr = Parakeet()
-tts = Piper()
+camera = Camera()
+led = LED(use_sudo=True)
 
-# Record speech and transcribe
-for text in asr.record_and_transcribe_ptt():
-    print(f"You said: {text}")
+# Capture and display image
+led.set_rgb_color(0, 0, 0, 255)  # Blue — capturing
+image = camera.capture_image("/tmp/photo.jpg")
 
-    # Display on E-ink
-    display.clear()
-    buffer = display.render_text(text, x=10, y=10, scale=2)
-    display.display_image_auto(buffer, mode=DisplayMode.FULL)
+display.display_image_auto("/tmp/photo.jpg", mode=DisplayMode.FULL)
 
-    # Speak response
-    tts.speak_stream(f"You said: {text}")
+led.set_rgb_color(0, 0, 255, 0)  # Green — done
+
+# Cleanup
+camera.close()
+audio.close()
+display.close()
+led.turn_off_all()
 ```
 
 ## Documentation Structure
@@ -78,7 +73,7 @@ This wiki is organized into the following sections:
 
 1. **[Installation](Installation)** - Step-by-step installation instructions
 2. **[Hardware Modules](Hardware-Modules)** - Detailed hardware component documentation
-3. **[AI Modules](AI-Modules)** - AI model usage and configuration
+3. **[AI Modules](AI-Modules)** - Speech modules (deprecated — see distiller-cc >= 6.0.0)
 4. **[API Reference](API-Reference)** - Complete API documentation with examples
 5. **[Troubleshooting](Troubleshooting)** - Solutions to common problems
 6. **[Development Guide](Development-Guide)** - Contributing and development workflow

@@ -37,6 +37,15 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 
 	cp "$CONFIG_FILE" /opt/distiller-sdk/eink.conf
 
+	# Clean up TTS/STT files from SDK versions < 4.0.0
+	if [ -n "${2:-}" ] && dpkg --compare-versions "${2:-}" lt "4.0.0"; then
+		echo "INFO: Removing TTS/STT modules (moved to distiller-cc skills)..."
+		rm -rf /opt/distiller-sdk/src/distiller_sdk/parakeet
+		rm -rf /opt/distiller-sdk/src/distiller_sdk/piper
+		rm -rf /opt/distiller-sdk/src/distiller_sdk/whisper
+		echo "INFO: TTS/STT cleanup complete. Install distiller-cc >= 6.0.0 for speech skills."
+	fi
+
 	cd /opt/distiller-sdk
 
 	[ -d ".venv" ] && rm -rf ".venv"

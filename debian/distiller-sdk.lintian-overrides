@@ -2,14 +2,7 @@
 # This is a proprietary SDK for Pamir AI Distiller edge devices, not intended for Debian main
 distiller-sdk: dir-or-file-in-opt
 
-# Pre-built Piper TTS binaries from upstream (rhasspy/piper)
-# These are third-party binaries with build-time RPATH that cannot be easily patched
-distiller-sdk: custom-library-search-path *piper*
-distiller-sdk: unstripped-binary-or-object *piper*
-
 # Rust library built as part of SDK, hardening applied where possible
-distiller-sdk: hardening-no-pie *piper/piper*
-
 # Symlink in /usr/lib for system library discovery, intentional ldconfig trigger
 distiller-sdk: package-has-unnecessary-activation-of-ldconfig-trigger
 

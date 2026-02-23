@@ -33,8 +33,7 @@ Replaces: distiller-cm5-sdk (<< 3.0.0)
 Breaks: distiller-cm5-sdk (<< 3.0.0)
 Description: Distiller SDK - Universal ARM64 SDK for hardware control
  The Distiller SDK provides a self-contained Python environment with
- modules, model files, and native libraries for audio, camera, e-ink display,
- and TTS/ASR capabilities.
+ modules and native libraries for audio, camera, e-ink display, and LED control.
  .
  This universal package automatically detects and configures for:
   - Raspberry Pi CM5

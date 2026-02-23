@@ -178,9 +178,9 @@ jobs:
             
             ## Features
             - Hardware control (Audio, Camera, E-ink Display, LED)
-            - AI capabilities (Parakeet ASR, Piper TTS)
             - Computer vision processing
             - Self-contained installation with all dependencies
+            - Speech capabilities available via distiller-cc >= 6.0.0
             
             ## Installation
             ```bash
@@ -203,16 +203,16 @@ jobs:
             ## Usage
             ```python
             from distiller_sdk.hardware.audio import Audio
-            from distiller_sdk.parakeet import Parakeet
-            from distiller_sdk.piper import Piper
-            
-            # Initialize audio levels
+            from distiller_sdk.hardware.eink import Display
+            from distiller_sdk.hardware.sam import LED
+
+            # Initialize audio
             Audio.set_mic_gain_static(85)
             Audio.set_speaker_volume_static(70)
-            
-            # Use ASR and TTS
-            asr = Parakeet()
-            tts = Piper()
+
+            # Control hardware
+            display = Display()
+            led = LED(use_sudo=True)
             ```
             
             Built automatically with GitHub Actions.

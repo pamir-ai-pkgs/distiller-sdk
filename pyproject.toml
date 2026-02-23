@@ -5,7 +5,7 @@ requires = [ "setuptools>=61", "wheel" ]
 
 [project]
 name = "distiller-sdk"
-version = "3.4.0"
+version = "4.0.0"
 readme = "README.md"
 authors = [
   { name = "PamirAI Incorporated", email = "support@pamir.ai" },
@@ -19,14 +19,10 @@ classifiers = [
 ]
 dependencies = [
   "build>=1.2.2.post1",
-  "faster-whisper>=1.1.1",
   "opencv-python>=4.11.0.86",
   "pyaudio>=0.2.14",
   "pyserial>=3.5",
   "qrcode[pil]>=8.2",
-  "sherpa-onnx<1.12.7",
-  "sounddevice>=0.5.2",
-  "soundfile>=0.13.1",
   "spidev>=3.7",
   "numpy>=1.26",
 ]
@@ -47,10 +43,6 @@ exclude = [ "*.tests", "*.tests.*", "tests.*", "tests" ]
 [tool.setuptools.package-data]
 "distiller_sdk" = [
   "hardware/eink/lib/*.so",
-  "parakeet/models/**/*",
-  "piper/models/**/*",
-  "piper/models/piper/**/*",
-  "whisper/models/**/*",
   "hardware/audio/test_audio.wav",
 ]
 

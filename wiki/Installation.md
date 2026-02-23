@@ -77,17 +77,7 @@ cd distiller-sdk
 chmod +x build.sh
 ```
 
-3. **Download AI models**:
-
-```bash
-# Standard models (Parakeet, Piper)
-./build.sh
-
-# Include Whisper models (larger download)
-./build.sh --whisper
-```
-
-4. **Build the Debian package**:
+3. **Build the Debian package**:
 
 ```bash
 # Standard build
@@ -95,11 +85,9 @@ just build
 
 # Clean rebuild
 just clean && just build
-
-# Note: To include Whisper models, run ./build.sh --whisper before just build
 ```
 
-5. **Install the package**:
+4. **Install the package**:
 
 ```bash
 sudo dpkg -i dist/distiller-sdk_*_arm64.deb
@@ -163,24 +151,6 @@ python -m distiller_sdk.hardware.camera._camera_unit_test
 python -m distiller_sdk.hardware.eink._display_test
 ```
 
-### 4. Test AI Models
-
-**Parakeet ASR**:
-
-```python
-from distiller_sdk.parakeet import Parakeet
-asr = Parakeet()
-print("Parakeet loaded successfully!")
-```
-
-**Piper TTS**:
-
-```python
-from distiller_sdk.piper import Piper
-tts = Piper()
-tts.speak_stream("Hello, world!")
-```
-
 ## Integration with Other Projects
 
 ### For Python Projects
@@ -193,7 +163,6 @@ sys.path.insert(0, '/opt/distiller-sdk')
 
 # Now import SDK modules
 from distiller_sdk.hardware.audio import Audio
-from distiller_sdk.parakeet import Parakeet
 ```
 
 ### For System Services
@@ -304,6 +273,6 @@ sudo apt-get install -f
 ## Next Steps
 
 - [Hardware Modules](Hardware-Modules) - Learn to control hardware components
-- [AI Modules](AI-Modules) - Use speech recognition and synthesis
+- [AI Modules](AI-Modules) - Speech modules (deprecated — see distiller-cc)
 - [API Reference](API-Reference) - Explore the complete API
 - [Troubleshooting](Troubleshooting) - Solve common issues

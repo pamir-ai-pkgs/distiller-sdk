@@ -3,6 +3,10 @@
 Python SDK for the Distiller platform (Raspberry Pi CM5, Radxa Zero 3/3W, ArmSom CM5 IO), providing hardware control,
 audio processing, computer vision, and AI capabilities using **uv** package management.
 
+> **Breaking change in 4.0.0**: Speech processing (Parakeet ASR, Piper TTS, Whisper) has been removed from the SDK.
+> Speech is now available as Claude Code skills in `distiller-cc >= 6.0.0`.
+> Run `/ai-speech-recognition` or `/ai-text-to-speech` in Claude Code to set up and use speech features.
+
 ## Quick Start
 
 ### Prerequisites
@@ -19,8 +23,8 @@ git clone https://github.com/pamir-ai-pkgs/distiller-sdk.git
 cd distiller-sdk
 chmod +x build.sh
 
-# Download models and build package
-./build.sh                    # Download models (excluding Whisper)
+# Build Rust library and package
+./build.sh                    # Build Rust e-ink library
 just build                    # Build Debian package
 
 # Install
@@ -37,14 +41,8 @@ python -c "import distiller_sdk; print('SDK imported successfully!')"
 ```text
 /opt/distiller-sdk/
 ├── src/distiller_sdk/    # Python SDK modules
-│   ├── hardware/         # Hardware control
-│   ├── parakeet/         # ASR + VAD
-│   │   └── models/       # Parakeet ASR models
-│   ├── piper/            # TTS engine
-│   │   └── models/       # Piper TTS models
-│   └── whisper/          # Whisper ASR (optional)
-│       └── models/       # Whisper models (optional)
-├── lib/                  # Native libraries
+│   └── hardware/         # Hardware control (audio, camera, e-ink, LED)
+├── lib/                  # Native libraries (e-ink display)
 ├── .venv/                # Virtual environment (uv-managed)
 └── activate.sh           # Environment activation
 ```
@@ -82,15 +80,12 @@ uv tree                  # Show dependencies
 ### Build from Source
 
 ```bash
-# Download models
-./build.sh               # Standard models
-./build.sh --whisper     # Include Whisper
+# Build Rust library
+./build.sh
 
 # Build Debian package
-just build               # Standard build (includes models from ./build.sh)
+just build
 just clean               # Clean artifacts
-
-# Note: To include Whisper models, run ./build.sh --whisper before just build
 ```
 
 ## SDK Modules
@@ -328,79 +323,6 @@ led.fade_led(led_id=1, red=0, green=0, blue=255, timing=2000)    # Slow blue fad
 available = led.get_available_leds()  # Returns list of LED IDs
 ```
 
-### Parakeet ASR (with VAD)
-
-```python
-from distiller_sdk.parakeet import Parakeet
-
-# Initialize
-asr = Parakeet()
-
-# Push-to-talk recording and transcription
-for text in asr.record_and_transcribe_ptt():
-    print(f"Transcribed: {text}")
-
-# Automatic recording with VAD (Voice Activity Detection)
-for text in asr.auto_record_and_transcribe():
-    print(f"Transcribed: {text}")
-
-# Manual recording control
-asr.start_recording()
-# ... speak ...
-audio_data = asr.stop_recording()
-
-# Transcribe the recorded audio
-for text in asr.transcribe_buffer(audio_data):
-    print(f"Transcribed: {text}")
-
-# Cleanup
-asr.cleanup()
-```
-
-### Piper TTS
-
-```python
-from distiller_sdk.piper import Piper
-
-# Initialize
-tts = Piper()
-
-# Stream speech directly to speakers
-tts.speak_stream("Hello, world!", volume=50)
-
-# Stream with specific sound card
-tts.speak_stream("Hello", volume=30, sound_card_name="snd_pamir_ai_soundcard")
-
-# Get WAV file (saves to current directory as output.wav)
-wav_path = tts.get_wav_file_path("Hello, this is a test")
-print(f"WAV file saved to: {wav_path}")
-
-# List available voices
-voices = tts.list_voices()
-for voice in voices:
-    print(f"Voice: {voice['name']}, Language: {voice['language']}")
-# Note: Currently only 'en_US-amy-medium' is available
-```
-
-### Whisper ASR (Optional)
-
-```python
-from distiller_sdk.whisper import Whisper
-
-# Initialize (requires models)
-whisper = Whisper(model_size="base")
-
-# Transcribe
-text = whisper.transcribe_file("audio.wav")
-
-# With options
-result = whisper.transcribe_file(
-    "audio.wav",
-    language="en",
-    task="transcribe"  # or "translate"
-)
-```
-
 ### Hardware Manager Pattern
 
 ```python
@@ -466,20 +388,12 @@ if manager.initialize():
 
 ## Build & Deployment
 
-### Model Downloads
+### Build Process
 
 ```bash
-./build.sh              # Standard models (~200MB)
-./build.sh --whisper    # Include Whisper (~500MB+)
-```
-
-### Package Build
-
-```bash
+./build.sh             # Build Rust e-ink library
 just build             # Build .deb package
 just clean && just build  # Clean rebuild
-
-# Note: To include Whisper, run ./build.sh --whisper before just build
 ```
 
 ### Installation
@@ -565,7 +479,7 @@ sudo usermod -a -G audio,video,spi,gpio,i2c $USER
 dpkg -L distiller-sdk
 
 # Verify imports
-python -c "from distiller_sdk.hardware.audio import Audio; from distiller_sdk.hardware.camera import Camera; from distiller_sdk.hardware.eink import Display; from distiller_sdk.parakeet import Parakeet; from distiller_sdk.piper import Piper; print('All imports successful!')"
+python -c "from distiller_sdk.hardware.audio import Audio; from distiller_sdk.hardware.camera import Camera; from distiller_sdk.hardware.eink import Display; from distiller_sdk.hardware.sam import LED; print('All imports successful!')"
 
 # Test hardware
 python -m distiller_sdk.hardware.audio._audio_test

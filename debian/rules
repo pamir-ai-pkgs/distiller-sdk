@@ -7,8 +7,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 override_dh_auto_build:
 	# Build step is handled by Justfile prepare recipe which runs build.sh to:
-	# 1. Download AI models from HuggingFace
-	# 2. Build the Rust e-ink display library for ARM64
+	# 1. Build the Rust e-ink display library for ARM64
 	# This ensures all assets are ready for packaging
 	true
 
@@ -55,7 +54,7 @@ override_dh_fixperms:
 
 override_dh_strip:
 	# Strip locally-built Rust library
-	dh_strip --exclude=piper/ --no-automatic-dbgsym
+	dh_strip --no-automatic-dbgsym
 
 override_dh_shlibdeps:
-	dh_shlibdeps --exclude=piper/ --exclude=libdistiller_display_sdk_shared.so
+	dh_shlibdeps --exclude=libdistiller_display_sdk_shared.so

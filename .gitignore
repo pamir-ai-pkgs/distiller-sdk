@@ -19,17 +19,10 @@ sdist/
 venv/
 
 # Output files
-src/distiller_sdk/piper/output.wav
 src/distiller_sdk/hardware/camera/camera_test_output/
 src/distiller_sdk/hardware/eink/lib/target
 src/distiller_sdk/hardware/eink/lib/target-build
 src/distiller_sdk/hardware/eink/lib/Cargo.lock
-
-# Large model/data files (uncomment if you download these instead of checking in)
-src/distiller_sdk/piper/models/
-src/distiller_sdk/piper/piper/
-src/distiller_sdk/whisper/models/
-src/distiller_sdk/parakeet/models/
 
 # OS generated files
 .DS_Store

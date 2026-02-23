@@ -232,73 +232,6 @@ class LED:
         """Get available triggers for LED."""
 ```
 
-## AI APIs
-
-### Parakeet Class
-
-```python
-from distiller_sdk.parakeet import Parakeet
-
-class Parakeet:
-    def __init__(self, vad_threshold: float = 0.5,
-                min_speech_duration: float = 0.3,
-                max_silence_duration: float = 0.5):
-        """Initialize ASR with VAD."""
-
-    def record_and_transcribe_ptt(self) -> Generator[str, None, None]:
-        """Push-to-talk recording and transcription."""
-
-    def auto_record_and_transcribe(self) -> Generator[str, None, None]:
-        """Automatic VAD-based recording and transcription."""
-
-    def start_recording(self) -> None:
-        """Start manual recording."""
-
-    def stop_recording(self) -> bytes:
-        """Stop recording and return audio."""
-
-    def transcribe_buffer(self, audio_data: bytes) -> Generator[str, None, None]:
-        """Transcribe audio buffer."""
-
-    def cleanup(self) -> None:
-        """Release ASR resources."""
-```
-
-### Piper Class
-
-```python
-from distiller_sdk.piper import Piper
-
-class Piper:
-    def __init__(self):
-        """Initialize TTS engine."""
-
-    def speak_stream(self, text: str, volume: int = 50,
-                    sound_card_name: str = None) -> None:
-        """Stream speech to speakers."""
-
-    def get_wav_file_path(self, text: str) -> str:
-        """Generate WAV file and return path."""
-
-    def list_voices(self) -> List[Dict[str, str]]:
-        """List available voices."""
-```
-
-### Whisper Class
-
-```python
-from distiller_sdk.whisper import Whisper
-
-class Whisper:
-    def __init__(self, model_size: str = "base"):
-        """Initialize Whisper ASR."""
-
-    def transcribe_file(self, filepath: str,
-                       language: str = None,
-                       task: str = "transcribe") -> Union[str, Dict]:
-        """Transcribe audio file."""
-```
-
 ## Enums and Constants
 
 ### DisplayMode
@@ -363,11 +296,6 @@ ValueError       # Invalid parameter
 # File errors
 FileNotFoundError  # File doesn't exist
 PermissionError    # Insufficient permissions
-
-# AI model errors
-ModelNotFoundError  # Model files missing
-TranscriptionError  # ASR failed
-SynthesisError      # TTS failed
 ```
 
 Example error handling:

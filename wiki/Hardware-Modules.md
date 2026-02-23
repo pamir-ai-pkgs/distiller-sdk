@@ -411,6 +411,6 @@ python -m distiller_sdk.hardware.eink._interactive_mode_test
 
 ## Next Steps
 
-- [AI Modules](AI-Modules) - Speech recognition and synthesis
+- [AI Modules](AI-Modules) - Speech modules (deprecated — see distiller-cc)
 - [API Reference](API-Reference) - Complete API documentation
 - [Troubleshooting](Troubleshooting) - Common hardware issues

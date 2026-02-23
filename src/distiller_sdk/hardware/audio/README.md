@@ -15,8 +15,7 @@ supports:
 ## Overview
 
 The Audio class provides both instance and static methods for audio control. Static methods are
-particularly useful when you need to adjust audio settings without creating an Audio instance, such
-as when integrating with other modules like Parakeet ASR or Piper TTS.
+particularly useful when you need to adjust audio settings without creating an Audio instance.
 
 ## Prerequisites
 
@@ -586,44 +585,6 @@ convert_audio_format("high_quality.wav", "speech_ready.wav", 16000, 1)
 ```
 
 ## Integration Examples
-
-### With ASR Modules
-
-```python
-from distiller_sdk.hardware.audio import Audio
-from distiller_sdk.parakeet import Parakeet
-
-# Set optimal audio levels for speech recognition
-Audio.set_mic_gain_static(85)
-
-# Record audio
-audio = Audio()
-audio.record("speech.wav", duration=5)
-
-# Transcribe
-parakeet = Parakeet()
-for text in parakeet.transcribe("speech.wav"):
-    print(f"Transcribed: {text}")
-
-audio.close()
-parakeet.cleanup()
-```
-
-### With TTS Module
-
-```python
-from distiller_sdk.hardware.audio import Audio
-from distiller_sdk.piper import Piper
-
-# Set speaker volume for TTS
-Audio.set_speaker_volume_static(60)
-
-# Initialize TTS
-piper = Piper()
-
-# Speak with controlled volume
-piper.speak_stream("Hello from the audio system!", volume=50)
-```
 
 ### Audio Monitoring System
 

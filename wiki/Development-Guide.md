@@ -87,9 +87,6 @@ distiller-sdk/
 │   │   ├── eink/          # E-ink display driver
 │   │   │   └── lib/       # Native Rust library
 │   │   └── sam/           # LED control
-│   ├── parakeet/          # ASR with VAD
-│   ├── piper/             # TTS engine
-│   └── whisper/           # Whisper ASR (optional)
 ├── tests/                  # Test files
 ├── build.sh               # Model download script
 ├── Justfile               # Build system with recipes
@@ -291,19 +288,6 @@ ignore = ["E501"]  # Line too long
 
 ## Building Packages
 
-### Download Models
-
-```bash
-# Standard models
-./build.sh
-
-# Include Whisper
-./build.sh --whisper
-
-# Custom model directory
-./build.sh --model-dir /custom/path
-```
-
 ### Build Debian Package
 
 ```bash
@@ -312,8 +296,6 @@ just build
 
 # Clean rebuild
 just clean && just build
-
-# Note: To include Whisper, run ./build.sh --whisper before just build
 
 # Test package
 sudo dpkg -i dist/distiller-sdk_*.deb
@@ -353,23 +335,6 @@ gdb python
 (gdb) run -c "from distiller_sdk.hardware.eink import Display; d = Display()"
 (gdb) break function_name
 (gdb) continue
-```
-
-### Memory Profiling
-
-```python
-import tracemalloc
-tracemalloc.start()
-
-# Your code here
-from distiller_sdk.parakeet import Parakeet
-asr = Parakeet()
-
-# Get memory usage
-current, peak = tracemalloc.get_traced_memory()
-print(f"Current: {current / 1024**2:.1f} MB")
-print(f"Peak: {peak / 1024**2:.1f} MB")
-tracemalloc.stop()
 ```
 
 ## Contributing
@@ -473,4 +438,4 @@ gh release create v3.3.0 dist/*.deb
 
 - [API Reference](API-Reference) - Complete API documentation
 - [Hardware Modules](Hardware-Modules) - Hardware interfaces
-- [AI Modules](AI-Modules) - AI capabilities
+- [AI Modules](AI-Modules) - Speech modules (deprecated — see distiller-cc)

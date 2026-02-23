@@ -34,38 +34,20 @@ Directory Structure
 /opt/distiller-sdk/
 ├── .venv/                   # Python virtual environment (uv-managed)
 ├── src/distiller_sdk/       # SDK Python source code
-├── lib/                     # Native shared libraries
-├── models/                  # AI model files
-│   ├── parakeet/           # ASR models + VAD
-│   ├── piper/              # TTS models and executables
-│   └── whisper/            # Whisper models (optional)
+│   └── hardware/           # Hardware control modules
+├── lib/                     # Native shared libraries (e-ink display)
 ├── configs/                 # Platform-specific configurations
 ├── activate.sh             # Environment activation script
 ├── pyproject.toml          # Project configuration
 └── uv.lock                 # Dependency lock file
+
+Note: Speech features (ASR, TTS) have been moved to distiller-cc >= 6.0.0 skills.
 
 Usage Examples
 -------------
 
 ```python
 # Activate environment first: source /opt/distiller-sdk/activate.sh
-
-# Use Whisper for speech recognition
-from distiller_sdk.whisper import Whisper
-whisper_asr = Whisper()
-for text in whisper_asr.transcribe("speech.wav"):
-    print(text)
-
-# Use Parakeet for ASR with Voice Activity Detection
-from distiller_sdk.parakeet import Parakeet
-parakeet_asr = Parakeet(vad_silence_duration=0.5)
-for text in parakeet_asr.auto_record_and_transcribe():
-    print(f"Transcribed: {text}")
-
-# Use Piper for text-to-speech
-from distiller_sdk.piper import Piper
-tts = Piper()
-tts.speak_stream("Hello, world!", volume=50)
 
 # Use E-ink display
 from distiller_sdk.hardware.eink import Display, DisplayMode
@@ -102,11 +84,6 @@ Hardware Control:
 - E-ink Display: EPD128x250 (250×128) and EPD240x416 support
 - Camera: rpicam-apps-based capture for Raspberry Pi
 - LED: RGB LED control via sysfs interface
-
-AI Capabilities:
-- Parakeet: Real-time ASR with Voice Activity Detection
-- Piper: High-quality text-to-speech synthesis
-- Whisper: Advanced ASR (optional, larger models)
 
 Package Management:
 - Uses uv for fast, reliable dependency management

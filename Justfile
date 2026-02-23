@@ -34,5 +34,5 @@ fix:
     uv run ruff format .
 
 # SDK-specific recipes
-prepare whisper="":
-    ./build.sh {{ whisper }}
+prepare:
+    ./build.sh

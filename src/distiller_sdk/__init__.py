@@ -8,25 +8,6 @@ except PackageNotFoundError:
     __version__ = "dev"
 
 
-def get_model_path(module_name):
-    """
-    Get the correct model path for a given module.
-
-    Args:
-        module_name (str): Name of the module (e.g., 'whisper', 'parakeet', 'piper')
-
-    Returns:
-        str: Path to the models directory
-    """
-    # First check if we're in a Debian package installation
-    debian_path = f"/opt/distiller-sdk/src/distiller_sdk/{module_name}/models"
-    if os.path.exists(debian_path):
-        return debian_path
-
-    # Fall back to relative path for development
-    return os.path.join(os.path.dirname(__file__), module_name, "models")
-
-
 def get_library_path():
     """
     Get the correct library path for native libraries.
