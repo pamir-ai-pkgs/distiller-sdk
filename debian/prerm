@@ -1,47 +1,8 @@
 #!/bin/sh
 set -e
 
-find_sdk_python_pids() {
-	for proc_dir in /proc/[0-9]*; do
-		pid=${proc_dir##*/}
-
-		[ "$pid" = "$$" ] && continue
-
-		cmdline_file="$proc_dir/cmdline"
-		if [ -r "$cmdline_file" ]; then
-			cmdline=$(tr '\0' ' ' < "$cmdline_file" 2>/dev/null || true)
-			case "$cmdline" in
-			*"/opt/distiller-sdk/.venv/"*)
-				printf '%s\n' "$pid"
-				continue
-				;;
-			esac
-		fi
-
-		# Virtualenv entrypoints may exec as plain "python", so also honor the
-		# environment marker instead of matching the shared system interpreter inode.
-		environ_file="$proc_dir/environ"
-		if [ -r "$environ_file" ] &&
-			tr '\0' '\n' < "$environ_file" 2>/dev/null | grep -qx 'VIRTUAL_ENV=/opt/distiller-sdk/.venv'; then
-			printf '%s\n' "$pid"
-		fi
-	done
-}
-
 case "$1" in
-remove | upgrade | deconfigure)
-	# Stop any running Python processes from the SDK's virtual environment
-	if [ -d "/opt/distiller-sdk/.venv" ]; then
-		PIDS=$(find_sdk_python_pids)
-		if [ -n "$PIDS" ]; then
-			echo "INFO: Stopping SDK Python processes..."
-			for pid in $PIDS; do
-				kill -TERM "$pid" 2>/dev/null || true
-			done
-			sleep 2
-		fi
-	fi
-	;;
+remove | upgrade | deconfigure) ;;
 
 failed-upgrade) ;;
 
