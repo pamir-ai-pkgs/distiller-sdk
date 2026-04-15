@@ -1,3 +1,10 @@
+distiller-sdk (3.4.1) stable; urgency=medium
+
+  * fix(debian): remove prerm process cleanup to avoid terminating
+    distiller-update and unrelated Python processes during SDK upgrades
+
+ -- PamirAI Incorporated <founders@pamir.ai>  Tue, 14 Apr 2026 23:18:53 -0700
+
 distiller-sdk (3.4.0) stable; urgency=medium
 
   [ utsavbalar1231 ]
